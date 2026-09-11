@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-evaluation-contract.schema.json",
+  "title": "TKC visual evaluation contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_kind", "source_kind", "status", "verified_gold", "synthetic_contract_truth", "independent_real_gold", "reason", "metrics", "recommended_targets", "candidate_only"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-evaluation-contract/v0.1"},
+    "contract_kind": {"enum": ["synthetic-gold", "candidate-benchmark"]},
+    "source_kind": {"type": "string"},
+    "status": {"enum": ["measured", "not-run"]},
+    "verified_gold": {"const": false},
+    "synthetic_contract_truth": {"type": "boolean"},
+    "independent_real_gold": {"const": false},
+    "reason": {"type": "string"},
+    "metrics": {"type": "object", "additionalProperties": {}},
+    "recommended_targets": {"type": "object", "additionalProperties": {"type": "number"}},
+    "candidate_only": {"const": true},
+    "evaluation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

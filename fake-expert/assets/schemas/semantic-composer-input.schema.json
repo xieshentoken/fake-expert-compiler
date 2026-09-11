@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tkc.semantic-composer-input/v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "workpack_id", "source", "concepts"],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-composer-input/v0.1"},
+    "workpack_id": {"type": "string", "minLength": 1},
+    "source": {"$ref": "#/$defs/source"},
+    "concepts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/concept"}},
+    "relations": {"type": "array", "items": {"$ref": "#/$defs/relation"}},
+    "alias_map": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string", "minLength": 1}}}
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_id", "sha256", "physical_pages"],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha"},
+        "physical_pages": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}},
+        "scope_note": {"type": "string"}, "printed_label_status": {"type": "string"},
+        "normalized_pdf_ir": {"$ref": "#/$defs/normalized_pdf_ir"}
+      }
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["evidence_id", "physical_page", "printed_label", "bbox_policy", "visual_review_required"],
+      "properties": {
+        "evidence_id": {"type": "string", "minLength": 1}, "physical_page": {"type": "integer", "minimum": 1},
+        "printed_label": {"type": "string", "minLength": 1}, "printed_label_status": {"type": "string"},
+        "text_match": {"type": "string", "minLength": 1}, "occurrence": {"type": "integer", "minimum": 1},
+        "span_start": {"type": "integer", "minimum": 0}, "span_end": {"type": "integer", "minimum": 1},
+        "content_hash": {"$ref": "#/$defs/sha"}, "bbox_policy": {"enum": ["full-page-candidate", "explicit-candidate-bbox"]},
+        "bbox": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number", "minimum": 0}},
+        "bbox_space": {"const": "pdf-page-top-left-points-v1"}, "render_physical_page": {"type": "integer", "minimum": 1},
+        "render_sha256": {"$ref": "#/$defs/sha"}, "crop_sha256": {"$ref": "#/$defs/sha"},
+        "crop_policy": {"type": "string"}, "visual_review_required": {"type": "boolean"},
+        "locator": {"type": "object", "additionalProperties": {"type": ["string", "number", "boolean"]}}
+      },
+      "anyOf": [{"required": ["text_match"]}, {"required": ["span_start", "span_end"]}]
+    },
+    "numeric": {
+      "type": "object", "additionalProperties": false,
+      "required": ["value", "evidence_id"],
+      "properties": {"value": {"type": ["string", "number"]}, "unit": {"type": "string"}, "evidence_id": {"type": "string", "minLength": 1}}
+    },
+    "concept": {
+      "type": "object", "additionalProperties": false,
+      "required": ["local_id", "label", "evidence"],
+      "properties": {
+        "local_id": {"type": "string", "minLength": 1}, "label": {"type": "string", "minLength": 1},
+        "aliases": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "normalized_terms": {"type": "array", "items": {"type": "string", "minLength": 2}},
+        "symbols": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "units": {"type": "array", "items": {"type": ["string", "object"]}},
+        "numeric_tokens": {"type": "array", "items": {"$ref": "#/$defs/numeric"}},
+        "definition": {"type": "string"}, "assumptions": {"type": "array", "items": {"type": "string"}},
+        "applicability": {"type": "array", "items": {"type": "string"}},
+        "failure_conditions": {"type": "array", "items": {"type": "string"}},
+        "definition_hash": {"$ref": "#/$defs/sha"}, "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence"}}
+      }
+    },
+    "normalized_pdf_ir": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "ir_id", "status", "heading_locator_status", "identity_algorithm", "scope", "ir_sha256", "source_sha256", "heading_task_id", "heading_task_sha256", "components", "independent_structure_review_required", "semantic_workpack_built"],
+      "properties": {
+        "schema_version": {"const": "tkc.pdf-ir/v0.3"},
+        "ir_id": {"type": "string", "minLength": 1},
+        "status": {"const": "heading_resolution_required"},
+        "heading_locator_status": {"const": "heading_resolution_required"},
+        "identity_algorithm": {"const": "pdf-ir-canonical-inventory-v1"},
+        "scope": {"$ref": "#/$defs/page_scope"},
+        "ir_sha256": {"$ref": "#/$defs/sha"},
+        "source_sha256": {"$ref": "#/$defs/sha"},
+        "heading_task_id": {"type": "string", "minLength": 1},
+        "heading_task_sha256": {"$ref": "#/$defs/sha"},
+        "components": {"type": "array", "minItems": 5, "items": {"$ref": "#/$defs/ir_component"}},
+        "independent_structure_review_required": {"const": true},
+        "semantic_workpack_built": {"const": false},
+        "source_artifact_note": {"type": "string", "minLength": 1}
+      }
+    },
+    "ir_component": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "path", "sha256"],
+      "properties": {"role": {"enum": ["source", "document_map", "parser_receipt", "heading_resolutions", "structure_task"]}, "path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha"}}
+    },
+    "page_scope": {
+      "type": "object", "additionalProperties": false, "required": ["physical_pages"],
+      "properties": {"physical_pages": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}}}
+    },
+    "relation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["package_object_id", "candidate_concept_id", "relation_type"],
+      "properties": {
+        "package_object_id": {"type": "string", "minLength": 1}, "candidate_concept_id": {"type": "string", "minLength": 1},
+        "relation_type": {"enum": ["equivalent", "broader", "narrower", "related", "contradicts", "alias"]}
+      }
+    }
+  }
+}

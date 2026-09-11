@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/portable-gold-review-decision.schema.json",
+  "title": "TKC portable Gold review decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "item_id", "item_sha256", "review_task_id", "input_hashes", "curator_instance", "curator_session_id", "comparison_receipt_sha256", "dispute_set_sha256", "field_decisions", "rationale", "observation", "resolution_sha256", "resolved_payload_sha256", "release_included", "decision_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.portable-gold-review-decision/v0.1"},
+    "protocol": {"const": "portable-gold-review-v0.1"},
+    "compiler_version": {"const": "0.14.3-portable-gold-review"},
+    "item_id": {"type": "string", "minLength": 1},
+    "item_sha256": {"$ref": "#/$defs/hash"},
+    "review_task_id": {"type": "string", "minLength": 1},
+    "input_hashes": {"type": "object"},
+    "curator_instance": {"type": "string", "minLength": 1},
+    "curator_session_id": {"type": "string", "minLength": 1},
+    "comparison_receipt_sha256": {"$ref": "#/$defs/hash"},
+    "dispute_set_sha256": {"$ref": "#/$defs/hash"},
+    "field_decisions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "value_sha256"],
+        "properties": {
+          "source": {"enum": ["reviewer-1", "reviewer-2", "manual", "unresolved"]},
+          "value_sha256": {"$ref": "#/$defs/hash"}
+        }
+      }
+    },
+    "rationale": {"type": ["string", "null"]},
+    "observation": {"type": ["string", "null"]},
+    "resolution_sha256": {"$ref": "#/$defs/hash"},
+    "resolved_payload_sha256": {"anyOf": [{"$ref": "#/$defs/hash"}, {"type": "null"}]},
+    "release_included": {"const": false},
+    "decision_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

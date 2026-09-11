@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tkc.semantic-conflict/v0.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "conflict_id", "conflict_sha256", "left_ref", "right_ref", "conflict_kind", "difference_id", "evidence_binding_ids", "status", "resolution", "review_requirement"],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-conflict/v0.2"},
+    "conflict_id": {"type": "string", "pattern": "^sconflict-[0-9a-f]{24}$"},
+    "conflict_sha256": {"$ref": "#/$defs/sha"},
+    "left_ref": {"type": "string", "pattern": "^scref-[0-9a-f]{24}$"},
+    "right_ref": {"type": "string", "pattern": "^scref-[0-9a-f]{24}$"},
+    "conflict_kind": {"enum": ["numeric", "unit", "symbol", "dimension", "applicability", "assumption", "failure_condition", "consistency"]},
+    "difference_id": {"type": "string", "pattern": "^sdiff-[0-9a-f]{24}$"},
+    "evidence_binding_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^sebind-[0-9a-f]{24}$"}},
+    "status": {"const": "candidate"},
+    "resolution": {"const": "preserve-separate-no-consensus"},
+    "review_requirement": {"$ref": "#/$defs/review"}
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["risk_tier", "required_reviewer_count", "reasons"],
+      "properties": {
+        "risk_tier": {"const": "high"},
+        "required_reviewer_count": {"const": 2},
+        "reasons": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    }
+  }
+}

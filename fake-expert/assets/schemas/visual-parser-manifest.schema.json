@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.4/visual-parser-manifest.schema.json",
+  "title": "TKC Phase 7D.3 selective visual parser manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "job_sha256", "source_sha256", "pages", "candidate_only", "synthetic_only", "whole_book_completeness_claimed", "review_authoring", "promotion", "components", "object_count", "relation_count", "table_grid_count", "conflict_count", "downstream_routing", "visual_policy", "visual_mode", "visual_kinds", "visual_budget", "visual_context", "policy_sha256", "visual_census", "visual_routing", "visual_budget_receipt", "visual_index", "visual_coverage", "manifest_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-parser-manifest/v0.4"},
+    "protocol": {"const": "visual-parser-orchestrator-v0.4"},
+    "compiler_version": {"type": "string"},
+    "job_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "pages": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+    "candidate_only": {"const": true},
+    "synthetic_only": {"type": "boolean"},
+    "whole_book_completeness_claimed": {"const": false},
+    "review_authoring": {"const": false},
+    "promotion": {"const": false},
+    "components": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "object_count": {"type": "integer", "minimum": 0},
+    "relation_count": {"type": "integer", "minimum": 0},
+    "table_grid_count": {"type": "integer", "minimum": 0},
+    "conflict_count": {"type": "integer", "minimum": 0},
+    "downstream_routing": {"type": "object", "additionalProperties": false, "required": ["schema_version", "protocol", "source_sha256", "coverage_ledger", "incremental_dag", "semantic_composer", "routing_sha256"], "properties": {"schema_version": {"const": "tkc.visual-downstream-routing/v0.1"}, "protocol": {"const": "selective-visual-pipeline-v0.1"}, "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "coverage_ledger": {"enum": ["coverage-ledger.json", "visual-coverage.json"]}, "incremental_dag": {"type": "object", "additionalProperties": false, "required": ["status", "path"], "properties": {"status": {"type": "string"}, "path": {"type": ["string", "null"]}}}, "semantic_composer": {"type": "object", "additionalProperties": false, "required": ["status", "reason", "promotion", "auto_consensus", "input_object_count", "synthetic_only"], "properties": {"status": {"const": "paused"}, "reason": {"type": "string"}, "promotion": {"const": false}, "auto_consensus": {"const": false}, "input_object_count": {"type": "integer", "minimum": 0}, "synthetic_only": {"type": "boolean"}}}, "routing_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "visual_policy": {"type": "object"}, "visual_mode": {"enum": ["off", "auto", "full"]}, "visual_kinds": {"type": "array", "items": {"enum": ["table", "figure", "chart", "diagram", "equation"]}}, "visual_budget": {"type": "object"}, "visual_context": {"enum": ["none", "index", "on-demand"]}, "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "visual_census": {"const": "visual-census.json"}, "visual_routing": {"const": "visual-routing.json"}, "visual_budget_receipt": {"const": "visual-budget-receipt.json"}, "visual_index": {"const": "visual-index.json"}, "visual_coverage": {"const": "visual-coverage.json"}, "chart_candidates": {"const": "chart-candidates.json"}, "text_ocr": {"type": "string"},
+    "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

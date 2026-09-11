@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/host-response.schema.json",
+  "title": "TKC Structured Host Response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "challenge_id", "behavior", "answer", "object_ids", "evidence_ids", "conflict_ids", "gap_ids", "reason_codes"],
+  "properties": {
+    "schema_version": {"const": "tkc.host-response/v0.1"},
+    "challenge_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+    "behavior": {"enum": ["answer", "abstain", "escalate"]},
+    "answer": {"type": "string", "minLength": 1},
+    "object_ids": {"$ref": "#/$defs/unique_strings"},
+    "evidence_ids": {"$ref": "#/$defs/unique_strings"},
+    "conflict_ids": {"$ref": "#/$defs/unique_strings"},
+    "gap_ids": {"$ref": "#/$defs/unique_strings"},
+    "reason_codes": {"$ref": "#/$defs/unique_strings"}
+  },
+  "$defs": {
+    "unique_strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

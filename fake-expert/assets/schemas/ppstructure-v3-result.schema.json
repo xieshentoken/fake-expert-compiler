@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/ppstructure-v3-result.schema.json",
+  "title": "TKC PP-StructureV3 result adapter receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "result_shape", "raw_result", "raw_result_sha256", "normalized_result_sha256", "observations", "visual_candidates", "table_grids", "gaps", "conflicts", "candidate_only", "promotion", "verified_gold"],
+  "properties": {
+    "schema_version": {"const": "tkc.ppstructure-v3-result/v0.1"},
+    "protocol": {"const": "ppstructure-v3-result-adapter-v0.1"},
+    "result_shape": {"const": "paddlex-3.7-layout-parsing-result-v1"},
+    "raw_result": {"type": "object", "additionalProperties": true},
+    "raw_result_sha256": {"$ref": "#/$defs/hash"},
+    "raw_result_keys": {"type": "array", "items": {"type": "string"}},
+    "normalized_result_sha256": {"$ref": "#/$defs/hash"},
+    "observations": {"type": "array"},
+    "visual_candidates": {"type": "array"},
+    "table_grids": {"type": "array"},
+    "gaps": {"type": "array"},
+    "conflicts": {"type": "array"},
+    "candidate_only": {"const": true},
+    "promotion": {"const": false},
+    "verified_gold": {"const": false}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

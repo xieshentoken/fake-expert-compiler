@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.incremental-dag-node/v0.2",
+  "type": "object",
+  "required": ["schema_version", "node_id", "kind", "stable_key", "protocol_id", "content_hash", "semantic_identity_hash", "evidence_identity_hash", "input_hashes", "receipt_ids", "required_receipt_ids", "capabilities", "attributes"],
+  "properties": {
+    "schema_version": {"const": "tkc.incremental-dag-node/v0.2"},
+    "node_id": {"type": "string", "pattern": "^node-[0-9a-f]{32}$"},
+    "kind": {"type": "string"},
+    "stable_key": {"type": "string"},
+    "protocol_id": {"type": "string"},
+    "content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "semantic_identity_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "evidence_identity_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "input_hashes": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "receipt_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "required_receipt_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "reviewer_requirement": {"type": ["integer", "null"], "minimum": 0},
+    "capabilities": {"type": "object"},
+    "attributes": {"type": "object"}
+  },
+  "additionalProperties": false
+}

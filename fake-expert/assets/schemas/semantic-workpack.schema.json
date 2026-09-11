@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/semantic-workpack.schema.json",
+  "title": "TKC Semantic Workpack",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "workpack_id",
+    "source",
+    "pdf_ir",
+    "hash_profile",
+    "policy",
+    "limits",
+    "render_profile",
+    "page_index",
+    "visual_tasks",
+    "units",
+    "drafts_directory"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-workpack/v0.1"},
+    "workpack_id": {"type": "string", "pattern": "^swp-[0-9a-f]{20}$"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "sha256", "scope"],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start_page", "end_page"],
+          "properties": {
+            "start_page": {"type": "integer", "minimum": 1},
+            "end_page": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    },
+    "pdf_ir": {"type": "object"},
+    "structure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "status", "heading_resolution_bundle_sha256", "unresolved_resolution_count"],
+      "properties": {
+        "protocol": {"type": "string", "minLength": 1},
+        "status": {"const": "resolved"},
+        "heading_resolution_bundle_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "unresolved_resolution_count": {"const": 0}
+      }
+    },
+    "hash_profile": {"type": "object"},
+    "policy": {"type": "object"},
+    "limits": {"type": "object"},
+    "render_profile": {"type": ["object", "null"]},
+    "page_index": {"type": "string"},
+    "visual_tasks": {"type": "string"},
+    "visual_semantics": {"type": "object", "required": ["protocol", "candidate_only", "whole_book_completeness_claimed", "objects", "relations", "table_grids", "conflicts"], "properties": {"protocol": {"const": "visual-semantics-v0.1"}, "candidate_only": {"const": true}, "whole_book_completeness_claimed": {"const": false}, "objects": {"type": "object"}, "relations": {"type": "object"}, "table_grids": {"type": "object"}, "conflicts": {"type": "object"}}, "additionalProperties": true},
+    "scan_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "source_sha256", "scan_ir_sha256", "backend_selection", "ocr_pages", "transcripts", "observations", "conflicts", "backend_receipts", "transforms", "render_receipts", "runtime_contracts", "component_sha256", "structure_review_sha256", "structure_review_status", "structure_reviewer", "candidate_only", "promotable", "executable"],
+      "properties": {
+        "schema_version": {"const": "tkc.scanned-pdf-workpack-candidate/v0.2"},
+        "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "scan_ir_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "backend_selection": {"type": "object"},
+        "ocr_pages": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+        "transcripts": {"type": "string", "minLength": 1},
+        "observations": {"type": "string", "minLength": 1},
+        "conflicts": {"type": "string", "minLength": 1},
+        "backend_receipts": {"type": "string", "minLength": 1},
+        "transforms": {"type": "string", "minLength": 1},
+        "render_receipts": {"type": "string", "minLength": 1},
+        "runtime_contracts": {"type": "string", "minLength": 1},
+        "component_sha256": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+        "structure_review_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "structure_review_status": {"type": ["string", "null"]},
+        "structure_reviewer": {"type": ["object", "null"], "additionalProperties": true},
+        "candidate_only": {"const": true},
+        "promotable": {"const": false},
+        "executable": {"const": false}
+      }
+    },
+    "units": {"type": "array", "items": {"type": "object"}},
+    "drafts_directory": {"type": "string"},
+    "semantic_assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol", "compiler_version", "candidate_only", "semantic_assertions", "support_matrix", "coverage_ledger", "review_attestations"],
+      "properties": {
+        "protocol": {"const": "atomic-support-review-v2"},
+        "compiler_version": {"const": "0.5.0-semantic-assurance"},
+        "candidate_only": {"const": true},
+        "semantic_assertions": {"const": "semantic-assertions.jsonl"},
+        "support_matrix": {"const": "support-matrix.jsonl"},
+        "coverage_ledger": {"const": "coverage-ledger.jsonl"},
+        "review_attestations": {"const": "review-attestations.jsonl"}
+      }
+    }
+  }
+}

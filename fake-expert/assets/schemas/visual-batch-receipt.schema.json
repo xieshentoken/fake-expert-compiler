@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-batch-receipt.schema.json",
+  "title": "Bounded visual worker batch receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol", "batch", "calls", "pages", "regions",
+    "elapsed_seconds", "bytes", "objects", "status", "model_load_calls",
+    "source_pdf_passed", "candidate_only", "promotion", "items",
+    "batch_receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-batch-receipt/v0.1"},
+    "protocol": {"const": "selective-visual-pipeline-v0.1"},
+    "batch": {"const": true},
+    "calls": {"type": "integer", "minimum": 0},
+    "pages": {"type": "integer", "minimum": 0},
+    "regions": {"type": "integer", "minimum": 0},
+    "elapsed_seconds": {"type": "number", "minimum": 0},
+    "bytes": {"type": "integer", "minimum": 0},
+    "objects": {"type": "integer", "minimum": 0},
+    "status": {"enum": ["completed", "paused-budget-exhausted", "paused-batch-failed", "paused-model-load-failed"]},
+    "model_id": {"type": "string"},
+    "errors": {"type": "array", "items": {"type": "object"}},
+    "model_load_calls": {"type": "integer", "minimum": 0, "maximum": 1},
+    "source_pdf_passed": {"const": false},
+    "candidate_only": {"const": true},
+    "promotion": {"const": false},
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["request_id", "input_sha256", "request_sha256", "status", "error_code", "response_sha256"],
+        "properties": {
+          "request_id": {"type": "string", "minLength": 1},
+          "input_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+          "request_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+          "status": {"enum": ["ok", "error"]},
+          "error_code": {"type": ["string", "null"], "minLength": 1},
+          "response_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "batch_receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

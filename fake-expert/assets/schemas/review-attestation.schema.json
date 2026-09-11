@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/review-attestation.schema.json",
+  "title": "TKC Risk-tiered Review Attestation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "attestation_id", "attestation_level", "item_ref", "item_kind",
+    "reviewer_instance", "proposer_instance", "review_session_id", "review_plan_sha256",
+    "item_sha256", "review_input_sha256", "assertion_ids", "assertion_bundle_sha256",
+    "verdict", "evidence_support", "issue_codes", "rationale", "confidence",
+    "review_method", "review_checks", "inspected_artifacts", "differences"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.review-attestation/v0.1"},
+    "attestation_id": {"type": "string", "pattern": "^rat-[0-9a-f]{20}$"},
+    "attestation_level": {"const": "host-orchestrator-recorded-not-cryptographic"},
+    "item_ref": {"type": "string", "minLength": 1},
+    "item_kind": {"enum": ["object", "relation", "conflict", "gap"]},
+    "reviewer_instance": {"type": "string", "minLength": 1},
+    "proposer_instance": {"type": "string", "minLength": 1},
+    "review_session_id": {"type": "string", "pattern": "^rws-[0-9a-f]{20}$"},
+    "review_plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "item_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "review_input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "assertion_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^sa-[0-9a-f]{20}$"}, "uniqueItems": true},
+    "assertion_bundle_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "verdict": {"enum": ["accepted", "rejected", "quarantined"]},
+    "evidence_support": {"enum": ["full", "partial", "none", "contradicted", "not-applicable"]},
+    "issue_codes": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}, "uniqueItems": true},
+    "rationale": {"type": "string", "minLength": 1},
+    "confidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["extraction", "interpretation"],
+      "properties": {
+        "extraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "interpretation": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "review_method": {"const": "fresh-source-inspection"},
+    "review_checks": {"type": "object", "minProperties": 5, "additionalProperties": {"type": "boolean"}},
+    "inspected_artifacts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_sha256", "evidence_span_sha256s", "render_sha256s"],
+      "properties": {
+        "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "evidence_span_sha256s": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "uniqueItems": true},
+        "render_sha256s": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "uniqueItems": true}
+      }
+    },
+    "differences": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["assertion_id", "status", "observation"],
+        "properties": {
+          "assertion_id": {"type": "string", "pattern": "^sa-[0-9a-f]{20}$"},
+          "status": {"enum": ["confirmed", "correction-required", "unsupported"]},
+          "observation": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "gap_resolution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "resolved_by_refs"],
+      "properties": {
+        "status": {"enum": ["unresolved_in_package", "resolved_elsewhere"]},
+        "resolved_by_refs": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    }
+  }
+}

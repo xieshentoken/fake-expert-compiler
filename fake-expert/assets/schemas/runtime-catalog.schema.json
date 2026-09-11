@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/runtime-catalog.schema.json",
+  "title": "TKC Runtime Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "runtime_version", "package_id", "module_id", "capabilities", "policy", "objects", "conflicts", "gaps"],
+  "properties": {
+    "schema_version": {"const": "tkc.runtime-catalog/v0.1"},
+    "runtime_version": {"const": "deterministic-token-retrieval-v0.1"},
+    "package_id": {"type": "string", "minLength": 1},
+    "module_id": {"type": "string", "minLength": 1},
+    "capabilities": {"type": "object"},
+    "policy": {"type": "object"},
+    "objects": {"type": "array", "items": {"type": "object"}},
+    "conflicts": {"type": "array", "items": {"type": "object"}},
+    "gaps": {"type": "array", "items": {"type": "object"}}
+  }
+}

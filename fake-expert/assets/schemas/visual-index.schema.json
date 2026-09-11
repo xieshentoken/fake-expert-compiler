@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-index.schema.json",
+  "title": "Source-free visual index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "source_sha256", "policy_sha256", "visual_context", "rows", "candidate_only", "promotion", "contains_raw_images", "contains_crop_bytes", "contains_ocr_fulltext", "contains_absolute_source_path", "contains_credentials", "index_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-index/v0.1"}, "protocol": {"const": "selective-visual-pipeline-v0.1"}, "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "visual_context": {"enum": ["none", "index", "on-demand"]}, "rows": {"type": "array", "items": {"type": "object"}}, "candidate_only": {"const": true}, "promotion": {"const": false}, "contains_raw_images": {"const": false}, "contains_crop_bytes": {"const": false}, "contains_ocr_fulltext": {"const": false}, "contains_absolute_source_path": {"const": false}, "contains_credentials": {"const": false}, "index_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

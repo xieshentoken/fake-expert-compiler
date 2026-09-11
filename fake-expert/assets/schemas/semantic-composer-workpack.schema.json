@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tkc.semantic-composer-workpack/v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "workpack_id", "compiler_version", "created_at", "policy", "inputs", "counts", "artifacts", "state", "promotion", "output_hash"],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-composer-workpack/v0.1"}, "protocol": {"const": "semantic-composer-v0.1"},
+    "workpack_id": {"type": "string", "minLength": 1}, "compiler_version": {"const": "0.9.0-semantic-composer"}, "created_at": {"type": "string", "minLength": 20},
+    "policy": {"$ref": "#/$defs/policy"}, "inputs": {"$ref": "#/$defs/inputs"}, "counts": {"$ref": "#/$defs/counts"},
+    "artifacts": {"$ref": "#/$defs/artifacts"}, "state": {"$ref": "#/$defs/state"}, "promotion": {"$ref": "#/$defs/promotion"},
+    "output_hash": {"$ref": "#/$defs/sha"}
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cross_source_claims", "lexical_match_is_not_semantic_equivalence", "automatic_consensus_allowed", "automatic_merge_allowed", "capability_escalation_allowed", "review_attestation_authoring_allowed", "network_allowed", "source_text_in_compiler_release_allowed"],
+      "properties": {
+        "cross_source_claims": {"const": "preserve-separate-no-consensus"}, "lexical_match_is_not_semantic_equivalence": {"const": true},
+        "automatic_consensus_allowed": {"const": false}, "automatic_merge_allowed": {"const": false}, "capability_escalation_allowed": {"const": false},
+        "review_attestation_authoring_allowed": {"const": false}, "network_allowed": {"const": false}, "source_text_in_compiler_release_allowed": {"const": false}
+      }
+    },
+    "package": {
+      "type": "object", "additionalProperties": false,
+      "required": ["package_id", "package_version", "manifest_sha256", "source_sha256", "input_level", "input_assurance", "atomic_support_required", "promotion_eligible", "assurance_protocol", "source_ids"],
+      "properties": {
+        "package_id": {"type": "string"}, "package_version": {"type": "string"}, "manifest_sha256": {"$ref": "#/$defs/sha"},
+        "source_sha256": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/sha"}}, "input_level": {"enum": ["legacy-source-support", "atomic-supported"]},
+        "input_assurance": {"enum": ["legacy-source-support", "atomic-supported"]}, "atomic_support_required": {"type": "boolean"},
+        "promotion_eligible": {"const": false}, "assurance_protocol": {"type": "string"}, "source_ids": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "candidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_id", "sha256", "size_bytes", "physical_pages", "scope", "parser", "parser_version", "printed_label_policy", "whole_book_complete_claimed", "input_level", "input_assurance", "atomic_support_required", "promotion_eligible", "candidate_spec_sha256"],
+      "properties": {
+        "source_id": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha"}, "size_bytes": {"type": "integer", "minimum": 1}, "physical_pages": {"type": "integer", "minimum": 1},
+        "scope": {"type": "object", "additionalProperties": false, "required": ["physical_pages"], "properties": {"physical_pages": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}}}},
+        "parser": {"const": "pypdf"}, "parser_version": {"type": "string"}, "printed_label_policy": {"type": "string"}, "whole_book_complete_claimed": {"const": false},
+        "input_level": {"const": "candidate-source"}, "input_assurance": {"const": "candidate-source"}, "atomic_support_required": {"const": true}, "promotion_eligible": {"const": false}, "candidate_spec_sha256": {"$ref": "#/$defs/sha"},
+        "structure_review_required": {"const": true}, "normalized_pdf_ir": {"$ref": "#/$defs/normalized_pdf_ir"}
+      }
+    },
+    "inputs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["packages", "candidate_source", "candidate_spec_sha256", "alias_map_sha256", "candidate_render_pages"],
+      "properties": {
+        "packages": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/package"}}, "candidate_source": {"$ref": "#/$defs/candidate"},
+        "candidate_spec_sha256": {"$ref": "#/$defs/sha"}, "alias_map_sha256": {"$ref": "#/$defs/sha"},
+        "candidate_render_pages": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["physical_page", "sha256"], "properties": {"physical_page": {"type": "integer", "minimum": 1}, "sha256": {"$ref": "#/$defs/sha"}}}},
+        "normalized_pdf_ir": {"$ref": "#/$defs/normalized_pdf_ir"}
+      }
+    },
+    "counts": {"type": "object", "additionalProperties": false, "required": ["concept_refs", "evidence_bindings", "alignment_candidates", "differences", "conflicts", "unit_maps", "review_items", "pending_review_items"], "properties": {"concept_refs": {"type": "integer", "minimum": 0}, "evidence_bindings": {"type": "integer", "minimum": 0}, "alignment_candidates": {"type": "integer", "minimum": 0}, "differences": {"type": "integer", "minimum": 0}, "conflicts": {"type": "integer", "minimum": 0}, "unit_maps": {"type": "integer", "minimum": 0}, "review_items": {"type": "integer", "minimum": 0}, "pending_review_items": {"type": "integer", "minimum": 0}}},
+    "artifact": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha"}, "record_count": {"type": "integer", "minimum": 0}}},
+    "artifacts": {"type": "object", "additionalProperties": false, "required": ["concept_refs", "evidence_bindings", "alignment_candidates", "differences", "conflicts", "unit_maps", "review_plan", "review_attestations", "alias_map", "state", "receipts"], "properties": {"concept_refs": {"$ref": "#/$defs/artifact"}, "evidence_bindings": {"$ref": "#/$defs/artifact"}, "alignment_candidates": {"$ref": "#/$defs/artifact"}, "differences": {"$ref": "#/$defs/artifact"}, "conflicts": {"$ref": "#/$defs/artifact"}, "unit_maps": {"$ref": "#/$defs/artifact"}, "review_plan": {"$ref": "#/$defs/artifact"}, "review_attestations": {"$ref": "#/$defs/artifact"}, "alias_map": {"$ref": "#/$defs/artifact"}, "state": {"$ref": "#/$defs/artifact"}, "receipts": {"$ref": "#/$defs/artifact"}}},
+    "state": {"type": "object", "additionalProperties": false, "required": ["state", "next_action", "pause_only"], "properties": {"state": {"enum": ["pending-independent-review", "pending-no-candidates"]}, "next_action": {"type": "string", "minLength": 1}, "pause_only": {"const": true}}},
+    "promotion": {"type": "object", "additionalProperties": false, "required": ["promotion_eligible", "atomic_support_required", "legacy_source_support_present", "reason_codes", "whole_book_completeness_claimed"], "properties": {"promotion_eligible": {"const": false}, "atomic_support_required": {"type": "boolean"}, "legacy_source_support_present": {"type": "boolean"}, "reason_codes": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "whole_book_completeness_claimed": {"const": false}}},
+    "normalized_pdf_ir": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "ir_id", "status", "heading_locator_status", "identity_algorithm", "scope", "ir_sha256", "source_sha256", "heading_task_id", "heading_task_sha256", "components", "independent_structure_review_required", "semantic_workpack_built"],
+      "properties": {
+        "schema_version": {"const": "tkc.pdf-ir/v0.3"}, "ir_id": {"type": "string", "minLength": 1},
+        "status": {"const": "heading_resolution_required"}, "heading_locator_status": {"const": "heading_resolution_required"}, "identity_algorithm": {"const": "pdf-ir-canonical-inventory-v1"}, "scope": {"$ref": "#/$defs/page_scope"},
+        "ir_sha256": {"$ref": "#/$defs/sha"}, "source_sha256": {"$ref": "#/$defs/sha"},
+        "heading_task_id": {"type": "string", "minLength": 1}, "heading_task_sha256": {"$ref": "#/$defs/sha"},
+        "components": {"type": "array", "minItems": 5, "items": {"$ref": "#/$defs/ir_component"}},
+        "independent_structure_review_required": {"const": true}, "semantic_workpack_built": {"const": false},
+        "source_artifact_note": {"type": "string", "minLength": 1}
+      }
+    },
+    "ir_component": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "path", "sha256"],
+      "properties": {"role": {"enum": ["source", "document_map", "parser_receipt", "heading_resolutions", "structure_task"]}, "path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha"}}
+    },
+    "page_scope": {
+      "type": "object", "additionalProperties": false, "required": ["physical_pages"],
+      "properties": {"physical_pages": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}}}
+    }
+  }
+}

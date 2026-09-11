@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/relation.schema.json",
+  "title": "TKC Knowledge Relation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source_id", "type", "target_id"],
+  "properties": {
+    "schema_version": {"const": "tkc.expert-skill/v0.1"},
+    "id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "type": {"enum": ["is_a", "part_of", "depends_on", "derived_from", "causes", "supports", "contradicts", "valid_when", "fails_when", "used_for", "equivalent_to", "example_of", "related_to"]},
+    "target_id": {"type": "string", "minLength": 1},
+    "review_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attestation_level", "reviewer_instance", "item_sha256", "review_input_sha256", "review_bundle_sha256"],
+      "properties": {
+        "attestation_level": {"const": "host-orchestrator-recorded-not-cryptographic"},
+        "reviewer_instance": {"type": "string", "minLength": 1},
+        "item_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "review_input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "review_bundle_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "reviewer_instances": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "attestation_ids": {"type": "array", "items": {"type": "string", "pattern": "^rat-[0-9a-f]{20}$"}, "uniqueItems": true},
+        "semantic_assurance_protocol": {"const": "atomic-support-review-v2"}
+      }
+    }
+  }
+}

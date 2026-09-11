@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.skill-release/v0.2",
+  "title": "TKC Skill Release Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_stage",
+    "release_created_at",
+    "package",
+    "archive",
+    "adapter",
+    "distribution",
+    "capabilities",
+    "restrictions",
+    "verifier"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.skill-release/v0.2"},
+    "artifact_stage": {"enum": ["ready-verified", "draft-distributable"]},
+    "release_created_at": {"type": "string", "format": "date-time"},
+    "package": {"type": "object"},
+    "archive": {"type": "object"},
+    "adapter": {
+      "type": "object",
+      "required": [
+        "skill_entrypoint",
+        "runtime_entrypoint",
+        "working_directory",
+        "interpreter",
+        "invocation",
+        "response_schema",
+        "permissions"
+      ],
+      "properties": {
+        "skill_entrypoint": {"const": "SKILL.md"},
+        "runtime_entrypoint": {"type": "string", "minLength": 1},
+        "working_directory": {"const": "package-root"},
+        "interpreter": {"const": "python3-standard-library"},
+        "invocation": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "response_schema": {"type": "string", "minLength": 1},
+        "response_schema_path": {"type": "string", "minLength": 1},
+        "permissions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "execution_entrypoint": {"type": "string"},
+        "execution_invocation": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "distribution": {"type": "object"},
+    "capabilities": {"type": "object"},
+    "restrictions": {"type": "object"},
+    "verifier": {"type": "object"},
+    "candidate_assurance": {"type": "object"}
+  },
+  "oneOf": [
+    {
+      "properties": {"artifact_stage": {"const": "ready-verified"}},
+      "not": {"required": ["candidate_assurance"]}
+    },
+    {
+      "properties": {
+        "artifact_stage": {"const": "draft-distributable"},
+        "adapter": {
+          "required": ["response_schema_path"],
+          "properties": {
+            "response_schema_path": {"const": "references/runtime/response.schema.json"}
+          }
+        }
+      },
+      "required": ["candidate_assurance"]
+    }
+  ]
+}

@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/source-anchor.schema.json",
+  "title": "TKC Source Anchor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "source_id",
+    "pages",
+    "printed_page_labels",
+    "segment_id",
+    "locator",
+    "excerpt_sha256",
+    "supports"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.expert-skill/v0.1"},
+    "id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "pages": {"type": "array", "minItems": 1, "items": {"type": "integer", "minimum": 1}},
+    "printed_page_labels": {"type": "array", "items": {"type": "string"}},
+    "segment_id": {"type": "string", "minLength": 1},
+    "locator": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": ["string", "integer", "number"]}
+    },
+    "bounding_boxes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["page", "x0", "y0", "x1", "y1"],
+        "properties": {
+          "page": {"type": "integer", "minimum": 1},
+          "x0": {"type": "number"},
+          "y0": {"type": "number"},
+          "x1": {"type": "number"},
+          "y1": {"type": "number"}
+        }
+      }
+    },
+    "text_spans": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+                    "required": ["page", "start", "end", "page_text_sha256", "span_sha256"],
+                    "properties": {
+                      "page": {"type": "integer", "minimum": 1},
+                      "start": {"type": "integer", "minimum": 0},
+                      "end": {"type": "integer", "minimum": 1},
+                      "page_text_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                      "span_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                      "scan_evidence_span_id": {"type": "string", "minLength": 1},
+                      "transcript_span_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+                      "observation_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+                      "bbox_pdf_points": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}},
+                      "bbox_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                    }
+      }
+    },
+    "visual_receipt_pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "integer", "minimum": 1},
+      "uniqueItems": true
+    },
+    "scan_locator": {"oneOf": [{"$ref": "#/$defs/scanLocator"}, {"$ref": "#/$defs/scanLocatorV2"}]},
+    "excerpt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "asset_path": {"type": "string", "minLength": 1},
+    "supports": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scanLocator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_sha256", "physical_page", "render_sha256", "render_dpi", "bbox_pdf_points", "coordinate_transform_id", "ocr_observation_ids", "transcript_span_ids", "transcript_sha256", "backend_id", "model_identity_sha256", "configuration_sha256", "review_attestation_sha256", "reviewer_instance", "review_session_id"],
+      "properties": {
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "physical_page": {"type": "integer", "minimum": 1},
+        "render_sha256": {"$ref": "#/$defs/sha256"},
+        "render_dpi": {"type": "integer", "minimum": 1},
+        "bbox_pdf_points": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
+        "bbox_sha256": {"$ref": "#/$defs/sha256"},
+        "coordinate_transform_id": {"type": "string", "pattern": "^pct-[0-9a-f]{20}$"},
+        "ocr_observation_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "transcript_span_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "transcript_sha256": {"$ref": "#/$defs/sha256"},
+        "backend_id": {"type": "string", "minLength": 1},
+        "model_identity_sha256": {"$ref": "#/$defs/sha256"},
+        "configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "coordinate_transform_scope": {"enum": ["crop-local", "page-render"]},
+        "review_attestation_sha256": {"$ref": "#/$defs/sha256"},
+        "reviewer_instance": {"type": "string", "minLength": 1},
+        "review_session_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "scanLocatorV2": {
+      "type": "object", "additionalProperties": false,
+      "required": ["locator_protocol", "source_sha256", "pages", "page_locators", "evidence_spans", "evidence_spans_sha256", "excerpt_sha256", "scan_excerpt_sha256", "evidence_commitment_sha256", "proposer_instance", "reviewer_instance", "review_session_id", "review_plan_sha256", "review_input_sha256", "candidate_sha256", "external_fragment_sha256", "review_attestation_sha256", "review_independence_basis"],
+      "properties": {
+        "locator_protocol": {"const": "scan-anchor-v0.2"},
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "pages": {"type": "array", "minItems": 1, "items": {"type": "integer", "minimum": 1}, "uniqueItems": true},
+        "page_locators": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/pageLocatorV2"}},
+        "evidence_spans": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceSpanV2"}},
+        "evidence_spans_sha256": {"$ref": "#/$defs/sha256"},
+        "excerpt_sha256": {"$ref": "#/$defs/sha256"},
+        "scan_excerpt_sha256": {"$ref": "#/$defs/sha256"},
+        "evidence_commitment_sha256": {"$ref": "#/$defs/sha256"},
+        "proposer_instance": {"type": "string", "minLength": 1},
+        "reviewer_instance": {"type": "string", "minLength": 1},
+        "review_session_id": {"type": "string", "minLength": 1},
+        "review_plan_sha256": {"$ref": "#/$defs/sha256"},
+        "review_input_sha256": {"$ref": "#/$defs/sha256"},
+        "candidate_sha256": {"$ref": "#/$defs/sha256"},
+        "external_fragment_sha256": {"$ref": "#/$defs/sha256"},
+        "review_attestation_sha256": {"$ref": "#/$defs/sha256"},
+        "review_independence_basis": {"const": "host-plan-proposer-reviewer-separation-v1"}
+      }
+    },
+    "pageLocatorV2": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_sha256", "physical_page", "render_sha256", "render_dpi", "render_receipt", "render_receipt_sha256", "bbox_pdf_points", "bbox_sha256", "coordinate_transform_id", "coordinate_transform", "coordinate_transform_sha256", "coordinate_transform_scope", "ocr_observation_ids", "observation_commitments", "transcript_span_ids", "transcript_row_commitments", "transcript_sha256", "transcript_commitment_sha256", "evidence_span_ids", "backend_id", "model_identity_sha256", "configuration_sha256", "backend_receipt_id", "backend_receipt_sha256", "backend_receipt_binding_sha256", "runtime_contract_sha256", "worker_sha256", "qualification_receipt_sha256", "runtime_binding_kind"],
+      "properties": {
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "physical_page": {"type": "integer", "minimum": 1},
+        "render_sha256": {"$ref": "#/$defs/sha256"},
+        "render_dpi": {"type": "integer", "minimum": 1},
+        "render_receipt": {"type": "object"},
+        "render_receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "bbox_pdf_points": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}},
+        "bbox_sha256": {"$ref": "#/$defs/sha256"},
+        "coordinate_transform_id": {"type": "string", "minLength": 1},
+        "coordinate_transform": {"type": "object"},
+        "coordinate_transform_sha256": {"$ref": "#/$defs/sha256"},
+        "coordinate_transform_scope": {"const": "page-render"},
+        "ocr_observation_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "observation_commitments": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/observationCommitmentV2"}},
+        "transcript_span_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "transcript_row_commitments": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/transcriptCommitmentV2"}},
+        "transcript_sha256": {"$ref": "#/$defs/sha256"},
+        "transcript_commitment_sha256": {"$ref": "#/$defs/sha256"},
+        "evidence_span_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "backend_id": {"type": "string", "minLength": 1},
+        "model_identity_sha256": {"$ref": "#/$defs/sha256"},
+        "configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "backend_receipt_id": {"type": "string", "minLength": 1},
+        "backend_receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "backend_receipt_binding_sha256": {"$ref": "#/$defs/sha256"},
+        "runtime_contract_sha256": {"$ref": "#/$defs/sha256"},
+        "worker_sha256": {"$ref": "#/$defs/sha256"},
+        "qualification_receipt_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "runtime_binding_kind": {"enum": ["external-local-runtime", "synthetic-test-only"]}
+      }
+    },
+    "evidenceSpanV2": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "page", "start", "end", "page_text_sha256", "span_sha256", "transcript_span_ids", "observation_ids", "bbox_pdf_points", "bbox_sha256"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "page": {"type": "integer", "minimum": 1},
+        "start": {"type": "integer", "minimum": 0},
+        "end": {"type": "integer", "minimum": 1},
+        "page_text_sha256": {"$ref": "#/$defs/sha256"},
+        "span_sha256": {"$ref": "#/$defs/sha256"},
+        "transcript_span_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "observation_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "bbox_pdf_points": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}},
+        "bbox_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "observationCommitmentV2": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "source_sha256", "physical_page", "canonical_render_sha256", "backend", "model", "configuration_sha256", "coordinate_transform_id", "bbox_image_px", "polygon_image_px", "bbox_pdf_points", "polygon_pdf_points", "confidence", "kind", "transcript_span_id", "backend_receipt_id", "observation_binding_sha256", "observation_sha256"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "physical_page": {"type": "integer", "minimum": 1},
+        "canonical_render_sha256": {"$ref": "#/$defs/sha256"},
+        "backend": {"type": "object"},
+        "model": {"type": "object"},
+        "configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "coordinate_transform_id": {"type": "string", "minLength": 1},
+        "bbox_image_px": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}},
+        "polygon_image_px": {"type": "array", "minItems": 3, "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number"}}},
+        "bbox_pdf_points": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}},
+        "polygon_pdf_points": {"type": "array", "minItems": 3, "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number"}}},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "kind": {"type": "string"},
+        "transcript_span_id": {"type": "string", "minLength": 1},
+        "backend_receipt_id": {"type": "string", "minLength": 1},
+        "observation_binding_sha256": {"$ref": "#/$defs/sha256"},
+        "observation_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "transcriptCommitmentV2": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "page_transcript_id", "source_sha256", "physical_page", "backend_id", "span", "raw_text_sha256", "normalized_text_sha256", "observation_ids", "row_binding_sha256", "row_sha256"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "page_transcript_id": {"type": "string", "minLength": 1},
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "physical_page": {"type": "integer", "minimum": 1},
+        "backend_id": {"type": "string", "minLength": 1},
+        "span": {"type": "object", "additionalProperties": false, "required": ["start", "end", "offset_unit"], "properties": {"start": {"type": "integer", "minimum": 0}, "end": {"type": "integer", "minimum": 1}, "offset_unit": {"const": "unicode-code-point"}}},
+        "raw_text_sha256": {"$ref": "#/$defs/sha256"},
+        "normalized_text_sha256": {"$ref": "#/$defs/sha256"},
+        "observation_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "row_binding_sha256": {"$ref": "#/$defs/sha256"},
+        "row_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

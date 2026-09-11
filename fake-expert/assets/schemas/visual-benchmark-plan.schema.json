@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-benchmark-plan.schema.json",
+  "title": "TKC Phase 7D.5B private visual benchmark plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "job_id", "created_at", "workpack", "candidate_set", "split_commitment", "qualification_plans", "target_inference", "visual_modes", "policy", "plan_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-benchmark-plan/v0.1"},
+    "protocol": {"const": "visual-benchmark-v0.1"},
+    "compiler_version": {"const": "0.14.1-visual-benchmark"},
+    "job_id": {"type": "string", "pattern": "^vbench-[0-9a-f]{24}$"},
+    "created_at": {"type": "string"},
+    "workpack": {"type": "object", "additionalProperties": false, "required": ["locator", "binding_sha256", "manifest_sha256", "candidate_items_sha256"], "properties": {"locator": {"const": "private-workpack-binding"}, "binding_sha256": {"$ref": "#/$defs/hash"}, "manifest_sha256": {"$ref": "#/$defs/hash"}, "candidate_items_sha256": {"$ref": "#/$defs/hash"}}},
+    "candidate_set": {"type": "object"},
+    "split_commitment": {"type": "object"},
+    "qualification_plans": {"type": "object", "additionalProperties": {"type": "object"}},
+    "target_inference": {"type": "object", "additionalProperties": false, "required": ["model_id", "thinking", "authorization_required"], "properties": {"model_id": {"const": "GPT-5.6 Luna"}, "thinking": {"const": "max"}, "authorization_required": {"const": true}}},
+    "visual_modes": {"type": "array", "uniqueItems": true, "items": {"enum": ["off", "auto", "full"]}},
+    "policy": {"type": "object", "additionalProperties": false, "required": ["network_enabled", "model_download", "mcp_http_dependency", "silent_fallback", "candidate_only", "promotion", "release_included", "inference_execution_allowed"], "properties": {"network_enabled": {"const": false}, "model_download": {"const": false}, "mcp_http_dependency": {"const": false}, "silent_fallback": {"const": false}, "candidate_only": {"const": true}, "promotion": {"const": false}, "release_included": {"const": false}, "inference_execution_allowed": {"const": false}}},
+    "plan_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

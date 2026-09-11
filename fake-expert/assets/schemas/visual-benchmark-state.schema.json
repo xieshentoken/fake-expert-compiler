@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-benchmark-state.schema.json",
+  "title": "TKC Phase 7D.5B private benchmark state",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "job_id", "plan_sha256", "state", "paused_gates", "verified_gold", "independent_real_gold", "accuracy_claim", "promotion_allowed", "mcp_calls", "model_invocations", "network_access", "state_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-benchmark-state/v0.1"},
+    "protocol": {"const": "visual-benchmark-v0.1"},
+    "compiler_version": {"const": "0.14.1-visual-benchmark"},
+    "job_id": {"type": "string"},
+    "plan_sha256": {"$ref": "#/$defs/hash"},
+    "state": {"type": "string"},
+    "paused_gates": {"type": "array", "items": {"type": "object"}},
+    "gold_imported": {"type": "boolean"},
+    "verified_gold": {"const": false},
+    "independent_real_gold": {"type": "boolean"},
+    "accuracy_claim": {"const": false},
+    "promotion_allowed": {"const": false},
+    "candidate_only": {"const": true},
+    "mcp_calls": {"const": 0},
+    "model_invocations": {"const": 0},
+    "network_access": {"const": false},
+    "qualification": {"type": "object"},
+    "dag": {"type": "object"},
+    "resume": {"type": "object"},
+    "state_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

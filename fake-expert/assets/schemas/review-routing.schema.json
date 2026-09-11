@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.2/review-routing.schema.json",
+  "title": "TKC book review and OCR routing row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "route_id", "book_plan_id", "scope_kind", "record_id", "physical_pages", "routes", "input_sha256", "routing_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.review-routing/v0.2"},
+    "route_id": {"type": "string", "pattern": "^rrt-[0-9a-f]{20}$"},
+    "book_plan_id": {"type": "string", "pattern": "^bpl-[0-9a-f]{20}$"},
+    "scope_kind": {"enum": ["physical_page", "segment", "module"]},
+    "record_id": {"type": "string", "minLength": 1},
+    "physical_pages": {"type": "array", "minItems": 1, "items": {"type": "integer", "minimum": 1}, "uniqueItems": true},
+    "routes": {"type": "object", "required": ["structure", "semantic", "ocr", "visual", "competency", "seal", "execution"], "properties": {"structure": {"type": "string"}, "semantic": {"type": "string"}, "ocr": {"type": "string"}, "visual": {"type": "string"}, "competency": {"type": "string"}, "seal": {"type": "string"}, "execution": {"type": "string"}}},
+    "input_sha256": {"$ref": "#/$defs/sha256"},
+    "routing_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

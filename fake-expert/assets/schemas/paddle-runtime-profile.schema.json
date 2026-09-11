@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.2/paddle-runtime-profile.schema.json",
+  "title": "TKC explicit Paddle runtime profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "profile_id", "model_dirs", "constructor", "predict"],
+  "properties": {
+    "schema_version": {"const": "tkc.paddle-runtime-profile/v0.2"},
+    "profile_id": {"enum": ["technical-text-v1", "technical-table-v1", "technical-chart-v1", "technical-chart-v2"]},
+    "model_dirs": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "minLength": 1}},
+    "constructor": {"type": "object", "additionalProperties": {"type": ["boolean", "string", "number", "null"]}},
+    "predict": {"type": "object", "additionalProperties": {"type": ["boolean", "string", "number", "null"]}}
+  }
+}

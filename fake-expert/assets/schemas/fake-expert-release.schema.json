@@ -1,0 +1,323 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.fake-expert-release/v0.4",
+  "title": "fake-expert private release sidecar",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_stage",
+    "release_created_at",
+    "compiler",
+    "archive",
+    "runtime",
+    "distribution",
+    "restrictions",
+    "verifier",
+    "receiver_guide"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "artifact_stage": {"const": "candidate-verified"}
+      },
+      "required": ["source_candidate_identity"],
+      "not": {
+        "anyOf": [
+          {"required": ["mvp_acceptance"]},
+          {"required": ["codex_certification"]}
+        ]
+      }
+    },
+    {
+      "properties": {
+        "artifact_stage": {"const": "release-verified"}
+      },
+      "required": ["mvp_acceptance", "codex_certification"],
+      "not": {"required": ["source_candidate_identity"]}
+    }
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.fake-expert-release/v0.4"},
+    "artifact_stage": {"enum": ["candidate-verified", "release-verified"]},
+    "source_candidate_identity": {"type": "string", "minLength": 1},
+    "mvp_acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "product_scope",
+        "review_deferred_boundary",
+        "unreviewed_output_max_stage",
+        "unreviewed_output_usable",
+        "draft_private_distribution_allowed",
+        "direct_reference_contract",
+        "codex_evidence_scope",
+        "known_uncovered_items"
+      ],
+      "properties": {
+        "schema_version": {"const": "fake-expert-mvp-1.2-product-scope-v1"},
+        "product_scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "artifact",
+            "version",
+            "formal_private_release",
+            "distribution",
+            "source_free_archive",
+            "scope",
+            "accepted_input_profiles",
+            "knowledge_contract"
+          ],
+          "properties": {
+            "artifact": {"const": "fake-expert-compiler-skill"},
+            "version": {"const": "1.2.0"},
+            "formal_private_release": {"const": true},
+            "distribution": {"const": "private-transfer-only"},
+            "source_free_archive": {"const": true},
+            "scope": {"const": "compiler-skill-only"},
+            "accepted_input_profiles": {"const": ["native-text-technical-pdf", "scanned-technical-pdf"]},
+            "knowledge_contract": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["bounded_reference_skill", "source_required", "traceable", "verifiable", "composable", "update_analysis", "offline_verifiable", "codex_certified"],
+              "properties": {
+                "bounded_reference_skill": {"const": true},
+                "source_required": {"const": true},
+                "traceable": {"const": true},
+                "verifiable": {"const": true},
+                "composable": {"const": true},
+                "update_analysis": {"const": true},
+                "offline_verifiable": {"const": true},
+                "codex_certified": {"const": true}
+              }
+            }
+          }
+        },
+        "review_deferred_boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "review_state",
+            "scope",
+            "decision",
+            "knowledge_acceptance",
+            "promotion_allowed",
+            "ready_allowed",
+            "executable_allowed",
+            "review_gate_preserved"
+          ],
+          "properties": {
+            "review_state": {"const": "deferred"},
+            "scope": {"const": "per-book independent semantic and visual review"},
+            "decision": {"const": "operational-review-may-be-deferred"},
+            "knowledge_acceptance": {"const": false},
+            "promotion_allowed": {"const": false},
+            "ready_allowed": {"const": false},
+            "executable_allowed": {"const": false},
+            "review_gate_preserved": {"const": true}
+          }
+        },
+        "unreviewed_output_max_stage": {"const": "draft"},
+        "unreviewed_output_usable": {"const": true},
+        "draft_private_distribution_allowed": {"const": true},
+        "direct_reference_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "compiler_version",
+            "protocol",
+            "schema",
+            "package_prefix",
+            "queryable",
+            "source_free_distribution",
+            "additive_extension",
+            "gold_required",
+            "gold_modes",
+            "gold_promotion_authority",
+            "review_state",
+            "output_lifecycle",
+            "distribution_stage",
+            "reference_capability",
+            "decision_capability",
+            "executable_capability"
+          ],
+          "properties": {
+            "compiler_version": {"const": "1.1.0-direct-reference"},
+            "protocol": {"const": "direct-reference-draft-v0.1"},
+            "schema": {"const": "tkc.direct-reference/v0.1"},
+            "package_prefix": {"const": "fake-"},
+            "queryable": {"const": true},
+            "source_free_distribution": {"const": true},
+            "additive_extension": {"const": true},
+            "gold_required": {"const": false},
+            "gold_modes": {"const": ["none", "reuse", "create", "update"]},
+            "gold_promotion_authority": {"const": false},
+            "review_state": {"const": "deferred"},
+            "output_lifecycle": {"const": "draft"},
+            "distribution_stage": {"const": "draft-distributable"},
+            "reference_capability": {"const": true},
+            "decision_capability": {"const": false},
+            "executable_capability": {"const": false}
+          }
+        },
+        "codex_evidence_scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "host",
+            "covers",
+            "excludes",
+            "exact_compiler_package_certification",
+            "scanned_pdf_compiler_route_certification"
+          ],
+          "properties": {
+            "status": {"const": "exact-compiler-package-certified"},
+            "host": {"const": "Codex"},
+            "covers": {
+              "type": "array",
+              "const": [
+                "Exact fake-expert v1.2.0 compiler ZIP negative-routing behavior",
+                "Native-text and scanned-PDF profile gates, required-reading bindings, documentation contract, and reviewer-authority boundaries"
+              ]
+            },
+            "excludes": {
+              "type": "array",
+              "const": [
+                "any unreviewed book's semantic or visual correctness",
+                "per-book OCR accuracy, Gold, whole-book completeness, and executable knowledge",
+                "non-Codex host certification"
+              ]
+            },
+            "exact_compiler_package_certification": {"const": "certified"},
+            "scanned_pdf_compiler_route_certification": {"const": "certified"}
+          }
+        },
+        "known_uncovered_items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "status", "boundary"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "status": {"enum": ["deferred", "not-run", "not-enabled"]},
+              "boundary": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    "release_created_at": {"type": "string", "format": "date-time"},
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill_name", "version", "root_directory", "entrypoint", "entrypoint_sha256", "file_count", "uncompressed_bytes", "files"],
+      "properties": {
+        "skill_name": {"const": "fake-expert"},
+        "version": {"type": "string", "minLength": 1},
+        "root_directory": {"const": "fake-expert"},
+        "entrypoint": {"const": "SKILL.md"},
+        "entrypoint_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "file_count": {"type": "integer", "minimum": 1},
+        "uncompressed_bytes": {"type": "integer", "minimum": 1},
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256", "bytes"],
+            "properties": {
+              "path": {"type": "string", "pattern": "^[^/].*$"},
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "bytes": {"type": "integer", "minimum": 0}
+            }
+          }
+        }
+      }
+    },
+    "archive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filename", "sha256", "file_count", "uncompressed_bytes", "format", "timestamp_profile"],
+      "properties": {
+        "filename": {"type": "string", "pattern": "^[A-Za-z0-9._-]+\\.zip$"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "file_count": {"type": "integer", "minimum": 1},
+        "uncompressed_bytes": {"type": "integer", "minimum": 1},
+        "format": {"const": "zip"},
+        "timestamp_profile": {"const": "dos-epoch-fixed-v1"}
+      }
+    },
+    "codex_certification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filename", "sha256", "schema_version", "certification_id", "archive_sha256"],
+      "properties": {
+        "filename": {"const": "codex-certification.json"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "schema_version": {"const": "tkc.fake-expert-compiler-codex-certification/v0.1"},
+        "certification_id": {"type": "string", "pattern": "^fxcert-[0-9a-f]{20}$"},
+        "archive_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["direct_reference"],
+      "properties": {
+        "direct_reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "compiler_version",
+            "protocol",
+            "schema",
+            "commands",
+            "package_prefix",
+            "gold_modes",
+            "gold_required",
+            "gold_promotion_authority",
+            "review_state",
+            "knowledge_verified",
+            "output_lifecycle",
+            "distribution_stage",
+            "source_free_distribution",
+            "queryable",
+            "additive_extension",
+            "reference_capability",
+            "decision_capability",
+            "executable_capability"
+          ],
+          "properties": {
+            "compiler_version": {"const": "1.1.0-direct-reference"},
+            "protocol": {"const": "direct-reference-draft-v0.1"},
+            "schema": {"const": "tkc.direct-reference/v0.1"},
+            "commands": {"const": ["build", "extend", "bind-gold", "status", "validate"]},
+            "package_prefix": {"const": "fake-"},
+            "gold_modes": {"const": ["none", "reuse", "create", "update"]},
+            "gold_required": {"const": false},
+            "gold_promotion_authority": {"const": false},
+            "review_state": {"const": "deferred"},
+            "knowledge_verified": {"const": false},
+            "output_lifecycle": {"const": "draft"},
+            "distribution_stage": {"const": "draft-distributable"},
+            "source_free_distribution": {"const": true},
+            "queryable": {"const": true},
+            "additive_extension": {"const": true},
+            "reference_capability": {"const": true},
+            "decision_capability": {"const": false},
+            "executable_capability": {"const": false}
+          }
+        }
+      }
+    },
+    "distribution": {"type": "object"},
+    "restrictions": {"type": "object"},
+    "verifier": {"type": "object"},
+    "receiver_guide": {"type": "object"}
+  }
+}

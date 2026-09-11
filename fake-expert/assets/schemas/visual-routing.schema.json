@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-routing.schema.json",
+  "title": "Selective visual routing",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "source_sha256", "policy_sha256", "routes", "candidate_only", "promotion", "routing_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-routing/v0.1"}, "protocol": {"const": "selective-visual-pipeline-v0.1"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "routes": {"type": "array", "items": {"type": "object"}}, "requested_pages": {"type": "integer", "minimum": 0}, "requested_regions": {"type": "integer", "minimum": 0},
+    "candidate_only": {"const": true}, "promotion": {"const": false}, "routing_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

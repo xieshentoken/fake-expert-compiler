@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.4/pdf-ocr-quality-routing.schema.json",
+  "title": "TKC scanned page quality routing",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "native_text_first", "ocr_only_pages_needing_route", "manual_review_pages", "pages", "promotion_policy", "eligible_for_scan_candidate_ir", "promotable", "executable", "transcript_count", "conflict_count"],
+  "properties": {
+    "schema_version": {"const": "tkc.pdf-ocr-quality-routing/v0.1"},
+    "native_text_first": {"const": true},
+    "ocr_only_pages_needing_route": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+    "manual_review_pages": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+    "pages": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "promotion_policy": {"type": "object", "additionalProperties": true},
+    "eligible_for_scan_candidate_ir": {"type": "boolean"},
+    "promotable": {"const": false},
+    "executable": {"const": false},
+    "transcript_count": {"type": "integer", "minimum": 0},
+    "conflict_count": {"type": "integer", "minimum": 0}
+  }
+}

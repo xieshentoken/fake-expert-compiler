@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.fake-expert-compiler-codex-certification/v0.1",
+  "title": "Exact-archive Codex negative certification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol",
+    "certification_id",
+    "issued_at",
+    "compiler_version",
+    "archive",
+    "host",
+    "challenge_set",
+    "results",
+    "claims",
+    "limitations",
+    "attestation",
+    "certification_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.fake-expert-compiler-codex-certification/v0.1"},
+    "protocol": {"const": "fake-expert-compiler-codex-negative-v0.1"},
+    "certification_id": {"type": "string", "pattern": "^fxcert-[0-9a-f]{20}$"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "compiler_version": {"const": "1.2.0"},
+    "archive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filename", "sha256"],
+      "properties": {
+        "filename": {"const": "fake-expert-v1.2.0.zip"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "agent_id", "model"],
+      "properties": {
+        "kind": {"const": "codex-isolated-subagent"},
+        "agent_id": {"type": "string", "minLength": 1},
+        "model": {"type": "string", "minLength": 1}
+      }
+    },
+    "challenge_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "count"],
+      "properties": {
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "count": {"type": "integer", "minimum": 1}
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "attempted", "passed", "failed", "observations"],
+      "properties": {
+        "status": {"const": "passed"},
+        "attempted": {"type": "integer", "minimum": 1},
+        "passed": {"type": "integer", "minimum": 1},
+        "failed": {"const": 0},
+        "observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["challenge_id", "status", "observed", "evidence_sha256"],
+            "properties": {
+              "challenge_id": {"type": "string", "minLength": 1},
+              "status": {"const": "passed"},
+              "observed": {"type": "string", "minLength": 1},
+              "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_contract_enforced",
+        "required_reading_hash_bound",
+        "native_text_negative_routing",
+        "scanned_pdf_negative_routing",
+        "review_authority_preserved",
+        "old_job_not_silently_rewritten"
+      ],
+      "properties": {
+        "document_contract_enforced": {"const": true},
+        "required_reading_hash_bound": {"const": true},
+        "native_text_negative_routing": {"const": true},
+        "scanned_pdf_negative_routing": {"const": true},
+        "review_authority_preserved": {"const": true},
+        "old_job_not_silently_rewritten": {"const": true}
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "attestation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluator_independent_of_implementation",
+        "hidden_expectations_not_sent",
+        "source_pdf_sent",
+        "network_used",
+        "original_project_modified"
+      ],
+      "properties": {
+        "evaluator_independent_of_implementation": {"const": true},
+        "hidden_expectations_not_sent": {"const": true},
+        "source_pdf_sent": {"const": false},
+        "network_used": {"const": false},
+        "original_project_modified": {"const": false}
+      }
+    },
+    "certification_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

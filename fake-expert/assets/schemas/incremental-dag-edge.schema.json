@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.incremental-dag-edge/v0.2",
+  "type": "object",
+  "required": ["schema_version", "edge_id", "type", "from", "to", "required"],
+  "properties": {
+    "schema_version": {"const": "tkc.incremental-dag-edge/v0.2"},
+    "edge_id": {"type": "string", "pattern": "^edge-[0-9a-f]{32}$"},
+    "type": {"type": "string"},
+    "from": {"type": "string"},
+    "to": {"type": "string"},
+    "required": {"type": "boolean"}
+  },
+  "additionalProperties": false
+}

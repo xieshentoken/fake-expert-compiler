@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-review-adjudication-submission.schema.json",
+  "title": "TKC independent visual adjudication submission",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "adjudication_manifest_sha256", "workbench_instance_id", "workpack_identity", "source_submissions", "dispute_set_sha256", "adjudicator", "declarations", "items"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-review-adjudication-submission/v0.1"},
+    "protocol": {"const": "visual-review-adjudication-v0.1"},
+    "compiler_version": {"const": "0.14.1-visual-review-adjudication"},
+    "adjudication_manifest_sha256": {"$ref": "#/$defs/hash"},
+    "workbench_instance_id": {"type": "string", "minLength": 1},
+    "workpack_identity": {"type": "object"},
+    "source_submissions": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "object"}},
+    "dispute_set_sha256": {"$ref": "#/$defs/hash"},
+    "adjudicator": {"type": "object"},
+    "declarations": {"type": "object", "additionalProperties": {"type": "boolean"}},
+    "items": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "exported_at": {"type": "string"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "item": {"type": "object", "additionalProperties": false, "required": ["item_id", "item_sha256", "review_task_id", "input_hashes", "resolutions", "rationale", "observation"], "properties": {"item_id": {"type": "string", "minLength": 1}, "item_sha256": {"$ref": "#/$defs/hash"}, "review_task_id": {"type": "string", "minLength": 1}, "input_hashes": {"type": "object"}, "resolutions": {"type": "object", "additionalProperties": {"$ref": "#/$defs/resolution"}}, "rationale": {"type": "string", "minLength": 1}, "observation": {"type": "string", "minLength": 1}}},
+    "resolution": {"type": "object", "additionalProperties": false, "required": ["source", "value"], "properties": {"source": {"enum": ["reviewer-1", "reviewer-2", "manual", "unresolved"]}, "value": {}}}
+  }
+}

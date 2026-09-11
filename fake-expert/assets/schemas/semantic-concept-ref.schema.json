@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tkc.semantic-concept-ref/v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "concept_ref_id", "concept_ref_sha256", "source_sha256",
+    "source_role", "input_level", "input_assurance", "atomic_support_required",
+    "package_id", "package_version", "workpack_id", "local_ref", "label",
+    "normalized_terms", "alias_groups", "symbols", "units", "numeric_tokens",
+    "assumptions", "applicability", "failure_conditions", "definition_hash",
+    "evidence_binding_ids", "atomic_assertion_ids", "support_sha256s",
+    "promotion_eligible"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-concept-ref/v0.1"},
+    "concept_ref_id": {"type": "string", "pattern": "^scref-[0-9a-f]{24}$"},
+    "concept_ref_sha256": {"$ref": "#/$defs/sha"},
+    "source_sha256": {"$ref": "#/$defs/sha"},
+    "source_role": {"enum": ["reference-package", "candidate-workpack"]},
+    "input_level": {"enum": ["legacy-source-support", "atomic-supported", "candidate-source"]},
+    "input_assurance": {"enum": ["legacy-source-support", "atomic-supported", "candidate-source"]},
+    "atomic_support_required": {"const": true},
+    "package_id": {"type": "string", "minLength": 1},
+    "package_version": {"type": "string", "minLength": 1},
+    "workpack_id": {"type": ["string", "null"]},
+    "local_ref": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {"$ref": "#/$defs/local_ref"}
+      ]
+    },
+    "label": {"type": "string", "minLength": 1},
+    "normalized_terms": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "alias_groups": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "symbols": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "units": {"type": "array", "items": {"type": ["string", "object"]}},
+    "numeric_tokens": {"type": "array", "items": {"$ref": "#/$defs/numeric"}},
+    "assumptions": {"type": "array", "items": {"type": "string"}},
+    "applicability": {"type": "array", "items": {"type": "string"}},
+    "failure_conditions": {"type": "array", "items": {"type": "string"}},
+    "definition_hash": {"$ref": "#/$defs/sha"},
+    "evidence_binding_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^sebind-[0-9a-f]{24}$"}},
+    "atomic_assertion_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "support_sha256s": {"type": "array", "items": {"$ref": "#/$defs/sha"}},
+    "candidate_spec_sha256": {"$ref": "#/$defs/sha"},
+    "promotion_eligible": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"source_role": {"const": "candidate-workpack"}}},
+      "then": {
+        "required": ["candidate_spec_sha256"],
+        "properties": {"local_ref": {"$ref": "#/$defs/candidate_local_ref"}}
+      }
+    },
+    {
+      "if": {"properties": {"source_role": {"const": "reference-package"}}},
+      "then": {"properties": {"local_ref": {"$ref": "#/$defs/reference_local_ref"}}}
+    },
+    {
+      "if": {"properties": {"input_assurance": {"const": "atomic-supported"}}},
+      "then": {
+        "properties": {
+          "atomic_assertion_ids": {"minItems": 1},
+          "support_sha256s": {"minItems": 1}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "numeric": {
+      "type": "object", "additionalProperties": false,
+      "required": ["value", "evidence_id"],
+      "properties": {
+        "value": {"type": ["string", "number"]},
+        "unit": {"type": "string"},
+        "evidence_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "candidate_local_ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["concept_id", "candidate_input_schema", "candidate_spec_sha256"],
+      "properties": {
+        "concept_id": {"type": "string", "minLength": 1},
+        "candidate_input_schema": {"const": "tkc.semantic-composer-input/v0.1"},
+        "candidate_spec_sha256": {"$ref": "#/$defs/sha"}
+      }
+    },
+    "reference_local_ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["object_id", "module_ids", "source_ids", "package_manifest_sha256", "object_sha256"],
+      "properties": {
+        "object_id": {"type": "string", "minLength": 1},
+        "module_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "source_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "package_manifest_sha256": {"$ref": "#/$defs/sha"},
+        "object_sha256": {"$ref": "#/$defs/sha"}
+      }
+    },
+    "local_ref": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "object_id": {"type": "string"}, "module_ids": {"type": "array"},
+        "source_ids": {"type": "array"}, "package_manifest_sha256": {"$ref": "#/$defs/sha"},
+        "object_sha256": {"$ref": "#/$defs/sha"}, "concept_id": {"type": "string"},
+        "candidate_input_schema": {"type": "string"}, "candidate_spec_sha256": {"$ref": "#/$defs/sha"}
+      }
+    }
+  }
+}

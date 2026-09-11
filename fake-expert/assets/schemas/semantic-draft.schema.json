@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/semantic-draft.schema.json",
+  "title": "TKC Semantic Draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "unit_id",
+    "proposer_instance",
+    "candidate_disposition",
+    "objects",
+    "relations",
+    "conflicts",
+    "gaps"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-draft/v0.1"},
+    "unit_id": {"type": "string", "pattern": "^swu-[0-9a-f]{20}$"},
+    "proposer_instance": {"type": "string", "minLength": 1},
+    "candidate_disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "reason"],
+      "properties": {
+        "action": {"enum": ["promote", "context-only", "non-knowledge", "reject"]},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "objects": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/object"}
+    },
+    "relations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/relation"}
+    },
+    "conflicts": {"type": "array", "items": {"type": "object"}},
+    "gaps": {"type": "array", "items": {"$ref": "#/$defs/gap"}}
+  },
+  "$defs": {
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["page", "start", "end", "span_sha256"],
+      "properties": {
+        "page": {"type": "integer", "minimum": 1},
+        "start": {"type": "integer", "minimum": 0},
+        "end": {"type": "integer", "minimum": 1},
+        "span_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "local_id",
+        "type",
+        "origin",
+        "title",
+        "statement",
+        "evidence_spans",
+        "assumptions",
+        "valid_when",
+        "fails_when",
+        "applicability",
+        "visual_task_ids",
+        "formula"
+      ],
+      "properties": {
+        "local_id": {"type": "string", "minLength": 1},
+        "type": {"enum": ["Definition", "Concept", "Claim", "Equation", "Assumption", "Exception", "Method", "Procedure", "DecisionRule"]},
+        "origin": {"enum": ["source-explicit", "source-paraphrase", "compiler-derived"]},
+        "title": {"type": "string", "minLength": 1},
+        "statement": {"type": "string", "minLength": 1},
+        "evidence_spans": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/span"}},
+        "assumptions": {"type": "array", "items": {"type": "string"}},
+        "valid_when": {"type": "array", "items": {"type": "string"}},
+        "fails_when": {"type": "array", "items": {"type": "string"}},
+        "applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["physical_pages", "excluded_conclusions"],
+          "properties": {
+            "physical_pages": {"type": "array", "prefixItems": [{"type": "integer"}, {"type": "integer"}], "minItems": 2, "maxItems": 2},
+            "excluded_conclusions": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "visual_task_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "formula": {"type": ["object", "null"]}
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_ref", "type", "target_ref"],
+      "properties": {
+        "source_ref": {"type": "string", "minLength": 1},
+        "type": {"enum": ["is_a", "part_of", "depends_on", "derived_from", "causes", "supports", "contradicts", "valid_when", "fails_when", "used_for", "equivalent_to", "example_of", "related_to"]},
+        "target_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin", "statement", "evidence_spans"],
+      "properties": {
+        "local_id": {"type": "string", "minLength": 1},
+        "origin": {"const": "knowledge-gap"},
+        "statement": {"type": "string", "minLength": 1},
+        "evidence_spans": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/span"}
+        }
+      }
+    }
+  }
+}

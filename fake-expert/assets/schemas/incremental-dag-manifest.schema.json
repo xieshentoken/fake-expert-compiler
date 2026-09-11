@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.incremental-dag-manifest/v0.2",
+  "type": "object",
+  "required": ["schema_version", "compiler_version", "protocol", "generated_at", "source_label", "immutable_input", "hash_algorithm", "dag_sha256", "nodes_sha256", "edges_sha256", "node_count", "edge_count", "node_kind_counts", "policy"],
+  "properties": {
+    "schema_version": {"const": "tkc.incremental-dag-manifest/v0.2"},
+    "compiler_version": {"const": "0.12.0-incremental-build-dag"},
+    "protocol": {"const": "incremental-build-dag-v0.2"},
+    "generated_at": {"type": "string"},
+    "source_label": {"type": "string"},
+    "hash_algorithm": {"const": "sha256-canonical-json-v1"},
+    "dag_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nodes_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "edges_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "node_count": {"type": "integer", "minimum": 0},
+    "edge_count": {"type": "integer", "minimum": 0},
+    "node_kind_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "immutable_input": {"const": true},
+    "policy": {"type": "object"}
+  },
+  "additionalProperties": false
+}

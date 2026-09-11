@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.4/pdf-ocr-jsonl.schema.json",
+  "title": "TKC isolated OCR worker JSONL message",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "request_id", "backend_id", "status"],
+  "properties": {
+    "schema_version": {"const": "tkc.pdf-ocr-jsonl/v0.2"},
+    "request_id": {"type": "string", "minLength": 1},
+    "backend_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["ok", "error"]},
+    "error_code": {"type": "string"},
+    "observations": {"type": "array"},
+    "input_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "output_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "normalized_result_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+  }
+}

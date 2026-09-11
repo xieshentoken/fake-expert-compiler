@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/procedure.schema.json",
+  "title": "TKC Executable Procedure Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "purpose",
+    "inputs",
+    "outputs",
+    "preconditions",
+    "stop_conditions",
+    "evidence_ids",
+    "execution"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.expert-skill/v0.1"},
+    "id": {"type": "string", "minLength": 1},
+    "purpose": {"type": "string", "minLength": 1},
+    "inputs": {"type": "array", "items": {"type": "object"}},
+    "outputs": {"type": "array", "items": {"type": "object"}},
+    "preconditions": {"type": "array", "items": {"type": "string"}},
+    "stop_conditions": {"type": "array", "items": {"type": "string"}},
+    "evidence_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "formula_module": {"type": "string", "minLength": 1},
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entrypoint",
+        "risk_tier",
+        "permissions",
+        "requires_human_review",
+        "failure_behavior"
+      ],
+      "properties": {
+        "entrypoint": {"type": "string", "minLength": 1},
+        "risk_tier": {"enum": ["read-only", "reversible-write", "high-impact"]},
+        "permissions": {"type": "array", "items": {"type": "string"}},
+        "requires_human_review": {"type": "boolean"},
+        "failure_behavior": {"type": "string", "minLength": 1}
+        ,"arguments": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

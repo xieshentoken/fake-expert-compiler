@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/composition-lock.schema.json",
+  "title": "Technical Knowledge Compiler composition lock",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "compiler_version", "created_at", "input_fingerprint", "policy", "modules"],
+  "properties": {
+    "schema_version": {"const": "tkc.composition-lock/v0.1"},
+    "compiler_version": {"const": "0.5.0-phase5"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "input_fingerprint": {"$ref": "#/$defs/sha256"},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cross_module_claims", "source_overlap", "capability_floor"],
+      "properties": {
+        "cross_module_claims": {"const": "preserve-separate-no-consensus"},
+        "source_overlap": {"const": "reject-unreviewed"},
+        "capability_floor": {"const": "reference-only"}
+      }
+    },
+    "modules": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"$ref": "#/$defs/module_binding"}
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "slug": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "module_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package_id", "package_version", "relative_path", "manifest_sha256", "integrity_sha256", "capabilities", "module_ids", "module_registry", "source_ids", "sources"],
+      "properties": {
+        "package_id": {"$ref": "#/$defs/slug"},
+        "package_version": {"type": "string", "minLength": 1},
+        "relative_path": {"type": "string", "pattern": "^modules/[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "integrity_sha256": {"$ref": "#/$defs/sha256"},
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reference", "decision_support", "executable"],
+          "properties": {"reference": {"const": true}, "decision_support": {"const": false}, "executable": {"const": false}}
+        },
+        "module_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/slug"}},
+        "module_registry": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["module_id", "version", "dependencies"],
+            "properties": {
+              "module_id": {"$ref": "#/$defs/slug"},
+              "version": {"type": "string", "minLength": 1},
+              "dependencies": {"type": "array", "items": {"type": "object"}}
+            }
+          }
+        },
+        "source_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "sources": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+      }
+    }
+  }
+}

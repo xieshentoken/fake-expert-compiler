@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/composite-skill-manifest.schema.json",
+  "title": "Technical Knowledge Compiler composite Skill manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "package", "distribution", "sources", "capabilities", "policy", "build", "integrity"],
+  "properties": {
+    "schema_version": {"const": "tkc.composite-skill/v0.1"},
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "version", "domain", "status"],
+      "properties": {
+        "id": {"$ref": "#/$defs/slug"},
+        "name": {"type": "string", "minLength": 1},
+        "version": {"$ref": "#/$defs/semver"},
+        "domain": {"$ref": "#/$defs/slug"},
+        "status": {"enum": ["draft", "ready", "deprecated", "revoked"]}
+      }
+    },
+    "distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_mode", "verification"],
+      "properties": {
+        "source_mode": {"const": "source-required"},
+        "verification": {"const": "external-source-required"}
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "sha256", "media_type", "original_filename", "required_by_packages"],
+        "properties": {
+          "source_id": {"type": "string", "minLength": 1},
+          "sha256": {"$ref": "#/$defs/sha256"},
+          "media_type": {"const": "application/pdf"},
+          "original_filename": {"type": "string", "minLength": 1},
+          "required_by_packages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/slug"}}
+        }
+      }
+    },
+    "capabilities": {"$ref": "#/$defs/reference_capabilities"},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cross_module_claims", "source_overlap"],
+      "properties": {
+        "cross_module_claims": {"const": "preserve-separate-no-consensus"},
+        "source_overlap": {"const": "reject-unreviewed"}
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compiler", "compiler_version", "created_at", "input_fingerprint", "composition_lock_sha256"],
+      "properties": {
+        "compiler": {"enum": ["technical-knowledge-compiler", "fake-expert"]},
+        "compiler_version": {"const": "0.5.0-phase5"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "input_fingerprint": {"$ref": "#/$defs/sha256"},
+        "composition_lock_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "sealed_at", "files"],
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "sealed_at": {"type": "string", "format": "date-time"},
+        "files": {"type": "object", "additionalProperties": {"$ref": "#/$defs/sha256"}}
+      }
+    }
+  },
+  "$defs": {
+    "slug": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "semver": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"},
+    "reference_capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "decision_support", "executable"],
+      "properties": {
+        "reference": {"const": true},
+        "decision_support": {"const": false},
+        "executable": {"const": false}
+      }
+    }
+  }
+}

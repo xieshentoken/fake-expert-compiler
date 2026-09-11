@@ -1,0 +1,4 @@
+interface:
+  display_name: "fake-expert"
+  short_description: "Compile traceable technical Expert Skills safely"
+  default_prompt: "Use $fake-expert to compile, validate, or add to traceable technical PDF knowledge; preserve unreviewed Draft warnings, and compose only independently reviewed packages."

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-census.schema.json",
+  "title": "Deterministic visual census",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "source_sha256", "pages", "candidate_only", "model_invocations", "render_invocations", "census_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-census/v0.1"}, "protocol": {"const": "selective-visual-pipeline-v0.1"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "pypdf_version": {"const": "6.10.0"},
+    "pages": {"type": "array", "items": {"type": "object"}}, "candidate_only": {"const": true},
+    "model_invocations": {"const": 0}, "render_invocations": {"const": 0},
+    "policy_bypass": {"type": "boolean"}, "policy_bypass_reason": {"type": ["string", "null"]},
+    "census_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/heading-override.schema.json",
+  "title": "TKC Heading Override Row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "before_title",
+    "new_title",
+    "physical_page",
+    "rationale",
+    "reviewer_instance",
+    "before_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.heading-override/v0.1"},
+    "before_title": {"type": "string", "minLength": 1},
+    "new_title": {"type": "string", "minLength": 1},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "segment_id": {"type": "string", "minLength": 1},
+    "rationale": {"type": "string", "minLength": 1},
+    "reviewer_instance": {"type": "string", "minLength": 1},
+    "before_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

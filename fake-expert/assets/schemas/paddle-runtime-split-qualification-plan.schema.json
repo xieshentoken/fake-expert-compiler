@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/paddle-runtime-split-qualification-plan.schema.json",
+  "title": "TKC private local Paddle split-bound runtime qualification plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol", "compiler_version", "qualification_tool", "backend_id",
+    "profile_id", "fixture", "runtime_contract", "split_contract", "split_contract_sha256",
+    "split_core_sha256", "split_region_id", "execution", "policy", "planned_at", "plan_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.paddle-runtime-split-qualification-plan/v0.1"},
+    "protocol": {"const": "paddle-runtime-split-qualification-v0.1"},
+    "compiler_version": {"const": "0.14.5-scan-split-checkpoint"},
+    "qualification_tool": {
+      "type": "object", "additionalProperties": false,
+      "required": ["script_sha256"],
+      "properties": {"script_sha256": {"$ref": "#/$defs/hash"}}
+    },
+    "backend_id": {"const": "paddleocr-ppocrv6"},
+    "profile_id": {"const": "technical-text-v1"},
+    "fixture": {"type": "object"},
+    "runtime_contract": {"type": "object"},
+    "split_contract": {"type": "object"},
+    "split_contract_sha256": {"$ref": "#/$defs/hash"},
+    "split_core_sha256": {"$ref": "#/$defs/hash"},
+    "split_region_id": {"type": "string", "minLength": 1},
+    "execution": {"type": "object"},
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "input_kind", "source_pdf_passed", "network_enabled", "model_download",
+        "mcp_http_dependency", "candidate_only", "promotion", "verified_gold",
+        "accuracy_claim", "operator_exclusive_heavy_model_confirmation_required"
+      ],
+      "properties": {
+        "input_kind": {"const": "raster-crop"},
+        "source_pdf_passed": {"const": false},
+        "network_enabled": {"const": false},
+        "model_download": {"const": false},
+        "mcp_http_dependency": {"const": false},
+        "candidate_only": {"const": true},
+        "promotion": {"const": false},
+        "verified_gold": {"const": false},
+        "accuracy_claim": {"const": false},
+        "operator_exclusive_heavy_model_confirmation_required": {"const": true}
+      }
+    },
+    "planned_at": {"type": "string"},
+    "plan_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

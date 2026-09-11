@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/scanned-pdf-spread-split.schema.json",
+  "title": "TKC candidate-only scanned PDF spread split contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol", "compiler_version", "contract_sha256",
+    "split_core_sha256", "source_sha256", "source_page_kind", "physical_page",
+    "page_geometry", "render", "rotation", "rotated_render", "split",
+    "printed_page_label_policy", "runtime_commitments", "qualification_commitments",
+    "regions", "candidate_only", "promotion"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.scanned-pdf-spread-split/v0.1"},
+    "protocol": {"const": "scanned-pdf-spread-split-v0.1"},
+    "compiler_version": {"const": "0.14.5-scan-split-checkpoint"},
+    "contract_sha256": {"$ref": "#/$defs/hash"},
+    "split_core_sha256": {"$ref": "#/$defs/hash"},
+    "source_sha256": {"$ref": "#/$defs/hash"},
+    "source_page_kind": {"const": "physical-pdf-page"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "page_geometry": {"type": "object", "additionalProperties": true},
+    "render": {"$ref": "#/$defs/render"},
+    "rotation": {"$ref": "#/$defs/rotation"},
+    "rotated_render": {"$ref": "#/$defs/render"},
+    "split": {
+      "type": "object", "additionalProperties": false,
+      "required": ["axis", "boundary_px", "region_count", "region_order", "reading_order", "odd_dimension_policy"],
+      "properties": {
+        "axis": {"const": "x"},
+        "boundary_px": {"type": "integer", "minimum": 1},
+        "region_count": {"const": 2},
+        "region_order": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string"}},
+        "reading_order": {"const": "left-to-right"},
+        "odd_dimension_policy": {"const": "left=floor(width/2),right=remaining"}
+      }
+    },
+    "printed_page_label_policy": {"const": "candidate-or-null-human-confirmation-required"},
+    "runtime_commitments": {"type": "object", "additionalProperties": true},
+    "qualification_commitments": {"type": "object", "additionalProperties": true},
+    "regions": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/region"}},
+    "candidate_only": {"const": true},
+    "promotion": {"const": false}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "dimensions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {"width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1}}
+    },
+    "render": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sha256", "dimensions_px", "dpi"],
+      "properties": {
+        "sha256": {"$ref": "#/$defs/hash"},
+        "dimensions_px": {"$ref": "#/$defs/dimensions"},
+        "dpi": {"type": "integer", "minimum": 1}
+      }
+    },
+    "rotation": {"type": "integer", "enum": [0, 90, 180, 270]},
+    "region": {
+      "type": "object", "additionalProperties": true,
+      "required": [
+        "region_id", "region_order", "printed_page_label_candidate",
+        "rotated_region_bbox_px", "pre_rotation_render_pixel_bbox", "bbox_pdf_points",
+        "crop_sha256", "crop_dimensions_px", "coordinate_transform",
+        "coordinate_transform_sha256"
+      ],
+      "properties": {
+        "region_id": {"type": "string", "minLength": 1},
+        "region_order": {"type": "integer", "enum": [0, 1]},
+        "printed_page_label_candidate": {"type": ["string", "null"]},
+        "rotated_region_bbox_px": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "integer"}},
+        "pre_rotation_render_pixel_bbox": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "integer"}},
+        "bbox_pdf_points": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}},
+        "crop_sha256": {"$ref": "#/$defs/hash"},
+        "crop_dimensions_px": {"$ref": "#/$defs/dimensions"},
+        "coordinate_transform": {"type": "object"},
+        "coordinate_transform_sha256": {"$ref": "#/$defs/hash"}
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.4/pdf-ocr-backend-receipt.schema.json",
+  "title": "TKC isolated OCR backend receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "source_sha256", "physical_page", "backend_id", "role", "engine", "protocol", "render", "model", "configuration", "configuration_sha256", "coordinate_transform_id", "worker", "observation_ids_sha256", "observation_count", "status", "canonical_promotion_allowed"],
+  "properties": {
+    "schema_version": {"const": "tkc.pdf-ocr-backend-receipt/v0.2"},
+    "id": {"type": "string", "pattern": "^obr-[0-9a-f]{20}$"},
+    "source_sha256": {"$ref": "#/$defs/sha256"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "backend_id": {"type": "string", "minLength": 1},
+    "role": {"type": "string", "minLength": 1},
+    "engine": {"type": "object", "additionalProperties": false, "required": ["id", "version"], "properties": {"id": {"type": "string"}, "version": {"type": "string"}}},
+    "protocol": {"type": "object", "additionalProperties": true},
+    "render": {"type": "object", "additionalProperties": true},
+    "model": {"type": "object", "additionalProperties": true},
+    "configuration": {"type": "object"},
+    "configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "coordinate_transform_id": {"type": "string", "pattern": "^pct-[0-9a-f]{20}$"},
+    "worker": {"type": "object", "additionalProperties": true},
+    "observation_ids_sha256": {"$ref": "#/$defs/sha256"},
+    "observation_count": {"type": "integer", "minimum": 0},
+    "status": {"const": "candidate-only"},
+    "canonical_promotion_allowed": {"const": false},
+    "result_adapter_id": {"type": ["string", "null"]},
+    "raw_result_sha256": {"$ref": "#/$defs/sha256"},
+    "normalized_result_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

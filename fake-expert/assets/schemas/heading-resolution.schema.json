@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.2/heading-resolution.schema.json",
+  "title": "TKC hash-locked heading locator resolution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "resolution_id", "source_sha256", "segment_id", "requested_title",
+    "title_correction", "candidate_ids", "candidate_hashes", "status", "selection_policy",
+    "selected_candidate_id", "selected_candidate_sha256", "score_margin", "deterministic_margin",
+    "failure_code", "selection_reason", "structure_order", "physical_page", "char_span",
+    "review_required", "resolution_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.heading-resolution/v0.2"},
+    "resolution_id": {"type": "string", "pattern": "^hgr-[0-9a-f]{20}$"},
+    "source_sha256": {"$ref": "#/$defs/sha256"},
+    "segment_id": {"type": "string", "minLength": 1},
+    "requested_title": {"type": "string", "minLength": 1},
+    "title_correction": {"type": ["object", "null"]},
+    "candidate_ids": {"type": "array", "items": {"type": "string", "pattern": "^hgc-[0-9a-f]{20}$"}, "uniqueItems": true},
+    "candidate_hashes": {"type": "object", "additionalProperties": {"$ref": "#/$defs/sha256"}},
+    "status": {"enum": ["resolved", "heading_resolution_required"]},
+    "selection_policy": {"enum": ["unique-candidate", "deterministic-margin", "bounded-locator-override", "manual-required"]},
+    "selected_candidate_id": {"type": ["string", "null"], "pattern": "^hgc-[0-9a-f]{20}$"},
+    "selected_candidate_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "score_margin": {"type": ["integer", "null"]},
+    "deterministic_margin": {"type": "integer", "minimum": 1},
+    "failure_code": {"type": ["string", "null"]},
+    "selection_reason": {"type": "string", "minLength": 1},
+    "structure_order": {"type": "integer", "minimum": 0},
+    "physical_page": {"type": ["integer", "null"], "minimum": 1},
+    "char_span": {"type": ["array", "null"], "prefixItems": [{"type": "integer", "minimum": 0}, {"type": "integer", "minimum": 1}], "minItems": 2, "maxItems": 2},
+    "review_required": {"type": "boolean"},
+    "locator_override": {"type": ["object", "null"]},
+    "scan_review": {"$ref": "#/$defs/scanReview"},
+    "resolution_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scanReview": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_sha256", "reviewer_instance", "review_session_id", "attestation_sha256", "title_confirmed", "page_range_confirmed", "reading_order_confirmed", "bbox_confirmed", "evidence_confirmed"],
+      "properties": {
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "reviewer_instance": {"type": "string", "minLength": 1},
+        "review_session_id": {"type": "string", "minLength": 1},
+        "attestation_sha256": {"$ref": "#/$defs/sha256"},
+        "title_confirmed": {"const": true},
+        "page_range_confirmed": {"const": true},
+        "reading_order_confirmed": {"const": true},
+        "bbox_confirmed": {"const": true},
+        "evidence_confirmed": {"const": true}
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.2/module-plan.schema.json",
+  "title": "TKC deterministic book module plan row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "module_id", "book_plan_id", "title", "segment_ids", "physical_pages", "depends_on", "routes", "input_hashes", "planning_status", "promotion_status", "module_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.module-plan/v0.2"},
+    "module_id": {"type": "string", "pattern": "^mod-[0-9a-f]{20}$"},
+    "book_plan_id": {"type": "string", "pattern": "^bpl-[0-9a-f]{20}$"},
+    "title": {"type": "string", "minLength": 1},
+    "segment_ids": {"type": "array", "minItems": 0, "items": {"type": "string"}, "uniqueItems": true},
+    "physical_pages": {"type": "array", "minItems": 1, "items": {"type": "integer", "minimum": 1}, "uniqueItems": true},
+    "depends_on": {"type": "array", "items": {"type": "string", "pattern": "^mod-[0-9a-f]{20}$"}, "uniqueItems": true},
+    "routes": {"type": "object", "required": ["semantic", "ocr", "visual", "structure", "competency", "seal", "execution"], "properties": {"semantic": {"type": "string"}, "ocr": {"type": "string"}, "visual": {"type": "string"}, "structure": {"type": "string"}, "competency": {"type": "string"}, "seal": {"type": "string"}, "execution": {"type": "string"}}},
+    "input_hashes": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "planning_status": {"enum": ["compile", "context-only", "non-knowledge", "ocr-candidate", "visual-review", "gap", "quarantined"]},
+    "promotion_status": {"enum": ["not-started", "candidate-only", "promoted", "blocked"]},
+    "module_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

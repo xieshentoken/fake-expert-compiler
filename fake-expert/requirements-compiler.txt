@@ -1,0 +1,2 @@
+# Runtime dependency for deterministic native-PDF intake and evidence verification.
+pypdf==6.10.0

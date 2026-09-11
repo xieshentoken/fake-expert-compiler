@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/execution-bundle.schema.json",
+  "title": "TKC Executable Formula Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "input", "policy", "policy_sha256", "test_suite", "test_suite_sha256", "receipts", "compiler_instance", "runner", "formulas"],
+  "properties": {
+    "schema_version": {"const": "tkc.execution-bundle/v0.1"},
+    "input": {"type": "object"},
+    "policy": {"const": "references/execution/policy.json"},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "test_suite": {"const": "references/execution/test-suite.json"},
+    "test_suite_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "receipts": {"const": "references/execution/receipts.jsonl"},
+    "compiler_instance": {"type": "string", "minLength": 1},
+    "runner": {"type": "object", "additionalProperties": false, "required": ["entrypoint", "sha256"], "properties": {"entrypoint": {"const": "scripts/run_formula_sandbox.py"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "formulas": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+  }
+}

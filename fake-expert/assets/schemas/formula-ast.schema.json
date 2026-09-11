@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/formula-ast.schema.json",
+  "title": "TKC Restricted Formula AST",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "output", "symbols", "expression"],
+  "properties": {
+    "schema_version": {"const": "tkc.formula-ast/v0.1"},
+    "output": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"},
+    "symbols": {
+      "type": "object",
+      "minProperties": 2,
+      "maxProperties": 32,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "unit", "dimension"],
+        "properties": {
+          "role": {"enum": ["input", "output"]},
+          "unit": {"type": "string", "minLength": 1, "maxLength": 80},
+          "dimension": {"$ref": "#/$defs/dimension"}
+        }
+      }
+    },
+    "expression": {"$ref": "#/$defs/node"}
+  },
+  "$defs": {
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "L": {"type": "integer", "minimum": -16, "maximum": 16},
+        "M": {"type": "integer", "minimum": -16, "maximum": 16},
+        "T": {"type": "integer", "minimum": -16, "maximum": 16},
+        "I": {"type": "integer", "minimum": -16, "maximum": 16},
+        "Theta": {"type": "integer", "minimum": -16, "maximum": 16},
+        "N": {"type": "integer", "minimum": -16, "maximum": 16},
+        "J": {"type": "integer", "minimum": -16, "maximum": 16}
+      }
+    },
+    "node": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["kind", "value", "unit"], "properties": {"kind": {"const": "constant"}, "value": {"type": ["string", "number"]}, "unit": {"type": "string"}}},
+        {"type": "object", "additionalProperties": false, "required": ["kind", "name"], "properties": {"kind": {"const": "symbol"}, "name": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"}}},
+        {"type": "object", "additionalProperties": false, "required": ["kind", "left", "right"], "properties": {"kind": {"enum": ["add", "subtract", "multiply", "divide"]}, "left": {"$ref": "#/$defs/node"}, "right": {"$ref": "#/$defs/node"}}},
+        {"type": "object", "additionalProperties": false, "required": ["kind", "arg"], "properties": {"kind": {"enum": ["negate", "sqrt"]}, "arg": {"$ref": "#/$defs/node"}}},
+        {"type": "object", "additionalProperties": false, "required": ["kind", "base", "exponent"], "properties": {"kind": {"const": "power"}, "base": {"$ref": "#/$defs/node"}, "exponent": {"type": "integer", "minimum": -8, "maximum": 8}}}
+      ]
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.2/portable-visual-incremental-recall-submission.schema.json",
+  "title": "TKC portable visual incremental recall reviewer submission",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "review_mode", "workbench_instance_id", "manifest_sha256", "source_sha256", "baseline_gold_revision_manifest_sha256", "legacy_submission_sha256", "reviewer_instance", "review_session_id", "declarations", "pages", "exported_at"],
+  "properties": {
+    "schema_version": {"const": "tkc.portable-visual-incremental-recall-submission/v0.2"},
+    "protocol": {"const": "portable-visual-incremental-recall-v0.2"},
+    "review_mode": {"const": "incremental-missed-object-review"},
+    "workbench_instance_id": {"type": "string", "pattern": "^pvrw-[0-9a-f]{20}$"},
+    "manifest_sha256": {"$ref": "#/$defs/hash"},
+    "source_sha256": {"$ref": "#/$defs/hash"},
+    "baseline_gold_revision_manifest_sha256": {"$ref": "#/$defs/hash"},
+    "legacy_submission_sha256": {"$ref": "#/$defs/hash"},
+    "reviewer_instance": {"type": "string"},
+    "review_session_id": {"type": "string"},
+    "declarations": {"type": "object"},
+    "pages": {"type": "array", "minItems": 1},
+    "exported_at": {"type": "string", "minLength": 1}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

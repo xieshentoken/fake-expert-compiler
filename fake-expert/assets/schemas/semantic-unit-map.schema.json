@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tkc.semantic-unit-map/v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "unit_map_id", "unit_map_sha256", "left_ref", "right_ref", "left_unit", "right_unit", "evidence_binding_ids", "conversion_factor", "dimension_compatible", "status", "review_requirement", "resolution"],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-unit-map/v0.1"},
+    "unit_map_id": {"type": "string", "pattern": "^sunit-[0-9a-f]{24}$"},
+    "unit_map_sha256": {"$ref": "#/$defs/sha"},
+    "left_ref": {"type": "string", "pattern": "^scref-[0-9a-f]{24}$"},
+    "right_ref": {"type": "string", "pattern": "^scref-[0-9a-f]{24}$"},
+    "left_unit": {"$ref": "#/$defs/unit"},
+    "right_unit": {"$ref": "#/$defs/unit"},
+    "evidence_binding_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^sebind-[0-9a-f]{24}$"}},
+    "conversion_factor": {"type": ["number", "null"]},
+    "dimension_compatible": {"type": "boolean"},
+    "status": {"enum": ["candidate", "incompatible"]},
+    "review_requirement": {"$ref": "#/$defs/review"},
+    "resolution": {"const": "preserve-separate-no-consensus"}
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "unit": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "dimension", "scale_to_si", "normalization_status"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1}, "dimension": {"type": ["string", "null"]},
+        "scale_to_si": {"type": ["number", "null"]}, "normalization_status": {"enum": ["known", "unknown"]}
+      }
+    },
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["risk_tier", "required_reviewer_count", "reasons"],
+      "properties": {
+        "risk_tier": {"const": "high"}, "required_reviewer_count": {"const": 2},
+        "reasons": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    }
+  }
+}

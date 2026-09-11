@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-benchmark-review-attestation.schema.json",
+  "title": "TKC external Phase 7D.5B reviewer attestation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "attestation_id", "reviewer_instance", "reviewer_role", "review_session_id", "proposer_instance", "review_method", "difference_observation", "review_checks", "input_hashes", "attestation_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-benchmark-review-attestation/v0.1"},
+    "protocol": {"const": "visual-benchmark-v0.1"},
+    "attestation_id": {"type": "string"},
+    "reviewer_instance": {"type": "string"},
+    "reviewer_role": {"const": "external-independent"},
+    "review_session_id": {"type": "string"},
+    "proposer_instance": {"type": "string"},
+    "review_method": {"const": "fresh-crop-and-render-inspection"},
+    "difference_observation": {"type": "string", "minLength": 1},
+    "review_checks": {"type": "object", "additionalProperties": {"const": true}},
+    "input_hashes": {"type": "object", "additionalProperties": false, "required": ["item_sha256", "source_sha256", "render_sha256", "crop_sha256", "bbox_sha256"], "properties": {"item_sha256": {"$ref": "#/$defs/hash"}, "source_sha256": {"$ref": "#/$defs/hash"}, "render_sha256": {"$ref": "#/$defs/hash"}, "crop_sha256": {"$ref": "#/$defs/hash"}, "bbox_sha256": {"$ref": "#/$defs/hash"}}},
+    "attestation_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

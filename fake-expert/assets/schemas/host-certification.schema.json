@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/host-certification.schema.json",
+  "title": "TKC Host Certification Sidecar",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["certification_id", "schema_version", "issued_at", "attestation_level", "scorer_version", "scorer_sha256", "package_binding", "capabilities", "host_ids", "host_versions", "model_ids", "transcript_capture", "challenge_count", "attempts_per_challenge", "run_count", "passed_run_count", "failed_run_count", "challenge_bundle_sha256", "expectation_bundle_sha256", "run_bundle_sha256", "receipt_bundle_sha256", "expectation_commitment_sha256", "expectations_committed_at", "receipt_ids", "status", "scope", "limitations"],
+  "properties": {
+    "certification_id": {"type": "string", "pattern": "^hcert-[0-9a-f]{24}$"},
+    "schema_version": {"const": "tkc.host-certification/v0.1"},
+    "issued_at": {"type": "string", "minLength": 1},
+    "attestation_level": {"const": "host-orchestrator-recorded-not-cryptographic"},
+    "scorer_version": {"const": "deterministic-host-forward-scorer-v0.1"},
+    "scorer_sha256": {"$ref": "#/$defs/sha256"},
+    "package_binding": {"$ref": "#/$defs/package_binding"},
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "decision_support", "executable"],
+      "properties": {
+        "reference": {"const": true},
+        "decision_support": {"const": false},
+        "executable": {"const": false}
+      }
+    },
+    "host_ids": {"type": "array", "minItems": 1, "maxItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "host_versions": {"type": "array", "minItems": 1, "maxItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "model_ids": {"type": "array", "minItems": 1, "maxItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "transcript_capture": {"enum": ["full", "partial", "final-response-only"]},
+    "challenge_count": {"type": "integer", "minimum": 1},
+    "attempts_per_challenge": {"type": "integer", "minimum": 1},
+    "run_count": {"type": "integer", "minimum": 1},
+    "passed_run_count": {"type": "integer", "minimum": 0},
+    "failed_run_count": {"type": "integer", "minimum": 0},
+    "challenge_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "expectation_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "run_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "receipt_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "expectation_commitment_sha256": {"$ref": "#/$defs/sha256"},
+    "expectations_committed_at": {"type": "string", "minLength": 1},
+    "receipt_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "status": {"enum": ["certified", "failed"]},
+    "scope": {"const": "host-reference-behavior-only"},
+    "limitations": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "package_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package_id", "package_version", "manifest_sha256", "integrity_sha256", "adapter_sha256", "runtime_sha256"],
+      "properties": {
+        "package_id": {"type": "string", "minLength": 1},
+        "package_version": {"type": "string", "minLength": 1},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "integrity_sha256": {"$ref": "#/$defs/sha256"},
+        "adapter_sha256": {"$ref": "#/$defs/sha256"},
+        "runtime_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

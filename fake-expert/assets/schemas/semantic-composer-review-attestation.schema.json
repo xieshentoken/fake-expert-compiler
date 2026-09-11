@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tkc.semantic-composer-review-attestation/v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "attestation_id", "candidate_id", "candidate_sha256", "review_plan_sha256", "reviewer_instance", "proposer_instance", "verdict", "difference_observation", "evidence_checked", "attestation_level", "attestation_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-composer-review-attestation/v0.1"},
+    "attestation_id": {"type": "string"},
+    "candidate_id": {"type": "string"},
+    "candidate_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "review_plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "reviewer_instance": {"type": "string"},
+    "proposer_instance": {"type": "string"},
+    "verdict": {"enum": ["accepted", "rejected"]},
+    "difference_observation": {"type": "string", "minLength": 1},
+    "evidence_checked": {"const": true},
+    "attestation_level": {"const": "host-orchestrator-recorded-not-cryptographic"},
+    "attestation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

@@ -1,0 +1,11 @@
+# Optional local layout/OCR adapters. The canonical evidence extractor remains
+# pypdf==6.10.0. Install only the explicitly selected adapter in an isolated local
+# environment. These lines do not download model files and the compiler never
+# enables model-network access.
+PyMuPDF>=1.23,<2.0
+docling>=2.0,<3.0
+# v0.4.0 primary scanned-page adapter; Paddle runtime is platform-specific and must
+# be installed separately when the target host has an authorized preinstalled model.
+paddleocr>=2.7,<4.0
+# Optional local baseline only; never a silent fallback for PaddleOCR/Docling.
+pytesseract>=0.3,<1.0

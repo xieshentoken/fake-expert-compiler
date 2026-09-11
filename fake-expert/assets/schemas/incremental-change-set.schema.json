@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.incremental-change-set/v0.2",
+  "type": "object",
+  "required": ["schema_version", "compiler_version", "protocol", "generated_at", "old_dag_sha256", "new_dag_sha256", "nodes", "edges", "root_causes", "invalidations", "reuse", "action_plan", "safety_violations", "fail_closed", "legacy_diff_report"],
+  "properties": {
+    "schema_version": {"const": "tkc.incremental-change-set/v0.2"},
+    "compiler_version": {"const": "0.12.0-incremental-build-dag"},
+    "protocol": {"const": "incremental-build-dag-v0.2"},
+    "generated_at": {"type": "string"},
+    "old_dag_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "new_dag_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nodes": {"type": "object", "required": ["added", "changed", "removed", "unchanged"], "properties": {"added": {"type": "array"}, "changed": {"type": "array"}, "removed": {"type": "array"}, "unchanged": {"type": "array"}}, "additionalProperties": false},
+    "edges": {"type": "object"},
+    "root_causes": {"type": "array"},
+    "invalidations": {"type": "array"},
+    "reuse": {"type": "array"},
+    "action_plan": {"type": "array"},
+    "safety_violations": {"type": "array"},
+    "fail_closed": {"type": "boolean"},
+    "legacy_diff_report": {"type": ["object", "null"]}
+  },
+  "additionalProperties": false
+}

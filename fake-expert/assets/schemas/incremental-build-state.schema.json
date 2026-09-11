@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.incremental-build-state/v0.2",
+  "type": "object",
+  "required": ["schema_version", "compiler_version", "protocol", "state", "dag_sha256", "plan_sha256", "completed_actions", "paused_gates", "receipt_ids", "receipts_sha256", "policy", "state_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.incremental-build-state/v0.2"},
+    "compiler_version": {"const": "0.12.0-incremental-build-dag"},
+    "protocol": {"const": "incremental-build-dag-v0.2"},
+    "state": {"enum": ["built", "no-op", "paused", "prepared"]},
+    "dag_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "plan_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "state_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "completed_actions": {"type": "array"},
+    "paused_gates": {"type": "array"},
+    "receipt_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "receipts_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "pause_reason": {"type": ["string", "null"]},
+    "policy": {"type": "object"}
+  },
+  "additionalProperties": false
+}

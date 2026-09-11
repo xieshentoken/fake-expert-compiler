@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tkc.semantic-difference/v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "difference_id", "difference_sha256", "left_ref", "right_ref", "difference_kind", "left_value_hash", "right_value_hash", "evidence_binding_ids", "status", "review_requirement", "resolution"],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-difference/v0.1"},
+    "difference_id": {"type": "string", "pattern": "^sdiff-[0-9a-f]{24}$"},
+    "difference_sha256": {"$ref": "#/$defs/sha"},
+    "left_ref": {"type": "string", "pattern": "^scref-[0-9a-f]{24}$"},
+    "right_ref": {"type": "string", "pattern": "^scref-[0-9a-f]{24}$"},
+    "difference_kind": {"enum": ["definition", "assumption", "applicability", "failure_condition", "numeric", "symbol", "unit", "dimension"]},
+    "left_value_hash": {"$ref": "#/$defs/sha"},
+    "right_value_hash": {"$ref": "#/$defs/sha"},
+    "evidence_binding_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^sebind-[0-9a-f]{24}$"}},
+    "status": {"const": "candidate"},
+    "review_requirement": {"$ref": "#/$defs/review"},
+    "resolution": {"const": "preserve-separate-no-consensus"}
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["risk_tier", "required_reviewer_count", "reasons"],
+      "properties": {
+        "risk_tier": {"enum": ["ordinary", "high"]},
+        "required_reviewer_count": {"type": "integer", "minimum": 1, "maximum": 2},
+        "reasons": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-benchmark-prediction.schema.json",
+  "title": "TKC Phase 7D.5B private frozen prediction row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "job_id", "item_id", "item_sha256", "split", "visual_mode", "model", "output", "output_sha256", "runtime", "evaluator_instance"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-benchmark-prediction/v0.1"},
+    "protocol": {"const": "visual-benchmark-v0.1"},
+    "job_id": {"type": "string"},
+    "item_id": {"type": "string"},
+    "item_sha256": {"$ref": "#/$defs/hash"},
+    "split": {"enum": ["calibration", "test"]},
+    "visual_mode": {"enum": ["off", "auto", "full"]},
+    "model": {"type": "object", "additionalProperties": false, "required": ["model_id", "thinking", "configuration_sha256"], "properties": {"model_id": {"const": "GPT-5.6 Luna"}, "thinking": {"const": "max"}, "configuration_sha256": {"$ref": "#/$defs/hash"}}},
+    "output": {"type": "object"},
+    "output_sha256": {"$ref": "#/$defs/hash"},
+    "runtime": {"type": "object", "additionalProperties": false, "required": ["elapsed_ms", "cold_start_ms", "warm_repeat_ms", "rss_peak_bytes", "model_load_calls", "render_count", "crop_bytes", "output_bytes", "model_invocations", "environment_sha256"], "properties": {"elapsed_ms": {"type": "number", "minimum": 0}, "cold_start_ms": {"type": "number", "minimum": 0}, "warm_repeat_ms": {"type": "number", "minimum": 0}, "rss_peak_bytes": {"type": "number", "minimum": 0}, "model_load_calls": {"type": "number", "minimum": 0}, "render_count": {"type": "number", "minimum": 0}, "crop_bytes": {"type": "number", "minimum": 0}, "output_bytes": {"type": "number", "minimum": 0}, "model_invocations": {"type": "number", "minimum": 0}, "environment_sha256": {"$ref": "#/$defs/hash"}}},
+    "evaluator_instance": {"type": "string", "minLength": 1}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.3/visual-review-overlay.schema.json",
+  "title": "TKC candidate visual review overlay manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_sha256", "candidate_only", "synthetic_only", "review_authoring", "promotion", "objects", "cells", "series", "relations", "review_tasks", "receipt_hashes", "overlay_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-review-overlay/v0.3"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "candidate_only": {"const": true},
+    "synthetic_only": {"type": "boolean"},
+    "review_authoring": {"const": false},
+    "promotion": {"const": false},
+    "objects": {"type": "array", "items": {"$ref": "#/$defs/object_ref"}},
+    "cells": {"type": "array", "items": {"$ref": "#/$defs/cell_ref"}},
+    "series": {"type": "array", "items": {"$ref": "#/$defs/series_ref"}},
+    "relations": {"type": "array", "items": {"$ref": "#/$defs/relation_ref"}},
+    "review_tasks": {"type": "array", "items": {"$ref": "#/$defs/task"}},
+    "receipt_hashes": {"type": "array", "items": {"$ref": "#/$defs/hash"}, "uniqueItems": true},
+    "overlay_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "bbox": {"anyOf": [{"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}, {"type": "number"}], "items": false, "minItems": 4, "maxItems": 4}, {"type": "null"}]},
+    "object_ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["visual_object_id", "type", "physical_page", "bbox", "render_sha256", "crop_sha256", "input_sha256", "object_sha256"],
+      "properties": {
+        "visual_object_id": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"},
+        "type": {"type": "string", "minLength": 1},
+        "physical_page": {"type": "integer", "minimum": 1},
+        "bbox": {"$ref": "#/$defs/bbox"},
+        "render_sha256": {"$ref": "#/$defs/hash"},
+        "crop_sha256": {"anyOf": [{"$ref": "#/$defs/hash"}, {"type": "null"}]},
+        "input_sha256": {"$ref": "#/$defs/hash"},
+        "object_sha256": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "cell_ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cell_id", "table_grid_id", "table_grid_sha256", "physical_page", "bbox", "crop_sha256", "source_anchor_sha256"],
+      "properties": {
+        "cell_id": {"type": "string", "minLength": 1},
+        "table_grid_id": {"type": "string", "pattern": "^tg-[0-9a-f]{20}$"},
+        "table_grid_sha256": {"$ref": "#/$defs/hash"},
+        "physical_page": {"type": "integer", "minimum": 1},
+        "bbox": {"$ref": "#/$defs/bbox"},
+        "crop_sha256": {"anyOf": [{"$ref": "#/$defs/hash"}, {"type": "null"}]},
+        "source_anchor_sha256": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "series_ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["visual_object_id", "parent", "physical_page", "bbox", "input_sha256", "object_sha256"],
+      "properties": {
+        "visual_object_id": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"},
+        "parent": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"},
+        "physical_page": {"type": "integer", "minimum": 1},
+        "bbox": {"$ref": "#/$defs/bbox"},
+        "input_sha256": {"$ref": "#/$defs/hash"},
+        "object_sha256": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "relation_ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["visual_relation_id", "relation_type", "physical_page", "relation_sha256"],
+      "properties": {
+        "visual_relation_id": {"type": "string", "pattern": "^vr-[0-9a-f]{20}$"},
+        "relation_type": {"type": "string", "minLength": 1},
+        "physical_page": {"type": "integer", "minimum": 1},
+        "relation_sha256": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "task": {
+      "type": "object", "additionalProperties": false,
+      "required": ["task_id", "kind", "identifier", "physical_page", "reason", "required_reviewers", "candidate_only"],
+      "properties": {
+        "task_id": {"type": "string", "pattern": "^vrot-[0-9a-f]{20}$"},
+        "kind": {"enum": ["object", "cell", "series", "relation"]},
+        "identifier": {"type": "string", "minLength": 1},
+        "physical_page": {"type": "integer", "minimum": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "required_reviewers": {"type": "integer", "minimum": 1, "maximum": 2},
+        "candidate_only": {"const": true}
+      }
+    }
+  }
+}

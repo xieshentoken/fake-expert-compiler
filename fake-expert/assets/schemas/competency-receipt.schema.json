@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/competency-receipt.schema.json",
+  "title": "TKC Deterministic Competency Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "receipt_id", "test_id", "run_id", "evaluator", "evaluator_version", "test_sha256", "catalog_sha256", "runtime_sha256", "response_sha256", "checks", "verdict"],
+  "properties": {
+    "schema_version": {"const": "tkc.competency-receipt/v0.1"},
+    "receipt_id": {"type": "string", "minLength": 1},
+    "test_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "evaluator": {"const": "deterministic-runtime"},
+    "evaluator_version": {"const": "deterministic-reference-evaluator-v0.1"},
+    "test_sha256": {"$ref": "#/$defs/sha256"},
+    "catalog_sha256": {"$ref": "#/$defs/sha256"},
+    "runtime_sha256": {"$ref": "#/$defs/sha256"},
+    "response_sha256": {"$ref": "#/$defs/sha256"},
+    "checks": {"type": "array", "items": {"type": "object"}},
+    "verdict": {"enum": ["passed", "failed"]}
+  },
+  "$defs": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

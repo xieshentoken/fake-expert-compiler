@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.4/pdf-ocr-coordinate-transform.schema.json",
+  "title": "TKC OCR coordinate transform receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "source_sha256", "physical_page", "render_sha256", "render_dpi", "source_space", "target_space", "image_dimensions_px", "pdf_dimensions_points", "preprocessing", "matrix_3x3", "inverse_matrix_3x3", "matrix_source", "round_trip_tolerance_points"],
+  "properties": {
+    "schema_version": {"const": "tkc.pdf-ocr-coordinate-transform/v0.1"},
+    "id": {"type": "string", "pattern": "^pct-[0-9a-f]{20}$"},
+    "source_sha256": {"$ref": "#/$defs/sha256"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "render_sha256": {"$ref": "#/$defs/sha256"},
+    "render_dpi": {"type": "integer", "minimum": 36, "maximum": 1200},
+    "source_space": {"const": "preprocessed-image-pixels-v1"},
+    "target_space": {"const": "pdf-page-top-left-points-v1"},
+    "image_dimensions_px": {"$ref": "#/$defs/dimensions"},
+    "pdf_dimensions_points": {"$ref": "#/$defs/dimensions"},
+    "preprocessing": {"type": "object"},
+    "matrix_3x3": {"$ref": "#/$defs/matrix"},
+    "inverse_matrix_3x3": {"$ref": "#/$defs/matrix"},
+    "matrix_source": {"type": "string", "minLength": 1},
+    "round_trip_tolerance_points": {"type": "number", "exclusiveMinimum": 0}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "dimensions": {"type": "object", "additionalProperties": false, "required": ["width", "height"], "properties": {"width": {"type": "number", "exclusiveMinimum": 0}, "height": {"type": "number", "exclusiveMinimum": 0}}},
+    "matrix": {"type": "array", "minItems": 9, "maxItems": 9, "items": {"type": "number"}}
+  }
+}

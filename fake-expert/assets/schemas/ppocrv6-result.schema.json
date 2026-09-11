@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/ppocrv6-result.schema.json",
+  "title": "TKC PP-OCRv6 text result adapter receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "result_shape", "raw_result", "raw_result_sha256", "normalized_result_sha256", "candidate_only", "promotion", "verified_gold"],
+  "properties": {
+    "schema_version": {"const": "tkc.ppocrv6-result/v0.1"},
+    "protocol": {"const": "ppocrv6-result-adapter-v0.1"},
+    "result_shape": {"const": "paddleocr-3.7-ocr-result-rec-fields-v1"},
+    "raw_result": {"type": ["object", "array"]},
+    "raw_result_sha256": {"$ref": "#/$defs/hash"},
+    "normalized_result_sha256": {"$ref": "#/$defs/hash"},
+    "observations": {"type": "array"},
+    "candidate_only": {"const": true},
+    "promotion": {"const": false},
+    "verified_gold": {"const": false}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

@@ -1,0 +1,118 @@
+{
+  "schema_version": "tkc.visual-review-convention-profile/v0.2",
+  "profile_id": "visual-review-convention-v0.2",
+  "profile_version": "0.2",
+  "compiler_version": "0.14.2-review-convention",
+  "protocol": "visual-review-convention-v0.2",
+  "bbox_scope": {
+    "table": {
+      "include": [
+        "table_body",
+        "table_header",
+        "table_borders"
+      ],
+      "exclude": [
+        "external_table_number",
+        "external_caption",
+        "footnotes",
+        "surrounding_body_text"
+      ]
+    },
+    "chart": {
+      "include": [
+        "plot_area",
+        "axes",
+        "ticks",
+        "axis_labels",
+        "legend",
+        "in_chart_title"
+      ],
+      "exclude": [
+        "external_caption",
+        "external_figure_number"
+      ]
+    },
+    "figure": {
+      "include": [
+        "figure_body",
+        "in_figure_annotations"
+      ],
+      "exclude": [
+        "external_caption",
+        "external_figure_number"
+      ]
+    },
+    "equation": {
+      "include": [
+        "displayed_equation_body",
+        "visible_equation_symbols",
+        "visible_equation_label_only_when_part_of_equation_object"
+      ],
+      "exclude": [
+        "surrounding_body_text",
+        "external_caption",
+        "external_equation_number"
+      ],
+      "conservative": true,
+      "table_chart_gate_impact": false
+    }
+  },
+  "caption_number_split": {
+    "table_number_field": "table_number",
+    "figure_number_field": "figure_number",
+    "canonical_caption_excludes_leading_number": true,
+    "proof": "The raw caption must begin with the same raw number field followed by one or more ASCII spaces or tabs.",
+    "separator": "ascii-space-or-tab-only",
+    "exact_prefix_only": true,
+    "no_guess_or_broad_prefix_deletion": true,
+    "raw_caption_preserved": true
+  },
+  "text_comparison": {
+    "raw_transcription_preserved": true,
+    "canonical_comparison_only": true,
+    "allowed_rules": [
+      "unicode-nfc",
+      "line-ending-unify",
+      "line-edge-trim",
+      "caption-exact-number-split"
+    ],
+    "forbidden_rules": [
+      "unicode-nfkc",
+      "case-fold",
+      "technical-identifier-fuzzy",
+      "formula-or-unit-fuzzy",
+      "numeric-lexical-coercion",
+      "character-auto-correction",
+      "punctuation-or-hyphen-fuzzy"
+    ],
+    "case_sensitive": true,
+    "technical_identifiers_exact": true,
+    "formula_and_units_exact": true,
+    "numeric_lexical_forms_exact": true,
+    "fullwidth_punctuation_exact": true
+  },
+  "bbox_equivalence": {
+    "iou_min": 0.95,
+    "edge_delta_pdf_points_max": 3.0,
+    "render_pixel_edge_max": 2.0,
+    "same_scope_required": true,
+    "same_coordinate_space_required": true,
+    "same_object_required": true,
+    "candidate_bbox_source_rule": "Use the frozen candidate BBox only when both reviewer BBoxes are equivalent to it under this rule; otherwise no canonical BBox is derived.",
+    "allow_average": false,
+    "allow_union": false,
+    "allow_intersection": false,
+    "bbox_verdict_conflict_substantive": true,
+    "raw_bboxes_preserved": true
+  },
+  "receipt_policy": {
+    "bind_profile_hash": true,
+    "bind_submission_hashes": true,
+    "bind_workpack_dispute_item_task_input_hashes": true,
+    "record_raw_and_canonical_hashes": true,
+    "record_rule_ids": true,
+    "remaining_conflicts_pause": true,
+    "gold_rows": 0,
+    "release_included": false
+  }
+}

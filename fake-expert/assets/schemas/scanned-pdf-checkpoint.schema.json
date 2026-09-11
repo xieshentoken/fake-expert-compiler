@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/scanned-pdf-checkpoint.schema.json",
+  "title": "TKC private scanned PDF page and region checkpoint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol", "compiler_version", "checkpoint_sha256",
+    "status", "bindings", "regions", "candidate_only", "promotion"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.scanned-pdf-checkpoint/v0.1"},
+    "protocol": {"const": "scanned-pdf-checkpoint-v0.1"},
+    "compiler_version": {"const": "0.14.5-scan-split-checkpoint"},
+    "checkpoint_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"enum": ["complete", "paused"]},
+    "bindings": {"type": "object", "additionalProperties": true},
+    "batch_receipt": {"type": "object"},
+    "regions": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "candidate_only": {"const": true},
+    "promotion": {"const": false}
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/scanned-pdf-structure-review.schema.json",
+  "title": "TKC bounded scanned-PDF structure review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "source_sha256", "scope", "status", "segments", "candidate_only", "promotable", "structure_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.scanned-pdf-structure-review/v0.1"},
+    "protocol": {"const": "scanned-pdf-structure-review-v0.1"},
+    "source_sha256": {"$ref": "#/$defs/hash"},
+    "scope": {"type": "object", "additionalProperties": false, "required": ["start_page", "end_page"], "properties": {"start_page": {"type": "integer", "minimum": 1}, "end_page": {"type": "integer", "minimum": 1}}},
+    "status": {"enum": ["review-required", "accepted"]},
+    "segments": {"type": "array", "items": {"$ref": "#/$defs/structureSegment"}},
+    "reviewer": {"$ref": "#/$defs/structureReviewer"},
+    "candidate_only": {"const": true},
+    "promotable": {"const": false},
+    "structure_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "structureSegment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "physical_pages", "structure_order", "parent_id", "depth", "heading_resolution_id", "candidate_ids", "selected_candidate_id", "page_range", "bbox_pdf_points", "scan_locator", "review_status"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "title": {"type": "string", "minLength": 1},
+        "physical_pages": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+        "structure_order": {"type": "integer", "minimum": 0},
+        "parent_id": {"type": ["string", "null"]},
+        "depth": {"type": "integer", "minimum": 0},
+        "heading_resolution_id": {"type": "string", "minLength": 1},
+        "candidate_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "selected_candidate_id": {"type": ["string", "null"]},
+        "page_range": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}},
+        "bbox_pdf_points": {"type": ["array", "null"], "minItems": 4, "maxItems": 4, "items": {"type": "number"}},
+        "scan_locator": {"$ref": "#/$defs/scanLocatorOrNull"},
+        "review_status": {"enum": ["review-required", "accepted"]}
+      }
+    },
+    "scanLocator": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["source_sha256", "physical_page", "render_sha256", "render_dpi", "bbox_pdf_points", "bbox_sha256", "coordinate_transform_id", "ocr_observation_ids", "transcript_span_ids", "transcript_sha256", "backend_id", "model_identity_sha256", "configuration_sha256", "coordinate_transform_scope", "render_receipt", "render_receipt_sha256", "coordinate_transform", "coordinate_transform_sha256", "transcript_row_commitments", "transcript_commitment_sha256", "observation_commitments", "backend_receipt_id", "backend_receipt_sha256", "backend_receipt_binding_sha256", "runtime_contract_sha256", "worker_sha256", "qualification_receipt_sha256", "runtime_binding_kind"],
+      "properties": {
+        "source_sha256": {"$ref": "#/$defs/hash"},
+        "physical_page": {"type": "integer", "minimum": 1},
+        "render_sha256": {"$ref": "#/$defs/hash"},
+        "render_dpi": {"type": "integer", "minimum": 1},
+        "bbox_pdf_points": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}},
+        "bbox_sha256": {"$ref": "#/$defs/hash"},
+        "coordinate_transform_id": {"type": "string", "minLength": 1},
+        "ocr_observation_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "transcript_span_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "transcript_sha256": {"$ref": "#/$defs/hash"},
+        "backend_id": {"type": "string", "minLength": 1},
+        "model_identity_sha256": {"$ref": "#/$defs/hash"},
+        "configuration_sha256": {"$ref": "#/$defs/hash"},
+        "coordinate_transform_scope": {"const": "page-render"},
+        "render_receipt": {"type": "object", "additionalProperties": true},
+        "render_receipt_sha256": {"$ref": "#/$defs/hash"},
+        "coordinate_transform": {"type": "object", "additionalProperties": true},
+        "coordinate_transform_sha256": {"$ref": "#/$defs/hash"},
+        "transcript_row_commitments": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": true}},
+        "transcript_commitment_sha256": {"$ref": "#/$defs/hash"},
+        "observation_commitments": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": true}},
+        "backend_receipt_id": {"type": "string", "minLength": 1},
+        "backend_receipt_sha256": {"$ref": "#/$defs/hash"},
+        "backend_receipt_binding_sha256": {"$ref": "#/$defs/hash"},
+        "runtime_contract_sha256": {"$ref": "#/$defs/hash"},
+        "worker_sha256": {"$ref": "#/$defs/hash"},
+        "qualification_receipt_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "runtime_binding_kind": {"enum": ["external-local-runtime", "synthetic-test-only"]}
+      }
+    },
+    "scanLocatorOrNull": {"$ref": "#/$defs/scanLocator"},
+    "structureReviewer": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["proposer_instance", "reviewer_instance", "review_session_id", "review_plan_sha256", "review_input_sha256", "candidate_sha256", "external_fragment_sha256", "attestation_sha256", "review_independence_basis"],
+      "properties": {
+        "proposer_instance": {"type": "string", "minLength": 1},
+        "reviewer_instance": {"type": "string", "minLength": 1},
+        "review_session_id": {"type": "string", "minLength": 1},
+        "review_plan_sha256": {"$ref": "#/$defs/hash"},
+        "review_input_sha256": {"type": "object", "additionalProperties": {"$ref": "#/$defs/hash"}},
+        "candidate_sha256": {"type": "object", "additionalProperties": {"$ref": "#/$defs/hash"}},
+        "external_fragment_sha256": {"$ref": "#/$defs/hash"},
+        "attestation_sha256": {"$ref": "#/$defs/hash"},
+        "review_independence_basis": {"const": "host-plan-proposer-reviewer-separation-v1"}
+      }
+    }
+  }
+}

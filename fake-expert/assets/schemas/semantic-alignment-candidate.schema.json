@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tkc.semantic-alignment-candidate/v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "alignment_candidate_id", "alignment_candidate_sha256", "left_ref", "right_ref", "relation_type", "semantic_status", "signals", "difference_ids", "conflict_ids", "unit_map_ids", "review_requirement", "evidence_binding_ids", "resolution", "promotion_eligible"],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-alignment-candidate/v0.1"},
+    "alignment_candidate_id": {"type": "string", "pattern": "^salign-[0-9a-f]{24}$"},
+    "alignment_candidate_sha256": {"$ref": "#/$defs/sha"},
+    "left_ref": {"type": "string", "pattern": "^scref-[0-9a-f]{24}$"},
+    "right_ref": {"type": "string", "pattern": "^scref-[0-9a-f]{24}$"},
+    "relation_type": {"enum": ["equivalent_candidate", "broader_candidate", "narrower_candidate", "related_candidate", "contradicts_candidate", "alias_candidate"]},
+    "semantic_status": {"const": "candidate"},
+    "signals": {"$ref": "#/$defs/signals"},
+    "difference_ids": {"type": "array", "items": {"type": "string", "pattern": "^sdiff-[0-9a-f]{24}$"}},
+    "conflict_ids": {"type": "array", "items": {"type": "string", "pattern": "^sconflict-[0-9a-f]{24}$"}},
+    "unit_map_ids": {"type": "array", "items": {"type": "string", "pattern": "^sunit-[0-9a-f]{24}$"}},
+    "review_requirement": {"$ref": "#/$defs/review"},
+    "evidence_binding_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^sebind-[0-9a-f]{24}$"}},
+    "resolution": {"const": "preserve-separate-no-consensus"},
+    "promotion_eligible": {"const": false}
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["risk_tier", "required_reviewer_count", "reasons"],
+      "properties": {
+        "risk_tier": {"enum": ["ordinary", "high"]},
+        "required_reviewer_count": {"type": "integer", "minimum": 1, "maximum": 2},
+        "reasons": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "signals": {
+      "type": "object", "additionalProperties": false,
+      "required": ["shared_alias_groups", "shared_normalized_terms", "symbol_overlap", "lexical_score", "lexical_match_is_not_equivalence", "explicit_relation_proposal", "high_risk"],
+      "properties": {
+        "shared_alias_groups": {"type": "array", "items": {"type": "string"}},
+        "shared_normalized_terms": {"type": "array", "items": {"type": "string"}},
+        "symbol_overlap": {"type": "array", "items": {"type": "string"}},
+        "lexical_score": {"type": "number", "minimum": 0, "maximum": 1},
+        "lexical_match_is_not_equivalence": {"const": true},
+        "explicit_relation_proposal": {"type": "boolean"},
+        "high_risk": {"type": "boolean"}
+      }
+    }
+  }
+}

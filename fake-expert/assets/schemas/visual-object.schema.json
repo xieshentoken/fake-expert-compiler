@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-object.schema.json",
+  "title": "TKC candidate visual object",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "visual_object_id", "type", "subtype", "parent", "source_sha256", "physical_page", "canonical_render_sha256", "canonical_render_dpi", "canonical_render_rotation", "coordinate_space", "page_width", "page_height", "bbox", "polygon", "page_geometry", "attributes", "uncertainty", "crop_sha256", "parser_receipt", "backend_receipt", "model_receipt", "config_receipt", "status", "input_sha256", "object_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-object/v0.1"},
+    "visual_object_id": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"},
+    "type": {"enum": ["figure", "diagram", "plot", "table", "equation_display", "caption", "axis", "tick", "legend", "series", "table_cell", "annotation"]},
+    "subtype": {"type": "string"},
+    "label": {"type": ["string", "null"]},
+    "parent": {"type": ["string", "null"]},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "canonical_render_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "canonical_render_dpi": {"type": "integer", "minimum": 36, "maximum": 1200},
+    "canonical_render_rotation": {"type": "integer", "enum": [0, 90, 180, 270]},
+    "coordinate_space": {"const": "pdf-page-top-left-points-v1"},
+    "page_width": {"type": "number", "exclusiveMinimum": 0},
+    "page_height": {"type": "number", "exclusiveMinimum": 0},
+    "bbox": {"$ref": "#/$defs/bbox"},
+    "polygon": {"type": ["array", "null"], "items": {"$ref": "#/$defs/point"}, "minItems": 2},
+    "page_geometry": {"$ref": "#/$defs/page_geometry"},
+    "attributes": {"type": "object", "additionalProperties": true},
+    "uncertainty": {"$ref": "#/$defs/uncertainty"},
+    "crop_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "parser_receipt": {"type": "object", "additionalProperties": true},
+    "backend_receipt": {"type": "object", "additionalProperties": true},
+    "model_receipt": {"type": "object", "additionalProperties": true},
+    "config_receipt": {"type": "object", "additionalProperties": true},
+    "content_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "status": {"enum": ["candidate", "reviewed", "promoted"]},
+    "input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "object_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "number": {"type": "number"},
+    "point": {"type": "array", "prefixItems": [{"$ref": "#/$defs/number"}, {"$ref": "#/$defs/number"}], "items": false, "minItems": 2, "maxItems": 2},
+    "bbox": {"type": "array", "prefixItems": [{"$ref": "#/$defs/number"}, {"$ref": "#/$defs/number"}, {"$ref": "#/$defs/number"}, {"$ref": "#/$defs/number"}], "items": false, "minItems": 4, "maxItems": 4},
+    "page_geometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["media_box", "crop_box", "rotation", "coordinate_origin", "physical_page"],
+      "properties": {
+        "media_box": {"$ref": "#/$defs/bbox"},
+        "crop_box": {"$ref": "#/$defs/bbox"},
+        "rotation": {"type": "integer", "enum": [0, 90, 180, 270]},
+        "coordinate_origin": {"const": "mediabox-top-left"},
+        "physical_page": {"type": "integer", "minimum": 1}
+      }
+    },
+    "uncertainty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level"],
+      "properties": {
+        "level": {"type": "string", "minLength": 1},
+        "numeric_values_verified": {"type": "boolean"},
+        "geometry_confirmed": {"type": "boolean"},
+        "series_values_verified": {"type": "boolean"},
+        "axis_or_series_visual_confirmation": {"type": "boolean"}
+      }
+    }
+  }
+}

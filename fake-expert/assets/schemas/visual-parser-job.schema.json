@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.4/visual-parser-job.schema.json",
+  "title": "TKC Phase 7D.3 selective visual parser job",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol", "compiler_version", "source", "scope",
+    "output_root", "render", "backend_selection", "backend_receipts",
+    "model_roots", "backend_config", "backend_config_sha256", "external_runtime", "policy",
+    "test_mode", "test_only_authorized", "synthetic_only", "state",
+    "paused_gates", "created_at", "visual_policy", "visual_mode", "visual_kinds", "visual_budget", "visual_context", "policy_sha256", "job_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-parser-job/v0.4"},
+    "protocol": {"const": "visual-parser-orchestrator-v0.4"},
+    "compiler_version": {"type": "string"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "format", "pypdf_version", "page_count", "provenance"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "format": {"const": "pdf"},
+        "pypdf_version": {"const": "6.10.0"},
+        "page_count": {"type": "integer", "minimum": 1},
+        "provenance": {"enum": ["user-supplied-local-pdf", "synthetic-fixture"]}
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pages", "page_selection", "bounded", "raster_regions"],
+      "properties": {
+        "pages": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+        "page_selection": {"enum": ["explicit", "whole-input-default"]},
+        "bounded": {"const": true},
+        "raster_regions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["physical_page", "bbox_pdf_points", "coordinate_space", "source_anchor", "render_sha256", "crop_sha256"],
+            "properties": {
+              "region_id": {"type": "string"},
+              "physical_page": {"type": "integer", "minimum": 1},
+              "bbox_pdf_points": {
+                "type": "array",
+                "items": {"type": "number"},
+                "minItems": 4,
+                "maxItems": 4
+              },
+              "coordinate_space": {"const": "pdf-page-top-left-points-v1"},
+              "source_anchor": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["anchor_id", "anchor_kind", "source_sha256"],
+                "properties": {
+                  "anchor_id": {"type": "string", "minLength": 1},
+                  "anchor_kind": {"type": "string", "minLength": 1},
+                  "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                }
+              },
+              "render_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "crop_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    },
+    "output_root": {"type": "string"},
+    "render": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pdftoppm", "dpi"],
+      "properties": {
+        "pdftoppm": {"type": "string"},
+        "dpi": {"type": "integer", "minimum": 36, "maximum": 1200}
+      }
+    },
+    "backend_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary", "challenger", "baseline"],
+      "properties": {
+        "primary": {"type": ["string", "null"]},
+        "challenger": {"type": ["string", "null"]},
+        "baseline": {"type": ["string", "null"]}
+      }
+    },
+    "backend_receipts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["backend_id", "adapter_id", "synthetic_only", "available", "candidate_only", "model_required", "model_download", "network_enabled", "model"],
+        "properties": {
+          "backend_id": {"type": "string"},
+          "adapter_id": {"type": "string"},
+          "synthetic_only": {"type": "boolean"},
+          "available": {"type": "boolean"},
+          "candidate_only": {"const": true},
+          "model_required": {"type": "boolean"},
+          "model_download": {"const": false},
+          "network_enabled": {"const": false},
+          "unavailable_code": {"type": "string"},
+          "model": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["available", "identity_sha256"],
+            "properties": {
+              "available": {"type": "boolean"},
+              "code": {"type": "string"},
+              "path": {"type": "string"},
+              "file_count": {"type": "integer", "minimum": 0},
+              "files_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "identity_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    },
+    "model_roots": {"type": "object", "additionalProperties": {"type": ["string", "null"]}},
+    "backend_config": {"type": "object", "additionalProperties": {}},
+    "backend_config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "external_runtime": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["native_text_first", "canonical_native_extractor", "network_enabled", "model_download", "silent_fallback", "candidate_only", "parser_disagreement_is_conflict", "review_authoring", "promotion", "pause_only_resume", "synthetic_only"],
+      "properties": {
+        "native_text_first": {"const": true},
+        "canonical_native_extractor": {"const": "pypdf==6.10.0"},
+        "network_enabled": {"const": false},
+        "model_download": {"const": false},
+        "silent_fallback": {"const": false},
+        "candidate_only": {"const": true},
+        "parser_disagreement_is_conflict": {"const": true},
+        "review_authoring": {"const": false},
+        "promotion": {"const": false},
+        "pause_only_resume": {"const": true},
+        "synthetic_only": {"type": "boolean"}
+      }
+    },
+    "test_mode": {"type": "boolean"},
+    "test_only_authorized": {"type": "boolean"},
+    "synthetic_only": {"type": "boolean"},
+    "state": {"enum": ["planned", "paused", "candidate-only", "blocked"]},
+    "paused_gates": {"type": "array", "items": {"type": "string"}},
+    "created_at": {"type": "string"},
+    "fake_fixture": {"type": "object", "additionalProperties": {}},
+    "visual_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "protocol", "mode", "visual_kinds", "budget", "visual_context", "candidate_only", "promotion", "review_authoring", "network_enabled", "model_download", "silent_fallback", "policy_sha256"],
+      "properties": {
+        "schema_version": {"const": "tkc.visual-policy/v0.1"}, "protocol": {"const": "selective-visual-pipeline-v0.1"}, "mode": {"enum": ["off", "auto", "full"]},
+        "visual_kinds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["table", "figure", "chart", "diagram", "equation"]}},
+        "budget": {"type": "object", "additionalProperties": false, "required": ["max_visual_pages", "max_visual_regions", "max_visual_seconds"], "properties": {"max_visual_pages": {"type": ["integer", "null"], "minimum": 0}, "max_visual_regions": {"type": ["integer", "null"], "minimum": 0}, "max_visual_seconds": {"type": ["number", "null"], "minimum": 0}}},
+        "visual_context": {"enum": ["none", "index", "on-demand"]}, "candidate_only": {"const": true}, "promotion": {"const": false}, "review_authoring": {"const": false}, "network_enabled": {"const": false}, "model_download": {"const": false}, "silent_fallback": {"const": false}, "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "visual_mode": {"enum": ["off", "auto", "full"]},
+    "visual_kinds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["table", "figure", "chart", "diagram", "equation"]}},
+    "visual_budget": {"type": "object", "additionalProperties": false, "required": ["max_visual_pages", "max_visual_regions", "max_visual_seconds"], "properties": {"max_visual_pages": {"type": ["integer", "null"], "minimum": 0}, "max_visual_regions": {"type": ["integer", "null"], "minimum": 0}, "max_visual_seconds": {"type": ["number", "null"], "minimum": 0}}},
+    "visual_context": {"enum": ["none", "index", "on-demand"]},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "job_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

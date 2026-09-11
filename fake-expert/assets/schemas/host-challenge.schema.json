@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/host-challenge.schema.json",
+  "title": "TKC Host Challenge",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "category", "prompt"],
+  "properties": {
+    "schema_version": {"const": "tkc.host-challenge/v0.1"},
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+    "category": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+    "prompt": {"type": "string", "minLength": 1, "maxLength": 4000}
+  }
+}

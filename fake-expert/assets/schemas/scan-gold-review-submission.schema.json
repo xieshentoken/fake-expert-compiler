@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/scan-gold-review-submission.schema.json",
+  "title": "Portable Scan Gold Review human submission",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "workbench_instance_id", "plan_sha256", "profile_sha256", "reviewer", "declarations", "structure_items", "ocr_samples"],
+  "properties": {
+    "schema_version": {"const": "tkc.scan-gold-review-submission/v0.2"},
+    "protocol": {"const": "scan-gold-review-v0.2"},
+    "compiler_version": {"const": "0.14.7-scan-gold-coverage"},
+    "workbench_instance_id": {"type": "string", "minLength": 1},
+    "plan_sha256": {"$ref": "#/$defs/hash"},
+    "profile_sha256": {"$ref": "#/$defs/hash"},
+    "reviewer": {"$ref": "#/$defs/reviewer"},
+    "declarations": {"$ref": "#/$defs/declarations"},
+    "structure_items": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/structure_item"}},
+    "ocr_samples": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/ocr_item"}},
+    "batch_audit": {"type": "array", "items": {"$ref": "#/$defs/batch_audit"}},
+    "exported_at": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "reviewer": {"type": "object", "additionalProperties": false, "required": ["reviewer_instance", "review_session_id", "proposer_instance"], "properties": {"reviewer_instance": {"type": "string", "minLength": 1}, "review_session_id": {"type": "string", "minLength": 1}, "proposer_instance": {"type": "string", "minLength": 1}}},
+    "declarations": {"type": "object", "additionalProperties": false, "required": ["qualified_reviewer", "reviewed_specified_source_evidence", "did_not_view_hidden_results", "did_not_change_split", "reviewed_specified_render_region", "not_evaluator", "independent_from_proposer"], "properties": {"qualified_reviewer": {"type": "boolean"}, "reviewed_specified_source_evidence": {"type": "boolean"}, "did_not_view_hidden_results": {"type": "boolean"}, "did_not_change_split": {"type": "boolean"}, "reviewed_specified_render_region": {"type": "boolean"}, "not_evaluator": {"type": "boolean"}, "independent_from_proposer": {"type": "boolean"}}},
+    "input_hashes_structure": {"type": "object", "additionalProperties": false, "required": ["source_sha256", "context_sha256", "split_contract_sha256", "region_sha256s"], "properties": {"source_sha256": {"$ref": "#/$defs/hash"}, "context_sha256": {"$ref": "#/$defs/hash"}, "split_contract_sha256": {"$ref": "#/$defs/hash"}, "region_sha256s": {"type": "object", "additionalProperties": {"$ref": "#/$defs/hash"}}}},
+    "input_hashes_ocr": {"type": "object", "additionalProperties": false, "required": ["source_sha256", "context_sha256", "region_sha256", "sample_sha256", "sample_bbox_sha256"], "properties": {"source_sha256": {"$ref": "#/$defs/hash"}, "context_sha256": {"$ref": "#/$defs/hash"}, "region_sha256": {"$ref": "#/$defs/hash"}, "sample_sha256": {"$ref": "#/$defs/hash"}, "sample_bbox_sha256": {"$ref": "#/$defs/hash"}}},
+    "structure_region_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["region_id", "region_order", "bbox_verdict", "canonical_bbox_pdf_points", "label_state", "printed_page_label", "readability", "abnormal_state", "notes"],
+      "properties": {"region_id": {"type": "string", "minLength": 1}, "region_order": {"type": "integer", "minimum": 0, "maximum": 1}, "bbox_verdict": {"enum": ["confirmed", "corrected", "uncertain"]}, "canonical_bbox_pdf_points": {"type": ["array", "null"], "items": {"type": "number"}, "minItems": 4, "maxItems": 4}, "label_state": {"enum": ["confirmed", "unreadable", "not_text", "needs_review"]}, "printed_page_label": {"type": ["string", "null"]}, "readability": {"enum": ["readable", "unreadable", "not_text", "needs_review"]}, "abnormal_state": {"enum": ["none", "skew", "crop_loss", "occlusion", "fold", "blur", "other", "needs_review"]}, "notes": {"type": "string"}}
+    },
+    "structure_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_status", "exclusion_reason", "rotation_verdict", "canonical_rotation_clockwise", "split_verdict", "canonical_boundary_px", "canonical_region_order", "canonical_region_ids", "page_readability", "abnormal_state", "regions", "notes"],
+      "properties": {"review_status": {"enum": ["complete", "abnormal", "unreadable", "needs_review"]}, "exclusion_reason": {"type": ["string", "null"]}, "rotation_verdict": {"enum": ["", "confirmed", "corrected"]}, "canonical_rotation_clockwise": {"type": ["integer", "null"], "enum": [0, 90, 180, 270, null]}, "split_verdict": {"enum": ["", "confirmed", "corrected"]}, "canonical_boundary_px": {"type": ["integer", "null"], "minimum": 1}, "canonical_region_order": {"type": ["string", "null"], "enum": ["", "left-to-right", "right-to-left", null]}, "canonical_region_ids": {"type": ["array", "null"], "items": {"type": "string", "minLength": 1}}, "page_readability": {"enum": ["readable", "unreadable", "not_text", "needs_review"]}, "abnormal_state": {"enum": ["none", "skew", "crop_loss", "occlusion", "fold", "blur", "other", "needs_review"]}, "regions": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/structure_region_review"}}, "notes": {"type": "string"}}
+    },
+    "ocr_review": {"type": "object", "additionalProperties": false, "required": ["review_status", "canonical_text", "excluded_reason", "notes"], "properties": {"review_status": {"enum": ["complete", "unreadable", "not_text", "needs_review"]}, "canonical_text": {"type": ["string", "null"]}, "excluded_reason": {"type": ["string", "null"]}, "notes": {"type": "string"}}},
+    "structure_item": {"type": "object", "additionalProperties": false, "required": ["item_id", "item_sha256", "input_hashes", "review"], "properties": {"item_id": {"type": "string", "minLength": 1}, "item_sha256": {"$ref": "#/$defs/hash"}, "input_hashes": {"$ref": "#/$defs/input_hashes_structure"}, "review": {"$ref": "#/$defs/structure_review"}}},
+    "ocr_item": {"type": "object", "additionalProperties": false, "required": ["item_id", "item_sha256", "input_hashes", "review"], "properties": {"item_id": {"type": "string", "minLength": 1}, "item_sha256": {"$ref": "#/$defs/hash"}, "input_hashes": {"$ref": "#/$defs/input_hashes_ocr"}, "review": {"$ref": "#/$defs/ocr_review"}}},
+    "batch_fields": {"type": "object", "additionalProperties": false, "required": ["rotation", "boundary", "region_order"], "properties": {"rotation": {"const": true}, "boundary": {"const": true}, "region_order": {"const": true}}},
+    "batch_pass_fields": {"type": "object", "additionalProperties": false, "required": ["review_status", "rotation", "boundary", "region_order", "page_readability", "page_abnormal_state", "region_bbox", "region_label_state", "region_readability", "region_abnormal_state"], "properties": {"review_status": {"const": true}, "rotation": {"const": true}, "boundary": {"const": true}, "region_order": {"const": true}, "page_readability": {"const": true}, "page_abnormal_state": {"const": true}, "region_bbox": {"const": true}, "region_label_state": {"const": true}, "region_readability": {"const": true}, "region_abnormal_state": {"const": true}}},
+    "candidate_fields": {"type": "object", "additionalProperties": false, "required": ["rotation", "boundary", "region_order"], "properties": {"rotation": {"type": "integer", "enum": [0, 90, 180, 270]}, "boundary": {"type": "integer", "minimum": 1}, "region_order": {"enum": ["left-to-right", "right-to-left"]}}},
+    "batch_audit": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["audit_id", "action", "item_ids", "fields", "per_item_visible", "at"],
+          "properties": {
+            "audit_id": {"type": "string", "minLength": 1},
+            "action": {"const": "batch-confirm-structure"},
+            "item_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+            "fields": {"$ref": "#/$defs/batch_fields"},
+            "per_item_visible": {"const": true},
+            "at": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["audit_id", "action", "item_ids", "fields", "per_item_visible", "at", "source_item_id", "candidate_fields", "region_ids_by_item"],
+          "properties": {
+            "audit_id": {"type": "string", "minLength": 1},
+            "action": {"const": "batch-confirm-structure"},
+            "item_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+            "fields": {"$ref": "#/$defs/batch_fields"},
+            "per_item_visible": {"const": true},
+            "at": {"type": "string", "minLength": 1},
+            "source_item_id": {"type": "string", "minLength": 1},
+            "candidate_fields": {"$ref": "#/$defs/candidate_fields"},
+            "region_ids_by_item": {"type": "object", "additionalProperties": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string", "minLength": 1}}}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["audit_id", "action", "item_ids", "fields", "per_item_visible", "at", "candidate_fields_by_item", "region_ids_by_item", "human_confirmation"],
+          "properties": {
+            "audit_id": {"type": "string", "minLength": 1},
+            "action": {"const": "batch-pass-structure"},
+            "item_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+            "fields": {"$ref": "#/$defs/batch_pass_fields"},
+            "per_item_visible": {"const": true},
+            "at": {"type": "string", "minLength": 1},
+            "candidate_fields_by_item": {"type": "object", "additionalProperties": {"$ref": "#/$defs/candidate_fields"}},
+            "region_ids_by_item": {"type": "object", "additionalProperties": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string", "minLength": 1}}},
+            "human_confirmation": {"const": true}
+          }
+        }
+      ]
+    }
+  }
+}

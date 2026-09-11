@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/portable-visual-recall-revision.schema.json",
+  "title": "TKC portable visual bounded recall revision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "workbench_instance_id", "workbench_manifest_sha256", "source_sha256", "reviewer", "status", "assurance", "scope", "object_count", "candidate_count", "metrics", "file_hashes", "verified_gold", "promotion_allowed", "release_included", "immutable", "revision_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.portable-visual-recall-revision/v0.1"},
+    "protocol": {"const": "portable-visual-recall-review-v0.1"},
+    "compiler_version": {"const": "0.14.10-portable-visual-recall-review"},
+    "workbench_instance_id": {"type": "string", "pattern": "^pvrw-[0-9a-f]{20}$"},
+    "workbench_manifest_sha256": {"$ref": "#/$defs/hash"},
+    "source_sha256": {"$ref": "#/$defs/hash"},
+    "reviewer": {"type": "object"},
+    "status": {"const": "accepted-single-reviewer-bounded-recall"},
+    "assurance": {"const": "single-independent-reviewer-bounded-census"},
+    "scope": {"type": "object"},
+    "object_count": {"type": "integer", "minimum": 0},
+    "candidate_count": {"type": "integer", "minimum": 0},
+    "metrics": {"type": "object"},
+    "file_hashes": {"type": "object", "additionalProperties": {"$ref": "#/$defs/hash"}},
+    "verified_gold": {"const": false},
+    "promotion_allowed": {"const": false},
+    "release_included": {"const": false},
+    "immutable": {"const": true},
+    "revision_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

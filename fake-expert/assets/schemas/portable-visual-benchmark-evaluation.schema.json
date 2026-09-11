@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/portable-visual-benchmark-evaluation.schema.json",
+  "title": "TKC portable visual candidate benchmark evaluation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "job_id", "split", "status", "evaluator_instance", "bbox_iou_threshold", "metrics", "prediction_set_sha256", "gold_item_set_sha256", "candidate_only", "whole_range_recall_claimed", "accuracy_claim", "verified_gold", "promotion_allowed", "release_included", "evaluation_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.portable-visual-benchmark-evaluation/v0.1"},
+    "protocol": {"const": "portable-visual-benchmark-v0.1"},
+    "compiler_version": {"const": "0.14.9-portable-visual-benchmark"},
+    "job_id": {"type": "string", "pattern": "^pvbench-[0-9a-f]{24}$"},
+    "split": {"enum": ["calibration", "test"]},
+    "status": {"const": "measured-candidate-observation"},
+    "evaluator_instance": {"type": "string"},
+    "bbox_iou_threshold": {"type": "number", "minimum": 0, "maximum": 1},
+    "metrics": {"type": "array", "items": {"type": "object"}},
+    "prediction_set_sha256": {"$ref": "#/$defs/hash"},
+    "gold_item_set_sha256": {"$ref": "#/$defs/hash"},
+    "candidate_only": {"const": true},
+    "whole_range_recall_claimed": {"const": false},
+    "accuracy_claim": {"const": false},
+    "verified_gold": {"const": false},
+    "promotion_allowed": {"const": false},
+    "release_included": {"const": false},
+    "evaluation_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

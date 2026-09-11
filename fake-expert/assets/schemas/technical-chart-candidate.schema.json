@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.2/technical-chart-candidate.schema.json",
+  "title": "Technical chart candidate",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "status", "profile_id", "source_sha256", "physical_page", "bbox_pdf_points", "source_anchor", "evidence_stage", "render_sha256", "crop_sha256", "candidate_only", "promotion", "executable", "network_enabled", "model_download"],
+  "properties": {
+    "schema_version": {"const": "tkc.technical-chart-candidate/v0.2"},
+    "status": {"enum": ["candidate", "not-run-missing-models", "not-run-runtime-unavailable", "paused-runtime-unqualified", "paused-chart-runtime-error", "paused-chart-result-empty", "paused-chart-result-shape"]},
+    "profile_id": {"const": "technical-chart-v2"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "bbox_pdf_points": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}},
+    "source_anchor": {"type": "object"},
+    "evidence_stage": {"enum": ["planned-route-no-render", "rendered-crop"]},
+    "render_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "crop_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "runtime_qualification_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "candidate_only": {"const": true},
+    "promotion": {"const": false},
+    "executable": {"const": false},
+    "network_enabled": {"const": false},
+    "model_download": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"enum": ["not-run-missing-models", "not-run-runtime-unavailable", "paused-runtime-unqualified"]}}},
+      "then": {
+        "properties": {
+          "evidence_stage": {"const": "planned-route-no-render"},
+          "render_sha256": {"const": null},
+          "crop_sha256": {"const": null}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"enum": ["candidate", "paused-chart-runtime-error", "paused-chart-result-empty", "paused-chart-result-shape"]}}},
+      "then": {
+        "properties": {
+          "evidence_stage": {"const": "rendered-crop"},
+          "render_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "crop_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "runtime_qualification_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    }
+  ]
+}

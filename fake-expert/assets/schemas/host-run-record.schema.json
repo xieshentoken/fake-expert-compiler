@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/host-run-record.schema.json",
+  "title": "TKC Host Run Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["record_id", "schema_version", "challenge_id", "challenge_sha256", "prompt_contract_sha256", "attempt", "agent_instance", "host_id", "host_version", "model_id", "attestation_level", "package_binding", "raw_response", "raw_response_sha256", "raw_transcript", "raw_transcript_sha256", "parsed_response", "parse_error"],
+  "properties": {
+    "record_id": {"type": "string", "pattern": "^hrr-[0-9a-f]{24}$"},
+    "schema_version": {"const": "tkc.host-run-record/v0.1"},
+    "challenge_id": {"type": "string", "minLength": 1},
+    "challenge_sha256": {"$ref": "#/$defs/sha256"},
+    "prompt_contract_sha256": {"$ref": "#/$defs/sha256"},
+    "attempt": {"type": "integer", "minimum": 1},
+    "agent_instance": {"type": "string", "minLength": 1},
+    "host_id": {"type": "string", "minLength": 1},
+    "host_version": {"type": "string", "minLength": 1},
+    "model_id": {"type": "string", "minLength": 1},
+    "attestation_level": {"const": "host-orchestrator-recorded-not-cryptographic"},
+    "package_binding": {"$ref": "#/$defs/package_binding"},
+    "raw_response": {"type": "string", "minLength": 1},
+    "raw_response_sha256": {"$ref": "#/$defs/sha256"},
+    "raw_transcript": {"type": "string"},
+    "raw_transcript_sha256": {"$ref": "#/$defs/sha256"},
+    "parsed_response": {"oneOf": [{"type": "object"}, {"type": "null"}]},
+    "parse_error": {"oneOf": [{"type": "string"}, {"type": "null"}]}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "package_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package_id", "package_version", "manifest_sha256", "integrity_sha256", "adapter_sha256", "runtime_sha256"],
+      "properties": {
+        "package_id": {"type": "string", "minLength": 1},
+        "package_version": {"type": "string", "minLength": 1},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "integrity_sha256": {"$ref": "#/$defs/sha256"},
+        "adapter_sha256": {"$ref": "#/$defs/sha256"},
+        "runtime_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

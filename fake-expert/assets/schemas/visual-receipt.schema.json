@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-receipt.schema.json",
+  "title": "TKC Independent Visual Review Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "page",
+    "reviewer_instance",
+    "review_input_sha256",
+    "page_asset_sha256",
+    "verdict",
+    "task_resolutions",
+    "review_session_id",
+    "review_method",
+    "review_checks"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-receipt/v0.1"},
+    "page": {"type": "integer", "minimum": 1},
+    "reviewer_instance": {"type": "string", "minLength": 1},
+    "review_input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "page_asset_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "verdict": {"enum": ["verified", "contradicted", "unresolved", "not-needed"]},
+    "task_resolutions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task_id", "verdict", "observation"],
+        "properties": {
+          "task_id": {"type": "string", "minLength": 1},
+          "verdict": {"enum": ["supported", "not-present", "contradicted", "unresolved"]},
+          "observation": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "review_session_id": {"type": "string", "pattern": "^rws-[0-9a-f]{20}$"},
+    "review_method": {"const": "fresh-render-inspection"},
+    "review_checks": {
+      "type": "object",
+      "additionalProperties": {"type": "boolean"},
+      "minProperties": 2
+    }
+  }
+}

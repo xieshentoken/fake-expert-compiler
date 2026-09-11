@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-budget-receipt.schema.json",
+  "title": "Visual budget receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "source_sha256", "policy_sha256", "limits", "calls", "pages", "regions", "elapsed_seconds", "bytes", "objects", "status", "candidate_only", "promotion", "budget_receipt_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-budget-receipt/v0.1"}, "protocol": {"const": "selective-visual-pipeline-v0.1"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "limits": {"type": "object"}, "calls": {"type": "integer", "minimum": 0}, "pages": {"type": "integer", "minimum": 0}, "regions": {"type": "integer", "minimum": 0}, "elapsed_seconds": {"type": "number", "minimum": 0}, "bytes": {"type": "integer", "minimum": 0}, "objects": {"type": "integer", "minimum": 0},
+    "status": {"enum": ["completed", "paused-budget-exhausted"]}, "pause_reason": {"type": ["string", "null"]}, "candidate_only": {"const": true}, "promotion": {"const": false}, "route_count": {"type": "integer", "minimum": 0}, "budget_receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

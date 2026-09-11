@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-review-convention-comparison-receipt.schema.json",
+  "title": "TKC private R2 profile-aware reviewer comparison receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "created_at", "status", "profile", "workbench", "workpack_identity", "source_submissions", "raw_dispute_set_sha256", "raw_item_count", "items", "summary", "gold_rows", "release_included", "receipt_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-review-convention-comparison-receipt/v0.1"},
+    "protocol": {"const": "visual-review-convention-v0.2"},
+    "compiler_version": {"const": "0.14.2-review-convention"},
+    "created_at": {"type": "string", "minLength": 1},
+    "status": {"const": "paused-profile-comparison"},
+    "profile": {"$ref": "#/$defs/profile"},
+    "workbench": {"type": "object", "additionalProperties": false, "required": ["workbench_instance_id", "manifest_sha256", "status", "profile"], "properties": {"workbench_instance_id": {"type": "string", "minLength": 1}, "manifest_sha256": {"$ref": "#/$defs/hash"}, "status": {"enum": ["profile-bound", "unbound-legacy"]}, "profile": {"anyOf": [{"$ref": "#/$defs/profile"}, {"type": "null"}]}}},
+    "workpack_identity": {"$ref": "#/$defs/identity"},
+    "source_submissions": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "object", "additionalProperties": false, "required": ["reviewer_instance", "review_session_id", "workbench_instance_id", "submission_sha256"], "properties": {"reviewer_instance": {"type": "string", "minLength": 1}, "review_session_id": {"type": "string", "minLength": 1}, "workbench_instance_id": {"type": "string", "minLength": 1}, "submission_sha256": {"$ref": "#/$defs/hash"}}}},
+    "raw_dispute_set_sha256": {"$ref": "#/$defs/hash"},
+    "raw_item_count": {"type": "integer", "minimum": 0},
+    "items": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "summary": {"type": "object", "additionalProperties": false, "required": ["raw_disagreement_item_count", "raw_disagreement_field_count", "profile_eliminated_field_count", "profile_eliminated_item_count", "remaining_substantive_item_count", "remaining_substantive_field_count", "remaining_item_ids", "gold_rows"], "properties": {"raw_disagreement_item_count": {"type": "integer", "minimum": 0}, "raw_disagreement_field_count": {"type": "integer", "minimum": 0}, "profile_eliminated_field_count": {"type": "integer", "minimum": 0}, "profile_eliminated_item_count": {"type": "integer", "minimum": 0}, "remaining_substantive_item_count": {"type": "integer", "minimum": 0}, "remaining_substantive_field_count": {"type": "integer", "minimum": 0}, "remaining_item_ids": {"type": "array", "items": {"type": "string"}}, "gold_rows": {"const": 0}}},
+    "gold_rows": {"const": 0},
+    "release_included": {"const": false},
+    "receipt_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "profile": {"type": "object", "additionalProperties": false, "required": ["schema_version", "profile_id", "profile_version", "compiler_version", "protocol", "profile_sha256"], "properties": {"schema_version": {"const": "tkc.visual-review-convention-profile/v0.2"}, "profile_id": {"const": "visual-review-convention-v0.2"}, "profile_version": {"const": "0.2"}, "compiler_version": {"const": "0.14.2-review-convention"}, "protocol": {"const": "visual-review-convention-v0.2"}, "profile_sha256": {"$ref": "#/$defs/hash"}}},
+    "identity": {"type": "object", "additionalProperties": false, "required": ["workpack_sha256", "phase7d5a_manifest_sha256", "phase7d5a_manifest_file_sha256", "candidate_items_file_sha256", "split_commitment_sha256", "split_file_sha256", "review_plan_sha256", "candidate_set_sha256", "item_count", "item_bindings"], "properties": {"workpack_sha256": {"$ref": "#/$defs/hash"}, "phase7d5a_manifest_sha256": {"$ref": "#/$defs/hash"}, "phase7d5a_manifest_file_sha256": {"$ref": "#/$defs/hash"}, "candidate_items_file_sha256": {"$ref": "#/$defs/hash"}, "split_commitment_sha256": {"$ref": "#/$defs/hash"}, "split_file_sha256": {"$ref": "#/$defs/hash"}, "review_plan_sha256": {"$ref": "#/$defs/hash"}, "candidate_set_sha256": {"$ref": "#/$defs/hash"}, "item_count": {"const": 31}, "item_bindings": {"type": "array", "minItems": 31, "items": {"type": "object"}}}},
+    "item": {"type": "object", "additionalProperties": true, "required": ["item_id", "item_sha256", "review_task_id", "kind_candidate", "input_hashes", "raw_payload_sha256s", "raw_differing_fields", "field_comparisons", "eliminated_fields", "remaining_substantive_disagreements", "remaining_substantive"], "properties": {"item_id": {"type": "string"}, "item_sha256": {"$ref": "#/$defs/hash"}, "review_task_id": {"type": "string"}, "kind_candidate": {"type": "string"}, "input_hashes": {"type": "object", "additionalProperties": {"$ref": "#/$defs/hash"}}, "raw_payload_sha256s": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/hash"}}, "raw_differing_fields": {"type": "array", "items": {"type": "string"}}, "field_comparisons": {"type": "array", "items": {"$ref": "#/$defs/field"}}, "eliminated_fields": {"type": "array", "items": {"type": "object"}}, "remaining_substantive_disagreements": {"type": "array", "items": {"type": "object"}}, "remaining_substantive": {"type": "boolean"}}},
+    "field": {"type": "object", "additionalProperties": true, "required": ["field_path", "raw_equal", "raw", "canonical", "rule_ids", "rules_by_reviewer", "blocked_rule_ids", "transformation_applied", "verdict", "canonical_source", "substantive_reason", "equivalence"], "properties": {"field_path": {"type": "string"}, "raw_equal": {"type": "boolean"}, "raw": {"type": "object"}, "canonical": {"type": "object"}, "rule_ids": {"type": "array", "items": {"type": "string"}}, "rules_by_reviewer": {"type": "object"}, "blocked_rule_ids": {"type": "array", "items": {"type": "string"}}, "transformation_applied": {"type": "boolean"}, "verdict": {"enum": ["same-after-profile", "eliminated-by-profile", "remaining-substantive"]}, "canonical_source": {"type": "string"}, "substantive_reason": {"anyOf": [{"type": "string"}, {"type": "null"}]}, "equivalence": {"anyOf": [{"type": "object"}, {"type": "null"}]}}}
+  }
+}

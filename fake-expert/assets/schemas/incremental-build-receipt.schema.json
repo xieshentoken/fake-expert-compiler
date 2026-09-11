@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.incremental-build-receipt/v0.2",
+  "type": "object",
+  "required": ["schema_version", "compiler_version", "protocol", "receipt_id", "action", "status", "node_ids", "input_dag_sha256", "output_hashes", "execution", "review_authored", "sealed", "executable", "receipt_hash"],
+  "properties": {
+    "schema_version": {"const": "tkc.incremental-build-receipt/v0.2"},
+    "compiler_version": {"const": "0.12.0-incremental-build-dag"},
+    "protocol": {"const": "incremental-build-dag-v0.2"},
+    "receipt_id": {"type": "string"},
+    "action": {"type": "string"},
+    "status": {"const": "prepared-not-executed"},
+    "node_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^node-[0-9a-f]{32}$"}},
+    "input_dag_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "output_hashes": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "execution": {"const": false},
+    "review_authored": {"const": false},
+    "sealed": {"const": false},
+    "executable": {"const": false},
+    "receipt_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": false
+}

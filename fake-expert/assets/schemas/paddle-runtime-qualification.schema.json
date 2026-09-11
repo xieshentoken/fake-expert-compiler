@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/paddle-runtime-qualification.schema.json",
+  "title": "TKC local Paddle runtime qualification receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol", "compiler_version", "plan_sha256",
+    "qualification_tool_sha256", "qualification_id", "backend_id", "profile_id",
+    "runtime_contract_sha256", "runtime_inventory_sha256", "model_identity_sha256",
+    "configuration_sha256", "worker_sha256", "profile_sha256", "fixture",
+    "execution", "runtime_warnings", "resource_policy", "qualification", "tested_at",
+    "source_pdf_passed", "network_enabled", "model_download", "mcp_http_dependency",
+    "candidate_only", "promotion", "verified_gold", "accuracy_claim",
+    "private_host_receipt", "release_included", "receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.paddle-runtime-qualification/v0.1"},
+    "protocol": {"const": "paddle-runtime-qualification-v0.1"},
+    "compiler_version": {"const": "0.14.0-paddle-runtime-qualification"},
+    "plan_sha256": {"$ref": "#/$defs/hash"},
+    "qualification_tool_sha256": {"$ref": "#/$defs/hash"},
+    "qualification_id": {"type": "string", "pattern": "^pqr-[0-9a-f]{24}$"},
+    "backend_id": {"enum": ["paddleocr-ppocrv6", "paddleocr-ppstructure-v3", "paddleocr-chart-parsing"]},
+    "profile_id": {"enum": ["technical-text-v1", "technical-table-v1", "technical-chart-v2"]},
+    "runtime_contract_sha256": {"$ref": "#/$defs/hash"},
+    "runtime_inventory_sha256": {"$ref": "#/$defs/hash"},
+    "model_identity_sha256": {"$ref": "#/$defs/hash"},
+    "configuration_sha256": {"$ref": "#/$defs/hash"},
+    "worker_sha256": {"$ref": "#/$defs/hash"},
+    "profile_sha256": {"$ref": "#/$defs/hash"},
+    "fixture": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "input_sha256", "dimensions_px", "source_type"],
+      "properties": {
+        "kind": {"enum": ["text", "table", "chart"]},
+        "input_sha256": {"$ref": "#/$defs/hash"},
+        "dimensions_px": {"$ref": "#/$defs/dimensions"},
+        "source_type": {"const": "local-crop-fixture"}
+      }
+    },
+    "execution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repetitions", "successful_requests", "failed_requests", "startup_timeout_seconds", "per_request_timeout_seconds", "total_timeout_seconds", "model_load_calls", "normalized_result_sha256s", "result_schemas", "deterministic", "batch_receipt_sha256"],
+      "properties": {
+        "repetitions": {"type": "integer", "minimum": 2, "maximum": 8},
+        "successful_requests": {"type": "integer", "minimum": 0},
+        "failed_requests": {"type": "integer", "minimum": 0},
+        "startup_timeout_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "per_request_timeout_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "total_timeout_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "model_load_calls": {"type": "integer", "minimum": 0, "maximum": 1},
+        "normalized_result_sha256s": {"type": "array", "items": {"$ref": "#/$defs/hash"}},
+        "input_sha256s": {"type": "array", "items": {"$ref": "#/$defs/hash"}},
+        "output_sha256s": {"type": "array", "items": {"$ref": "#/$defs/hash"}},
+        "response_sha256s": {"type": "array", "items": {"$ref": "#/$defs/hash"}},
+        "result_schemas": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "deterministic": {"type": "boolean"},
+        "batch_receipt_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "runtime_warnings": {
+      "type": "object", "additionalProperties": false,
+      "required": ["warning_codes", "blocking_warning_codes", "stderr_sha256", "stderr_bytes", "raw_stderr_included"],
+      "properties": {
+        "warning_codes": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "blocking_warning_codes": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "stderr_sha256": {"$ref": "#/$defs/hash"},
+        "stderr_bytes": {"type": "integer", "minimum": 0},
+        "raw_stderr_included": {"const": false}
+      }
+    },
+    "resource_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["max_parallel_models", "serial_inference", "worker_lifetime", "model_release", "operator_exclusive_heavy_model_confirmed"],
+      "properties": {
+        "max_parallel_models": {"const": 1},
+        "serial_inference": {"const": true},
+        "worker_lifetime": {"const": "one-short-lived-process"},
+        "model_release": {"const": "process-exit"},
+        "operator_exclusive_heavy_model_confirmed": {"const": true}
+      }
+    },
+    "qualification": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "route_allowed", "issue_codes"],
+      "properties": {
+        "status": {"enum": ["qualified", "rejected"]},
+        "route_allowed": {"type": "boolean"},
+        "issue_codes": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+      }
+    },
+    "tested_at": {"type": "string"},
+    "source_pdf_passed": {"const": false},
+    "network_enabled": {"const": false},
+    "model_download": {"const": false},
+    "mcp_http_dependency": {"const": false},
+    "candidate_only": {"const": true},
+    "promotion": {"const": false},
+    "verified_gold": {"const": false},
+    "accuracy_claim": {"const": false},
+    "private_host_receipt": {"const": true},
+    "release_included": {"const": false},
+    "receipt_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "dimensions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {"width": {"type": "integer", "minimum": 1}, "height": {"type": "integer", "minimum": 1}}
+    }
+  }
+}

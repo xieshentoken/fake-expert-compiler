@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/table-grid.schema.json",
+  "title": "TKC candidate table grid",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "table_grid_id", "table_visual_object_id", "source_sha256", "physical_page", "rows", "columns", "cells", "topology_evidence", "caption_object_ids", "table_note_candidates", "continuation_candidate", "status", "grid_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.table-grid/v0.1"},
+    "table_grid_id": {"type": "string", "pattern": "^tg-[0-9a-f]{20}$"},
+    "table_visual_object_id": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "rows": {"type": "array", "items": {"$ref": "#/$defs/row"}},
+    "columns": {"type": "array", "items": {"$ref": "#/$defs/column"}},
+    "cells": {"type": "array", "items": {"$ref": "#/$defs/cell"}},
+    "topology_evidence": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "caption_object_ids": {"type": "array", "items": {"type": "string"}},
+    "table_note_candidates": {"type": "array", "items": {"type": "string"}},
+    "continuation_candidate": {"type": ["object", "null"], "additionalProperties": true},
+    "status": {"enum": ["candidate", "reviewed", "promoted"]},
+    "grid_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "bbox": {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}, {"type": "number"}], "items": false, "minItems": 4, "maxItems": 4},
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["row_id", "index"],
+      "properties": {"row_id": {"type": "string", "minLength": 1}, "index": {"type": "integer", "minimum": 0}}
+    },
+    "column": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["column_id", "index"],
+      "properties": {"column_id": {"type": "string", "minLength": 1}, "index": {"type": "integer", "minimum": 0}, "label": {"type": ["string", "null"]}}
+    },
+    "typed_candidates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit", "symbol", "confidence"],
+      "properties": {
+        "value": {"type": ["string", "number", "null"]},
+        "unit": {"type": ["string", "null"]},
+        "symbol": {"type": ["string", "null"]},
+        "confidence": {"type": "string", "enum": ["candidate", "low", "medium", "high"]}
+      }
+    },
+    "source_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_sha256", "table_visual_object_id", "cell_id", "physical_page", "bbox"],
+      "properties": {
+        "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "table_visual_object_id": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"},
+        "cell_id": {"type": "string", "minLength": 1},
+        "physical_page": {"type": "integer", "minimum": 1},
+        "bbox": {"anyOf": [{"$ref": "#/$defs/bbox"}, {"type": "null"}]},
+        "text_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "anchor_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cell_id", "row_id", "column_id", "row_span", "column_span", "text_candidate", "value_candidate", "unit_candidate", "symbol_candidate", "bbox", "typed_candidates", "source_anchor", "crop_sha256"],
+      "properties": {
+        "cell_id": {"type": "string", "minLength": 1},
+        "row_id": {"type": "string", "minLength": 1},
+        "column_id": {"type": "string", "minLength": 1},
+        "row_span": {"type": "integer", "minimum": 1},
+        "column_span": {"type": "integer", "minimum": 1},
+        "text_candidate": {"type": ["string", "null"]},
+        "value_candidate": {"type": ["string", "number", "null"]},
+        "unit_candidate": {"type": ["string", "null"]},
+        "symbol_candidate": {"type": ["string", "null"]},
+        "bbox": {"anyOf": [{"$ref": "#/$defs/bbox"}, {"type": "null"}]},
+        "typed_candidates": {"$ref": "#/$defs/typed_candidates"},
+        "source_anchor": {"$ref": "#/$defs/source_anchor"},
+        "crop_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

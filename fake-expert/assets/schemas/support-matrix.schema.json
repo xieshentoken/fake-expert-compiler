@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/support-matrix.schema.json",
+  "title": "TKC Assertion Support Matrix Row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "assertion_id", "parent_item_ref", "support_kind", "status",
+    "evidence_spans", "dependency_assertion_ids", "formula_node_paths",
+    "visual_task_ids", "assertion_sha256", "support_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.support-matrix/v0.1"},
+    "assertion_id": {"type": "string", "pattern": "^sa-[0-9a-f]{20}$"},
+    "parent_item_ref": {"type": "string", "minLength": 1},
+    "support_kind": {"enum": ["explicit", "paraphrase", "derived", "visual", "contradicted"]},
+    "status": {"enum": ["full", "partial", "none", "contradicted"]},
+    "evidence_spans": {"type": "array", "items": {"$ref": "semantic-assertion.schema.json#/$defs/span"}},
+    "dependency_assertion_ids": {"type": "array", "items": {"type": "string", "pattern": "^sa-[0-9a-f]{20}$"}, "uniqueItems": true},
+    "formula_node_paths": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "visual_task_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "visual_object_ids": {"type": "array", "items": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"}, "uniqueItems": true},
+    "table_cell_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "series_ids": {"type": "array", "items": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"}, "uniqueItems": true},
+    "render_sha256s": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "uniqueItems": true},
+    "crop_sha256s": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "uniqueItems": true},
+    "bbox_sha256s": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "uniqueItems": true},
+    "assertion_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "support_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

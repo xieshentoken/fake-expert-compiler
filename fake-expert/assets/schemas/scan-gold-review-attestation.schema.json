@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/scan-gold-review-attestation.schema.json",
+  "title": "External Scan Gold Review attestation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "attestation_id", "external_issuer", "issued_at", "reviewer_instance", "review_session_id", "workbench_instance_id", "plan_sha256", "profile_sha256", "submission_sha256", "reviewed_item_ids_sha256", "review_input_sha256", "independent_from_proposer", "not_evaluator", "provided_outside_workbench", "compiler_authored", "attestation_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.scan-gold-review-attestation/v0.2"},
+    "protocol": {"const": "scan-gold-review-v0.2"},
+    "compiler_version": {"const": "0.14.7-scan-gold-coverage"},
+    "attestation_id": {"type": "string", "minLength": 1},
+    "external_issuer": {"type": "string", "minLength": 1},
+    "issued_at": {"type": "string", "minLength": 1},
+    "reviewer_instance": {"type": "string", "minLength": 1},
+    "review_session_id": {"type": "string", "minLength": 1},
+    "workbench_instance_id": {"type": "string", "minLength": 1},
+    "plan_sha256": {"$ref": "#/$defs/hash"},
+    "profile_sha256": {"$ref": "#/$defs/hash"},
+    "submission_sha256": {"$ref": "#/$defs/hash"},
+    "reviewed_item_ids_sha256": {"$ref": "#/$defs/hash"},
+    "review_input_sha256": {"$ref": "#/$defs/hash"},
+    "independent_from_proposer": {"const": true},
+    "not_evaluator": {"const": true},
+    "provided_outside_workbench": {"const": true},
+    "compiler_authored": {"const": false},
+    "attestation_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/pdf-render-receipt.schema.json",
+  "title": "TKC PDF render receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_sha256", "physical_page", "renderer", "render_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.pdf-render-receipt/v0.1"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "renderer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "dpi", "format", "page_selection"],
+      "properties": {
+        "id": {"const": "pdftoppm"},
+        "version": {"type": "string", "minLength": 1},
+        "dpi": {"type": "integer", "minimum": 36, "maximum": 1200},
+        "format": {"const": "png"},
+        "page_selection": {"const": "single-physical-page"}
+      }
+    },
+    "render_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

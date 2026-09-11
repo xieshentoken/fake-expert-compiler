@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.2/competency-test.schema.json",
+  "title": "TKC Reference Runtime Competency Test",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "category", "prompt", "runtime", "expected"],
+  "properties": {
+    "schema_version": {"const": "tkc.competency-test/v0.2"},
+    "id": {"type": "string", "minLength": 1},
+    "category": {
+      "enum": [
+        "definition",
+        "comparison",
+        "equation",
+        "decision",
+        "failure-condition",
+        "trace",
+        "out-of-scope"
+      ]
+    },
+    "prompt": {"type": "string", "minLength": 1},
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["limit"],
+      "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 25}}
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "behavior",
+        "required_object_ids",
+        "forbidden_object_ids",
+        "required_evidence_ids",
+        "required_conflict_ids",
+        "required_reason_codes"
+      ],
+      "properties": {
+        "behavior": {"enum": ["answer", "abstain", "escalate"]},
+        "required_object_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "forbidden_object_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "required_evidence_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "required_conflict_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "required_reason_codes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    }
+  }
+}

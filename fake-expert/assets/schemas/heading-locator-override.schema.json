@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.2/heading-locator-override.schema.json",
+  "title": "TKC bounded heading occurrence selection override",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "resolution_id", "candidate_id", "before_candidate_sha256",
+    "before_resolution_sha256", "reviewer_instance", "rationale"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.heading-locator-override/v0.2"},
+    "resolution_id": {"type": "string", "pattern": "^hgr-[0-9a-f]{20}$"},
+    "candidate_id": {"type": "string", "pattern": "^hgc-[0-9a-f]{20}$"},
+    "before_candidate_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "before_resolution_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "reviewer_instance": {"type": "string", "minLength": 1},
+    "rationale": {"type": "string", "minLength": 1}
+  }
+}

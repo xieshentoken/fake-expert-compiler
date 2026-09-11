@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/scan-gold-review-structure-gold.schema.json",
+  "title": "Portable Scan structure Gold row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "item_id", "item_sha256", "input_hashes", "physical_page", "review_status", "excluded", "excluded_reason", "rotation_clockwise", "split_boundary_px", "region_order", "region_ids", "regions", "reviewer_instance", "review_session_id", "attestation_id", "compiler_authored", "verified_gold", "promotion_allowed", "release_included", "row_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.scan-gold-review-structure-gold/v0.2"},
+    "protocol": {"const": "scan-gold-review-v0.2"},
+    "compiler_version": {"const": "0.14.7-scan-gold-coverage"},
+    "item_id": {"type": "string", "minLength": 1},
+    "item_sha256": {"$ref": "#/$defs/hash"},
+    "input_hashes": {"$ref": "#/$defs/input_hashes"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "review_status": {"type": "string", "enum": ["complete", "abnormal", "unreadable", "needs_review"]},
+    "excluded": {"type": "boolean"},
+    "excluded_reason": {"type": ["string", "null"]},
+    "rotation_clockwise": {"type": ["integer", "null"], "enum": [0, 90, 180, 270, null]},
+    "split_boundary_px": {"type": ["integer", "null"], "minimum": 1},
+    "region_order": {"type": ["string", "null"], "enum": ["left-to-right", "right-to-left", null]},
+    "region_ids": {"type": "array", "maxItems": 2, "items": {"type": "string", "minLength": 1}},
+    "regions": {"type": "array", "maxItems": 2, "items": {"$ref": "#/$defs/gold_region"}},
+    "reviewer_instance": {"type": "string", "minLength": 1},
+    "review_session_id": {"type": "string", "minLength": 1},
+    "attestation_id": {"type": "string", "minLength": 1},
+    "compiler_authored": {"const": false},
+    "verified_gold": {"const": false},
+    "promotion_allowed": {"const": false},
+    "release_included": {"const": false},
+    "row_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "input_hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_sha256", "context_sha256", "split_contract_sha256", "region_sha256s"],
+      "properties": {
+        "source_sha256": {"$ref": "#/$defs/hash"},
+        "context_sha256": {"$ref": "#/$defs/hash"},
+        "split_contract_sha256": {"$ref": "#/$defs/hash"},
+        "region_sha256s": {"type": "object", "additionalProperties": {"$ref": "#/$defs/hash"}}
+      }
+    },
+    "gold_region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["region_id", "printed_page_label", "bbox_pdf_points"],
+      "properties": {
+        "region_id": {"type": "string", "minLength": 1},
+        "printed_page_label": {"type": ["string", "null"]},
+        "bbox_pdf_points": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}}
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/scan-gold-review-ocr-gold.schema.json",
+  "title": "Portable Scan OCR Gold row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "item_id", "item_sha256", "input_hashes", "physical_page", "region_id", "region_order", "sample_order", "review_status", "excluded", "excluded_reason", "canonical_text", "reviewer_instance", "review_session_id", "attestation_id", "compiler_authored", "verified_gold", "promotion_allowed", "release_included", "row_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.scan-gold-review-ocr-gold/v0.2"},
+    "protocol": {"const": "scan-gold-review-v0.2"},
+    "compiler_version": {"const": "0.14.7-scan-gold-coverage"},
+    "item_id": {"type": "string", "minLength": 1},
+    "item_sha256": {"$ref": "#/$defs/hash"},
+    "input_hashes": {"$ref": "#/$defs/input_hashes"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "region_id": {"type": "string", "minLength": 1},
+    "region_order": {"type": "integer", "minimum": 0, "maximum": 1},
+    "sample_order": {"type": "integer", "minimum": 0},
+    "review_status": {"type": "string", "enum": ["complete", "unreadable", "not_text", "needs_review"]},
+    "excluded": {"type": "boolean"},
+    "excluded_reason": {"type": ["string", "null"]},
+    "canonical_text": {"type": ["string", "null"]},
+    "reviewer_instance": {"type": "string", "minLength": 1},
+    "review_session_id": {"type": "string", "minLength": 1},
+    "attestation_id": {"type": "string", "minLength": 1},
+    "compiler_authored": {"const": false},
+    "verified_gold": {"const": false},
+    "promotion_allowed": {"const": false},
+    "release_included": {"const": false},
+    "row_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "input_hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_sha256", "context_sha256", "region_sha256", "sample_sha256", "sample_bbox_sha256"],
+      "properties": {
+        "source_sha256": {"$ref": "#/$defs/hash"},
+        "context_sha256": {"$ref": "#/$defs/hash"},
+        "region_sha256": {"$ref": "#/$defs/hash"},
+        "sample_sha256": {"$ref": "#/$defs/hash"},
+        "sample_bbox_sha256": {"$ref": "#/$defs/hash"}
+      }
+    }
+  }
+}

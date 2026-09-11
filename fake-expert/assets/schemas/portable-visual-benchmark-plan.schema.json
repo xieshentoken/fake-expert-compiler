@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/portable-visual-benchmark-plan.schema.json",
+  "title": "TKC portable visual candidate benchmark plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["job_id", "schema_version", "protocol", "compiler_version", "evaluated_at", "workpack_binding", "gold_binding", "parser_run_binding", "split", "evaluator", "policy", "plan_sha256"],
+  "properties": {
+    "job_id": {"type": "string", "pattern": "^pvbench-[0-9a-f]{24}$"},
+    "schema_version": {"const": "tkc.portable-visual-benchmark-plan/v0.1"},
+    "protocol": {"const": "portable-visual-benchmark-v0.1"},
+    "compiler_version": {"const": "0.14.9-portable-visual-benchmark"},
+    "evaluated_at": {"type": "string"},
+    "workpack_binding": {"type": "object"},
+    "gold_binding": {"type": "object"},
+    "parser_run_binding": {"type": "object"},
+    "split": {"type": "object"},
+    "evaluator": {"type": "object"},
+    "policy": {"type": "object"},
+    "plan_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

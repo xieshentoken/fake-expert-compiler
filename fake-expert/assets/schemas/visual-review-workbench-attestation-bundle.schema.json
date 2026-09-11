@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-review-workbench-attestation-bundle.schema.json",
+  "title": "TKC reviewer workbench attestation bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "workpack_identity", "coverage", "declarations", "attestations", "attestation_bundle_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-review-workbench-attestation-bundle/v0.1"},
+    "protocol": {"const": "visual-review-workbench-v0.1"},
+    "workpack_identity": {"type": "object"},
+    "coverage": {"type": "object", "required": ["expected_item_count", "reviewed_item_count", "item_ids_sha256"]},
+    "declarations": {"type": "array", "items": {"type": "object"}},
+    "attestations": {"type": "array", "items": {"type": "object"}},
+    "compiler_authored": {"const": false},
+    "evaluator_role_separate": {"const": true},
+    "attestation_bundle_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

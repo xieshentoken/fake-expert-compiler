@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/paddle-runtime-qualification-plan.schema.json",
+  "title": "TKC private local Paddle runtime qualification plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "qualification_tool", "backend_id", "profile_id", "fixture", "runtime_contract", "execution", "policy", "planned_at", "plan_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.paddle-runtime-qualification-plan/v0.1"},
+    "protocol": {"const": "paddle-runtime-qualification-v0.1"},
+    "compiler_version": {"const": "0.14.0-paddle-runtime-qualification"},
+    "qualification_tool": {
+      "type": "object", "additionalProperties": false,
+      "required": ["script_sha256"],
+      "properties": {"script_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    },
+    "backend_id": {"enum": ["paddleocr-ppocrv6", "paddleocr-ppstructure-v3", "paddleocr-chart-parsing"]},
+    "profile_id": {"enum": ["technical-text-v1", "technical-table-v1", "technical-chart-v2"]},
+    "fixture": {"type": "object"},
+    "runtime_contract": {"type": "object"},
+    "execution": {"type": "object"},
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["input_kind", "source_pdf_passed", "network_enabled", "model_download", "mcp_http_dependency", "candidate_only", "promotion", "verified_gold", "accuracy_claim", "operator_exclusive_heavy_model_confirmation_required"],
+      "properties": {
+        "input_kind": {"const": "raster-crop"},
+        "source_pdf_passed": {"const": false},
+        "network_enabled": {"const": false},
+        "model_download": {"const": false},
+        "mcp_http_dependency": {"const": false},
+        "candidate_only": {"const": true},
+        "promotion": {"const": false},
+        "verified_gold": {"const": false},
+        "accuracy_claim": {"const": false},
+        "operator_exclusive_heavy_model_confirmation_required": {"const": true}
+      }
+    },
+    "planned_at": {"type": "string"},
+    "plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.4/pdf-ocr-observation.schema.json",
+  "title": "TKC candidate OCR observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "source_sha256", "physical_page", "canonical_render_sha256", "render", "backend", "model", "configuration_sha256", "coordinate_transform_id", "bbox_image_px", "polygon_image_px", "bbox_pdf_points", "polygon_pdf_points", "confidence", "kind", "raw_observation", "normalized_transcript", "transcript_span_id", "backend_receipt_id", "candidate_only", "promotion_status", "canonical_anchor_id", "canonical_object_id", "review_status"],
+  "properties": {
+    "schema_version": {"const": "tkc.pdf-ocr-observation/v0.2"},
+    "id": {"type": "string", "pattern": "^ocr-[0-9a-f]{20}$"},
+    "source_sha256": {"$ref": "#/$defs/sha256"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "canonical_render_sha256": {"$ref": "#/$defs/sha256"},
+    "render": {"type": "object", "additionalProperties": true},
+    "backend": {"type": "object", "additionalProperties": true},
+    "model": {"type": "object", "additionalProperties": true},
+    "configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "coordinate_transform_id": {"type": "string", "pattern": "^pct-[0-9a-f]{20}$"},
+    "bbox_image_px": {"$ref": "#/$defs/bbox"},
+    "polygon_image_px": {"$ref": "#/$defs/polygon"},
+    "bbox_pdf_points": {"$ref": "#/$defs/bbox"},
+    "polygon_pdf_points": {"$ref": "#/$defs/polygon"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "kind": {"type": "string", "minLength": 1},
+    "raw_observation": {"type": "object", "additionalProperties": true},
+    "normalized_transcript": {"type": "string", "minLength": 1},
+    "transcript_span_id": {"type": "string", "pattern": "^ots-[0-9a-f]{20}$"},
+    "backend_receipt_id": {"type": "string", "pattern": "^obr-[0-9a-f]{20}$"},
+    "candidate_only": {"const": true},
+    "promotion_status": {"const": "candidate-only"},
+    "canonical_anchor_id": {"type": "null"},
+    "canonical_object_id": {"type": "null"},
+    "review_status": {"const": "unreviewed"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "bbox": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}},
+    "polygon": {"type": "array", "minItems": 3, "items": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number"}}}
+  }
+}

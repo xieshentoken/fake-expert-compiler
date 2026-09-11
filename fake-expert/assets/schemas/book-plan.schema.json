@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.2/book-plan.schema.json",
+  "title": "TKC whole-book structure and coverage plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "book_plan_id", "source", "compiler", "structure", "counts",
+    "planning_states", "artifacts", "policy", "whole_book_complete_claimed", "plan_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.book-plan/v0.2"},
+    "book_plan_id": {"type": "string", "pattern": "^bpl-[0-9a-f]{20}$"},
+    "source": {"type": "object", "required": ["source_id", "sha256", "page_count"], "properties": {"source_id": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha256"}, "page_count": {"type": "integer", "minimum": 1}}},
+    "compiler": {"type": "object", "required": ["planner_version", "protocol", "pypdf"], "properties": {"planner_version": {"type": "string"}, "protocol": {"const": "whole-book-structure-coverage-v0.2"}, "pypdf": {"type": "string"}}},
+    "structure": {"type": "object", "required": ["status", "segment_count", "unresolved_resolution_ids", "heading_candidate_sha256", "heading_resolution_sha256"], "properties": {"status": {"enum": ["resolved", "heading_resolution_required"]}, "segment_count": {"type": "integer", "minimum": 0}, "unresolved_resolution_ids": {"type": "array", "items": {"type": "string"}}, "heading_candidate_sha256": {"$ref": "#/$defs/sha256"}, "heading_resolution_sha256": {"$ref": "#/$defs/sha256"}}},
+    "counts": {"type": "object", "required": ["physical_pages", "segments", "modules", "coverage_rows", "review_routes"], "properties": {"physical_pages": {"type": "integer", "minimum": 0}, "segments": {"type": "integer", "minimum": 0}, "modules": {"type": "integer", "minimum": 0}, "coverage_rows": {"type": "integer", "minimum": 0}, "review_routes": {"type": "integer", "minimum": 0}}},
+    "planning_states": {"type": "array", "items": {"enum": ["compile", "context-only", "non-knowledge", "ocr-candidate", "visual-review", "gap", "quarantined"]}, "uniqueItems": true},
+    "artifacts": {"type": "object", "additionalProperties": {"type": "object", "required": ["path", "sha256", "record_count"], "properties": {"path": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha256"}, "record_count": {"type": "integer", "minimum": 0}}}},
+    "policy": {"type": "object"},
+    "whole_book_complete_claimed": {"const": false},
+    "plan_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

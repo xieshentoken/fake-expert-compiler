@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/portable-visual-benchmark-manifest.schema.json",
+  "title": "TKC portable visual candidate benchmark manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "job_id", "status", "file_hashes", "candidate_count", "calibration_count", "test_count", "gold_imported", "candidate_observation_metrics", "whole_range_recall_claimed", "accuracy_claim", "verified_gold", "promotion_allowed", "release_included", "immutable", "network_access", "model_invocations", "mcp_calls", "manifest_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.portable-visual-benchmark-manifest/v0.1"},
+    "protocol": {"const": "portable-visual-benchmark-v0.1"},
+    "compiler_version": {"const": "0.14.9-portable-visual-benchmark"},
+    "job_id": {"type": "string", "pattern": "^pvbench-[0-9a-f]{24}$"},
+    "status": {"const": "measured-candidate-benchmark"},
+    "file_hashes": {"type": "object", "additionalProperties": {"$ref": "#/$defs/hash"}},
+    "candidate_count": {"type": "integer", "minimum": 2},
+    "calibration_count": {"type": "integer", "minimum": 1},
+    "test_count": {"type": "integer", "minimum": 1},
+    "gold_imported": {"const": true},
+    "candidate_observation_metrics": {"const": true},
+    "whole_range_recall_claimed": {"const": false},
+    "accuracy_claim": {"const": false},
+    "verified_gold": {"const": false},
+    "promotion_allowed": {"const": false},
+    "release_included": {"const": false},
+    "immutable": {"const": true},
+    "network_access": {"const": false},
+    "model_invocations": {"const": 0},
+    "mcp_calls": {"const": 0},
+    "manifest_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

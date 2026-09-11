@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "tkc.semantic-composer-receipt/v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "receipt_id", "step", "input_hashes", "output_hash", "status", "executed"],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-composer-receipt/v0.1"},
+    "receipt_id": {"type": "string", "pattern": "^sreceipt-[0-9a-f]{24}$"},
+    "step": {"const": "composer-build"},
+    "input_hashes": {"$ref": "#/$defs/inputs"},
+    "output_hash": {"$ref": "#/$defs/sha"},
+    "status": {"const": "built"},
+    "executed": {"const": false}
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "inputs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["candidate_source_sha256", "candidate_spec_sha256", "package_manifest_sha256", "candidate_render_pages", "protocol"],
+      "properties": {
+        "candidate_source_sha256": {"$ref": "#/$defs/sha"}, "candidate_spec_sha256": {"$ref": "#/$defs/sha"},
+        "package_manifest_sha256": {"type": "object", "additionalProperties": {"$ref": "#/$defs/sha"}},
+        "candidate_render_pages": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["physical_page", "sha256"], "properties": {"physical_page": {"type": "integer", "minimum": 1}, "sha256": {"$ref": "#/$defs/sha"}}}},
+        "protocol": {"const": "semantic-composer-v0.1"},
+        "candidate_ir": {"$ref": "#/$defs/ir"},
+        "candidate_ir_verifier": {"const": "verify_pdf_ir:docling_allow_network=false"}
+      }
+    },
+    "ir": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "ir_id", "status", "heading_locator_status", "identity_algorithm", "scope", "ir_sha256", "source_sha256", "heading_task_id", "heading_task_sha256", "components", "independent_structure_review_required", "semantic_workpack_built"],
+      "properties": {
+        "schema_version": {"const": "tkc.pdf-ir/v0.3"}, "ir_id": {"type": "string", "minLength": 1},
+        "status": {"const": "heading_resolution_required"}, "heading_locator_status": {"const": "heading_resolution_required"},
+        "identity_algorithm": {"const": "pdf-ir-canonical-inventory-v1"}, "scope": {"type": "object", "additionalProperties": false, "required": ["physical_pages"], "properties": {"physical_pages": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}}}}, "ir_sha256": {"$ref": "#/$defs/sha"}, "source_sha256": {"$ref": "#/$defs/sha"},
+        "heading_task_id": {"type": "string", "minLength": 1}, "heading_task_sha256": {"$ref": "#/$defs/sha"},
+        "components": {"type": "array", "minItems": 5, "items": {"type": "object", "additionalProperties": false, "required": ["role", "path", "sha256"], "properties": {"role": {"type": "string"}, "path": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha"}}}},
+        "independent_structure_review_required": {"const": true}, "semantic_workpack_built": {"const": false}, "source_artifact_note": {"type": "string"}
+      }
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/pdf-parser-receipt.schema.json",
+  "title": "TKC PDF parser receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_sha256", "scope", "canonical_text_extractor", "layout_parser", "pages", "layout_candidates_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.pdf-parser-receipt/v0.1"},
+    "source_sha256": {"$ref": "#/$defs/sha256"},
+    "scope": {"$ref": "#/$defs/scope"},
+    "canonical_text_extractor": {"type": "string", "minLength": 1},
+    "layout_parser": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "configuration", "coordinate_space", "candidate_status"],
+      "properties": {
+        "id": {"enum": ["pypdf", "pymupdf", "docling"]},
+        "version": {"type": "string", "minLength": 1},
+        "configuration": {"type": "object"},
+        "coordinate_space": {"type": ["string", "null"]},
+        "candidate_status": {"type": "string", "minLength": 1}
+      }
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["physical_page", "page_dimensions_points", "coordinate_status", "candidate_count", "candidates_sha256"],
+        "properties": {
+          "physical_page": {"type": "integer", "minimum": 1},
+          "page_dimensions_points": {"$ref": "#/$defs/dimensions"},
+          "coordinate_status": {"type": "string", "minLength": 1},
+          "candidate_count": {"type": "integer", "minimum": 0},
+          "candidates_sha256": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    },
+    "layout_candidates_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_page", "end_page"],
+      "properties": {
+        "start_page": {"type": "integer", "minimum": 1},
+        "end_page": {"type": "integer", "minimum": 1}
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": {"type": "number", "exclusiveMinimum": 0},
+        "height": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

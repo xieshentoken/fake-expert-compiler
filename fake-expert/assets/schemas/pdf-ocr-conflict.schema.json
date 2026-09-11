@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.4/pdf-ocr-conflict.schema.json",
+  "title": "TKC OCR duplicate and disagreement ledger row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "source_sha256", "physical_page", "kind", "left_transcript_span_id", "right_transcript_span_id", "left_text_sha256", "right_text_sha256", "overlap_ratio", "status", "resolution", "canonical_promotion_allowed"],
+  "properties": {
+    "schema_version": {"const": "tkc.pdf-ocr-conflict/v0.1"},
+    "id": {"type": "string", "pattern": "^ocf-[0-9a-f]{20}$"},
+    "source_sha256": {"$ref": "#/$defs/sha256"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "kind": {"type": "string", "minLength": 1},
+    "left_transcript_span_id": {"type": "string", "pattern": "^ots-[0-9a-f]{20}$"},
+    "right_transcript_span_id": {"type": ["string", "null"]},
+    "left_text_sha256": {"$ref": "#/$defs/sha256"},
+    "right_text_sha256": {"$ref": "#/$defs/sha256"},
+    "overlap_ratio": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "status": {"enum": ["dedupe-required", "unresolved"]},
+    "resolution": {"type": "string", "minLength": 1},
+    "canonical_promotion_allowed": {"const": false}
+  },
+  "$defs": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/pipeline-job.schema.json",
+  "title": "fake-expert Resumable Local Pipeline Job",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "job_id", "created_at", "inputs", "outputs", "package", "reviewer_instances", "stages", "next_action", "policy", "job_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.pipeline-job/v0.1"},
+    "job_id": {"type": "string", "pattern": "^job-[0-9a-f]{20}$"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "inputs": {"type": "object"},
+    "outputs": {"type": "object"},
+    "package": {"type": "object"},
+    "reviewer_instances": {"type": "array", "minItems": 2, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "stages": {"type": "array", "items": {"type": "object"}},
+    "next_action": {"type": "string", "minLength": 1},
+    "policy": {"type": "object"},
+    "job_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

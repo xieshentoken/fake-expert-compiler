@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-review-workbench-reviewer-registry.schema.json",
+  "title": "TKC reviewer workbench external reviewer registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "workpack_identity", "expected_item_count", "reviewers", "registry_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-review-workbench-reviewer-registry/v0.1"},
+    "protocol": {"const": "visual-review-workbench-v0.1"},
+    "workpack_identity": {"type": "object"},
+    "expected_item_count": {"const": 31},
+    "reviewers": {"type": "array", "items": {"type": "object"}},
+    "expected_item_ids_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "registry_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

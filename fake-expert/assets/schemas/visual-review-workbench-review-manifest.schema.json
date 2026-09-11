@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-review-workbench-review-manifest.schema.json",
+  "title": "TKC immutable reviewer workbench finalization manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "revision_id", "revision", "workpack_identity", "coverage", "finalization_status", "import_compatible", "verified_gold", "promotion_allowed", "release_included", "immutable", "file_hashes", "manifest_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-review-workbench-review-manifest/v0.1"},
+    "protocol": {"const": "visual-review-workbench-v0.1"},
+    "compiler_version": {"const": "0.14.1-visual-review-workbench"},
+    "revision_id": {"type": "string", "minLength": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "workpack_identity": {"type": "object"},
+    "coverage": {"type": "object"},
+    "reviewer_instances": {"type": "array", "items": {"type": "string"}},
+    "submission_file_sha256s": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "issues": {"type": "array", "items": {"type": "string"}},
+    "finalization_status": {"enum": ["paused", "rejected", "accepted-for-import"]},
+    "import_compatible": {"type": "boolean"},
+    "verified_gold": {"const": false},
+    "promotion_allowed": {"const": false},
+    "release_included": {"const": false},
+    "immutable": {"const": true},
+    "canonical_workpack_replayed": {"const": true},
+    "model_invocations": {"const": 0},
+    "network_access": {"const": false},
+    "mcp_calls": {"const": 0},
+    "file_hashes": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

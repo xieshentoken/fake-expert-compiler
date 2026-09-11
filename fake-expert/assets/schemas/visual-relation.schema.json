@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-relation.schema.json",
+  "title": "TKC candidate visual relation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "visual_relation_id", "relation_type", "source_visual_object_id", "target_visual_object_id", "source_sha256", "physical_page", "evidence_hashes", "status", "relation_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-relation/v0.1"},
+    "visual_relation_id": {"type": "string", "pattern": "^vr-[0-9a-f]{20}$"},
+    "relation_type": {"enum": ["contains", "caption_of", "axis_of", "legend_maps", "series_of", "cell_of", "labels", "supports"]},
+    "source_visual_object_id": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"},
+    "target_visual_object_id": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "evidence_hashes": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "uniqueItems": true},
+    "status": {"enum": ["candidate", "reviewed", "promoted"]},
+    "relation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

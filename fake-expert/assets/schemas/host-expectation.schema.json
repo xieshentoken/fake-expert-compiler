@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/host-expectation.schema.json",
+  "title": "TKC Hidden Host Expectation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "challenge_id", "allowed_behaviors", "required_object_ids", "allowed_object_ids", "required_evidence_ids", "allowed_evidence_ids", "required_conflict_ids", "allowed_conflict_ids", "required_gap_ids", "allowed_gap_ids", "required_reason_codes", "allowed_reason_codes", "required_answer_terms", "forbidden_answer_terms"],
+  "properties": {
+    "schema_version": {"const": "tkc.host-expectation/v0.1"},
+    "challenge_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+    "allowed_behaviors": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["answer", "abstain", "escalate"]}},
+    "required_object_ids": {"$ref": "#/$defs/unique_strings"},
+    "allowed_object_ids": {"$ref": "#/$defs/unique_strings"},
+    "required_evidence_ids": {"$ref": "#/$defs/unique_strings"},
+    "allowed_evidence_ids": {"$ref": "#/$defs/unique_strings"},
+    "required_conflict_ids": {"$ref": "#/$defs/unique_strings"},
+    "allowed_conflict_ids": {"$ref": "#/$defs/unique_strings"},
+    "required_gap_ids": {"$ref": "#/$defs/unique_strings"},
+    "allowed_gap_ids": {"$ref": "#/$defs/unique_strings"},
+    "required_reason_codes": {"$ref": "#/$defs/unique_strings"},
+    "allowed_reason_codes": {"$ref": "#/$defs/unique_strings"},
+    "required_answer_terms": {"$ref": "#/$defs/unique_strings"},
+    "forbidden_answer_terms": {"$ref": "#/$defs/unique_strings"}
+  },
+  "$defs": {
+    "unique_strings": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

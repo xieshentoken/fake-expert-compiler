@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.incremental-build-plan/v0.2",
+  "type": "object",
+  "required": ["schema_version", "compiler_version", "protocol", "generated_at", "old_dag_sha256", "new_dag_sha256", "required_actions", "invalidations", "reuse", "safety_violations", "fail_closed", "pause_only", "policy"],
+  "properties": {
+    "schema_version": {"const": "tkc.incremental-build-plan/v0.2"},
+    "compiler_version": {"const": "0.12.0-incremental-build-dag"},
+    "protocol": {"const": "incremental-build-dag-v0.2"},
+    "generated_at": {"type": "string"},
+    "old_dag_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "new_dag_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "required_actions": {"type": "array"},
+    "invalidations": {"type": "array"},
+    "reuse": {"type": "array"},
+    "safety_violations": {"type": "array"},
+    "fail_closed": {"type": "boolean"},
+    "pause_only": {"const": true},
+    "policy": {"type": "object"}
+  },
+  "additionalProperties": false
+}

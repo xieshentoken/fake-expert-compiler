@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/incremental-update-report.schema.json",
+  "title": "Technical Knowledge Compiler incremental update report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "differ_version", "generated_at", "package_id", "old", "new", "changes", "conflicted_object_ids", "identity_violations", "capability_escalations", "dependency_impact", "safe_for_incremental_rebuild"],
+  "properties": {
+    "schema_version": {"const": "tkc.incremental-update-report/v0.1"},
+    "differ_version": {"const": "0.1.0-phase5"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "package_id": {"type": "string", "minLength": 1},
+    "old": {"$ref": "#/$defs/binding"},
+    "new": {"$ref": "#/$defs/binding"},
+    "changes": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/change_set"}
+    },
+    "conflicted_object_ids": {"$ref": "#/$defs/ids"},
+    "identity_violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "id", "code"],
+        "properties": {"kind": {"type": "string"}, "id": {"type": "string"}, "code": {"type": "string"}}
+      }
+    },
+    "capability_escalations": {"$ref": "#/$defs/ids"},
+    "dependency_impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["affected_object_ids", "affected_module_ids", "invalidated_artifacts"],
+      "properties": {
+        "affected_object_ids": {"$ref": "#/$defs/ids"},
+        "affected_module_ids": {"$ref": "#/$defs/ids"},
+        "invalidated_artifacts": {"$ref": "#/$defs/ids"}
+      }
+    },
+    "safe_for_incremental_rebuild": {"type": "boolean"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "manifest_sha256", "integrity_sha256", "input_fingerprint"],
+      "properties": {
+        "version": {"type": "string"},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "integrity_sha256": {"$ref": "#/$defs/sha256"},
+        "input_fingerprint": {"type": ["string", "null"]}
+      }
+    },
+    "change_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["added", "changed", "removed", "unchanged"],
+      "properties": {
+        "added": {"$ref": "#/$defs/ids"},
+        "changed": {"$ref": "#/$defs/ids"},
+        "removed": {"$ref": "#/$defs/ids"},
+        "unchanged": {"$ref": "#/$defs/ids"}
+      }
+    }
+  }
+}

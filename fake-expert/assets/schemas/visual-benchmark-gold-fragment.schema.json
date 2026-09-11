@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-benchmark-gold-fragment.schema.json",
+  "title": "TKC externally authored Phase 7D.5B Gold fragment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "item_id", "item_sha256", "review_task_id", "kind_candidate", "split", "input_hashes", "gold_payload", "reviewer_registry", "attestations", "fragment_provenance", "independent_real_gold", "verified_gold", "promotion_allowed", "fragment_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-benchmark-gold-fragment/v0.1"},
+    "protocol": {"const": "visual-benchmark-v0.1"},
+    "item_id": {"type": "string"},
+    "item_sha256": {"$ref": "#/$defs/hash"},
+    "review_task_id": {"type": "string"},
+    "kind_candidate": {"enum": ["table", "chart", "figure", "equation"]},
+    "split": {"enum": ["calibration", "test"]},
+    "input_hashes": {"type": "object", "additionalProperties": false, "required": ["source_sha256", "render_sha256", "crop_sha256", "bbox_sha256"], "properties": {"source_sha256": {"$ref": "#/$defs/hash"}, "render_sha256": {"$ref": "#/$defs/hash"}, "crop_sha256": {"$ref": "#/$defs/hash"}, "bbox_sha256": {"$ref": "#/$defs/hash"}}},
+    "gold_payload": {"type": "object", "properties": {"bbox": {"anyOf": [{"$ref": "#/$defs/bbox"}, {"type": "null"}]}, "corrected_bbox": {"anyOf": [{"$ref": "#/$defs/bbox"}, {"type": "null"}]}, "bbox_source": {"enum": ["candidate", "corrected", "not_applicable"]}, "bbox_coordinate_space": {"type": ["string", "null"]}}},
+    "reviewer_registry": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "object"}},
+    "attestations": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "visual-benchmark-review-attestation.schema.json"}},
+    "fragment_provenance": {"type": "object"},
+    "reviewer_registry_sha256": {"$ref": "#/$defs/hash"},
+    "gold_payload_sha256": {"$ref": "#/$defs/hash"},
+    "independent_real_gold": {"const": true},
+    "verified_gold": {"const": false},
+    "promotion_allowed": {"const": false},
+    "fragment_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "bbox": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}}}
+}

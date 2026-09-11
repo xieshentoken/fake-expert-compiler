@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/semantic-assurance-manifest.schema.json",
+  "title": "TKC Promoted Semantic Assurance Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol", "compiler_version", "attestation_level",
+    "source_sha256", "workpack_id", "review_plan_sha256",
+    "selected_scope_complete", "whole_book_completeness_claimed", "entity_map",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-assurance-manifest/v0.1"},
+    "protocol": {"const": "atomic-support-review-v2"},
+    "compiler_version": {"const": "0.5.0-semantic-assurance"},
+    "attestation_level": {"const": "host-orchestrator-recorded-not-cryptographic"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "workpack_id": {"type": "string", "pattern": "^swp-[0-9a-f]{20}$"},
+    "review_plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "selected_scope_complete": {"const": true},
+    "whole_book_completeness_claimed": {"const": false},
+    "entity_map": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["item_ref", "promoted_id"],
+        "properties": {
+          "item_ref": {"type": "string", "minLength": 1},
+          "promoted_id": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["semantic_assertions", "support_matrix", "coverage_ledger", "review_attestations"],
+      "properties": {
+        "semantic_assertions": {"$ref": "#/$defs/artifact"},
+        "support_matrix": {"$ref": "#/$defs/artifact"},
+        "coverage_ledger": {"$ref": "#/$defs/artifact"},
+        "review_attestations": {"$ref": "#/$defs/artifact"}
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "record_count"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "record_count": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-conflict.schema.json",
+  "title": "TKC visual conflict ledger row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "visual_conflict_id", "source_sha256", "physical_page", "conflict_type", "object_ids", "details", "status", "conflict_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-conflict/v0.1"},
+    "visual_conflict_id": {"type": "string", "pattern": "^vc-[0-9a-f]{20}$"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "conflict_type": {"enum": ["parser", "locator", "type", "overlap", "duplicate", "missing"]},
+    "object_ids": {"type": "array", "items": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"}, "uniqueItems": true},
+    "details": {"type": "object"},
+    "status": {"enum": ["candidate", "reviewed", "promoted"]},
+    "conflict_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

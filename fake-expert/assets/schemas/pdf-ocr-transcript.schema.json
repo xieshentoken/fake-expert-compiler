@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.4/pdf-ocr-transcript.schema.json",
+  "title": "TKC OCR transcript span candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "page_transcript_id", "source_sha256", "physical_page", "backend_id", "span", "raw_text", "normalized_text", "raw_text_sha256", "normalized_text_sha256", "candidate_only"],
+  "properties": {
+    "schema_version": {"const": "tkc.pdf-ocr-transcript/v0.1"},
+    "id": {"type": "string", "pattern": "^ots-[0-9a-f]{20}$"},
+    "page_transcript_id": {"type": "string", "pattern": "^otx-[0-9a-f]{20}$"},
+    "source_sha256": {"$ref": "#/$defs/sha256"},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "backend_id": {"type": "string", "minLength": 1},
+    "span": {"type": "object", "additionalProperties": false, "required": ["start", "end", "offset_unit"], "properties": {"start": {"type": "integer", "minimum": 0}, "end": {"type": "integer", "minimum": 1}, "offset_unit": {"const": "unicode-code-point"}}},
+    "raw_text": {"type": "string"},
+    "normalized_text": {"type": "string", "minLength": 1},
+    "raw_text_sha256": {"$ref": "#/$defs/sha256"},
+    "normalized_text_sha256": {"$ref": "#/$defs/sha256"},
+    "candidate_only": {"const": true}
+  },
+  "$defs": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

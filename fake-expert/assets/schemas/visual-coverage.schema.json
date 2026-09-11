@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.2/visual-coverage.schema.json",
+  "title": "Selective visual coverage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "source_sha256", "policy_sha256", "pages", "status_counts", "budget_status", "candidate_only", "promotion", "whole_book_completeness_claimed", "coverage_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-coverage/v0.2"}, "protocol": {"const": "selective-visual-pipeline-v0.1"}, "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "pages": {"type": "array", "items": {"type": "object"}}, "status_counts": {"type": "object"}, "budget_status": {"type": ["string", "null"]}, "candidate_only": {"const": true}, "promotion": {"const": false}, "whole_book_completeness_claimed": {"const": false}, "coverage_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

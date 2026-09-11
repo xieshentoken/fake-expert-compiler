@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/pdf-layout-candidate.schema.json",
+  "title": "TKC noncanonical PDF layout candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "coordinate_space", "source_sha256", "parser_id", "parser_version", "physical_page", "sequence", "kind", "bbox", "content_sha256", "order"],
+  "properties": {
+    "schema_version": {"const": "tkc.pdf-layout-candidate/v0.1"},
+    "id": {"type": "string", "pattern": "^plc-[0-9a-f]{20}$"},
+    "coordinate_space": {"const": "pdf-page-top-left-points-v1"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "parser_id": {"enum": ["pymupdf", "docling"]},
+    "parser_version": {"type": "string", "minLength": 1},
+    "physical_page": {"type": "integer", "minimum": 1},
+    "sequence": {"type": "integer", "minimum": 0},
+    "kind": {"type": "string", "minLength": 1},
+    "bbox": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"type": "number"}
+    },
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "order": {
+      "type": ["array", "null"],
+      "items": {"type": "integer"}
+    }
+  }
+}

@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.fake-expert-job/v0.2",
+  "title": "Private fake-expert UX job",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol",
+    "compiler_version",
+    "job_id",
+    "created_at",
+    "profile",
+    "backend",
+    "target_stage",
+    "inputs",
+    "package",
+    "workspace",
+    "gold",
+    "required_reading",
+    "state",
+    "outputs",
+    "tool_bindings",
+    "runtime",
+    "policy",
+    "next_action",
+    "job_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.fake-expert-job/v0.2"},
+    "protocol": {"const": "fake-expert-job-v0.2"},
+    "compiler_version": {"const": "1.2.0"},
+    "job_id": {"type": "string", "pattern": "^fxj-[0-9a-f]{20}$"},
+    "created_at": {"type": "string", "minLength": 1},
+    "profile": {"enum": ["native-text", "scan-text", "scan-structure", "visual"]},
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "runtime_receipt"],
+      "properties": {
+        "name": {"enum": ["pypdf-native", "paddleocr-ppocrv6", "pymupdf-tesseract", "docling", "paddleocr-ppstructure-v3", "pdftoppm"]},
+        "runtime_receipt": {"anyOf": [{"$ref": "#/$defs/file"}, {"type": "null"}]}
+      }
+    },
+    "target_stage": {"enum": ["draft", "reviewed", "ready", "executable"]},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "workpack"],
+      "properties": {
+        "source": {"$ref": "#/$defs/file"},
+        "workpack": {"anyOf": [{"$ref": "#/$defs/file"}, {"type": "null"}]}
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "display_name", "domain", "version"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "display_name": {"type": "string", "minLength": 1},
+        "domain": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "version": {"type": "string", "minLength": 1}
+      }
+    },
+    "workspace": {"type": "string", "minLength": 1},
+    "gold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "revision"],
+      "properties": {
+        "mode": {"enum": ["none", "reuse", "create", "update"]},
+        "revision": {"anyOf": [{"$ref": "#/$defs/file"}, {"type": "null"}]}
+      }
+    },
+    "required_reading": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/reference"}
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "stage", "updated_at"],
+      "properties": {
+        "status": {"enum": ["planned", "paused", "completed", "rejected"]},
+        "stage": {"type": "string", "minLength": 1},
+        "updated_at": {"type": "string", "minLength": 1},
+        "code": {"type": "string", "minLength": 1},
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["at", "status", "code"],
+            "properties": {
+              "at": {"type": "string", "minLength": 1},
+              "status": {"type": "string", "minLength": 1},
+              "code": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill", "job"],
+      "properties": {
+        "skill": {"type": "string", "minLength": 1},
+        "job": {"type": "string", "minLength": 1}
+      }
+    },
+    "tool_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cli", "preflight", "direct_reference", "pipeline"],
+      "properties": {
+        "cli": {"$ref": "#/$defs/tool"},
+        "preflight": {"$ref": "#/$defs/tool"},
+        "direct_reference": {"$ref": "#/$defs/tool"},
+        "pipeline": {"$ref": "#/$defs/tool"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["python", "pypdf", "network_enabled", "model_download", "ocr_invoked"],
+      "properties": {
+        "python": {"type": "string", "minLength": 1},
+        "pypdf": {"const": "6.10.0"},
+        "network_enabled": {"const": false},
+        "model_download": {"const": false},
+        "ocr_invoked": {"const": false}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["auto_install", "auto_download", "auto_backend_fallback", "review_authoring", "gold_authoring", "promotion", "execution"],
+      "properties": {
+        "auto_install": {"const": false},
+        "auto_download": {"const": false},
+        "auto_backend_fallback": {"const": false},
+        "review_authoring": {"const": false},
+        "gold_authoring": {"const": false},
+        "promotion": {"const": false},
+        "execution": {"const": false}
+      }
+    },
+    "next_action": {"type": "object", "additionalProperties": false, "required": ["code", "meaning"], "properties": {"code": {"type": "string", "minLength": 1}, "meaning": {"type": "string", "minLength": 1}}},
+    "job_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^references/[A-Za-z0-9._-]+\\.md$"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

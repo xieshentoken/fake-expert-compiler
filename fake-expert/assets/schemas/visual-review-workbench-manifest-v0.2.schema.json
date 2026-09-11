@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.2/visual-review-workbench-manifest.schema.json",
+  "title": "TKC profile-bound local independent visual reviewer workbench manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "workbench_instance_id", "reviewer", "workpack_identity", "profile", "item_count", "items", "assets", "ui_policy", "manifest_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-review-workbench-manifest/v0.2"},
+    "protocol": {"const": "visual-review-workbench-v0.2-profile-bound"},
+    "compiler_version": {"const": "0.14.2-review-convention"},
+    "created_at": {"type": "string", "minLength": 1},
+    "workbench_instance_id": {"type": "string", "minLength": 1},
+    "reviewer": {"type": "object", "additionalProperties": false, "required": ["reviewer_instance", "review_session_id", "role"], "properties": {"reviewer_instance": {"type": "string", "minLength": 1}, "review_session_id": {"type": "string", "minLength": 1}, "role": {"const": "external-independent"}}},
+    "workpack_identity": {"$ref": "#/$defs/identity"},
+    "profile": {"$ref": "#/$defs/profile"},
+    "item_count": {"const": 31},
+    "items": {"type": "array", "minItems": 31, "uniqueItems": true, "items": {"type": "object"}},
+    "assets": {"type": "array", "items": {"type": "object"}},
+    "ui_policy": {"type": "object", "additionalProperties": false, "required": ["network_enabled", "external_resources", "split_labels_visible", "prediction_or_model_fields_present", "autosave_namespace"], "properties": {"network_enabled": {"const": false}, "external_resources": {"const": false}, "split_labels_visible": {"const": false}, "prediction_or_model_fields_present": {"const": false}, "autosave_namespace": {"type": "string", "minLength": 1}}},
+    "release_included": {"const": false},
+    "data_file_sha256": {"$ref": "#/$defs/hash"},
+    "manifest_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "profile": {"type": "object", "additionalProperties": false, "required": ["schema_version", "profile_id", "profile_version", "compiler_version", "protocol", "profile_sha256"], "properties": {"schema_version": {"const": "tkc.visual-review-convention-profile/v0.2"}, "profile_id": {"const": "visual-review-convention-v0.2"}, "profile_version": {"const": "0.2"}, "compiler_version": {"const": "0.14.2-review-convention"}, "protocol": {"const": "visual-review-convention-v0.2"}, "profile_sha256": {"$ref": "#/$defs/hash"}}},
+    "identity": {"type": "object", "additionalProperties": false, "required": ["workpack_sha256", "phase7d5a_manifest_sha256", "phase7d5a_manifest_file_sha256", "candidate_items_file_sha256", "split_commitment_sha256", "split_file_sha256", "review_plan_sha256", "candidate_set_sha256", "item_count", "item_bindings"], "properties": {"workpack_sha256": {"$ref": "#/$defs/hash"}, "phase7d5a_manifest_sha256": {"$ref": "#/$defs/hash"}, "phase7d5a_manifest_file_sha256": {"$ref": "#/$defs/hash"}, "candidate_items_file_sha256": {"$ref": "#/$defs/hash"}, "split_commitment_sha256": {"$ref": "#/$defs/hash"}, "split_file_sha256": {"$ref": "#/$defs/hash"}, "review_plan_sha256": {"$ref": "#/$defs/hash"}, "candidate_set_sha256": {"$ref": "#/$defs/hash"}, "item_count": {"const": 31}, "item_bindings": {"type": "array", "minItems": 31, "items": {"type": "object"}}}}
+  }
+}

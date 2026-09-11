@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-benchmark-evaluation.schema.json",
+  "title": "TKC Phase 7D.5B frozen visual benchmark evaluation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "compiler_version", "job_id", "split", "visual_mode", "status", "metrics", "candidate_only", "verified_gold", "promotion_allowed", "evaluation_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-benchmark-evaluation/v0.1"},
+    "protocol": {"const": "visual-benchmark-v0.1"},
+    "compiler_version": {"const": "0.14.1-visual-benchmark"},
+    "job_id": {"type": ["string", "null"]},
+    "split": {"enum": ["calibration", "test"]},
+    "visual_mode": {"enum": ["off", "auto", "full"]},
+    "status": {"enum": ["measured", "paused", "rejected"]},
+    "metrics": {"type": "array"},
+    "candidate_only": {"const": true},
+    "verified_gold": {"const": false},
+    "promotion_allowed": {"const": false},
+    "accuracy_claim": {"const": false},
+    "reason": {"type": "string"},
+    "gold_candidate_set_sha256": {"$ref": "#/$defs/hash"},
+    "prediction_output_sha256": {"$ref": "#/$defs/hash"},
+    "environment_sha256": {"$ref": "#/$defs/hash"},
+    "cost_ledger": {"type": "object"},
+    "evaluator_instance": {"type": "string"},
+    "threshold_config_sha256": {"$ref": "#/$defs/hash"},
+    "evaluation_sha256": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

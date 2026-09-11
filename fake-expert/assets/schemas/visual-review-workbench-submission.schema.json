@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-review-workbench-submission.schema.json",
+  "title": "TKC local visual reviewer form submission",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "workbench_instance_id", "reviewer_instance", "review_session_id", "workpack_identity", "declarations", "items"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-review-workbench-submission/v0.1"},
+    "protocol": {"const": "visual-review-workbench-v0.1"},
+    "workbench_instance_id": {"type": "string", "minLength": 1},
+    "reviewer_instance": {"type": "string", "minLength": 1},
+    "review_session_id": {"type": "string", "minLength": 1},
+    "workpack_identity": {"type": "object", "additionalProperties": false, "required": ["workpack_sha256", "phase7d5a_manifest_sha256", "candidate_items_file_sha256", "split_commitment_sha256", "review_plan_sha256"], "properties": {"workpack_sha256": {"$ref": "#/$defs/hash"}, "phase7d5a_manifest_sha256": {"$ref": "#/$defs/hash"}, "candidate_items_file_sha256": {"$ref": "#/$defs/hash"}, "split_commitment_sha256": {"$ref": "#/$defs/hash"}, "review_plan_sha256": {"$ref": "#/$defs/hash"}}},
+    "declarations": {"type": "object", "additionalProperties": {"type": "boolean"}},
+    "items": {"type": "array", "items": {"type": "object", "properties": {"review": {"type": "object", "properties": {"corrected_bbox": {"anyOf": [{"$ref": "#/$defs/bbox"}, {"type": "null"}]}, "observed_bbox": {"anyOf": [{"$ref": "#/$defs/bbox"}, {"type": "null"}]}}}}}},
+    "exported_at": {"type": "string"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "bbox": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}}}
+}

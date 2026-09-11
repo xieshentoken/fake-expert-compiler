@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/visual-assurance-manifest.schema.json",
+  "title": "TKC source-free visual assurance manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol", "review_protocol", "source_sha256", "candidate_only", "whole_book_completeness_claimed", "files", "review_binding", "manifest_sha256"],
+  "properties": {
+    "schema_version": {"const": "tkc.visual-assurance-manifest/v0.1"},
+    "protocol": {"const": "visual-semantics-v0.1"},
+    "review_protocol": {"const": "visual-review-attestation-v0.2"},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "candidate_only": {"type": "boolean"},
+    "whole_book_completeness_claimed": {"const": false},
+    "files": {"type": "object", "minProperties": 5},
+    "review_binding": {
+      "type": "object",
+      "required": ["review_plan_sha256", "review_session_id", "registered_reviewer_instances", "required_reviewers", "accepted_attestations"],
+      "properties": {
+        "review_plan_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "review_session_id": {"type": ["string", "null"]},
+        "registered_reviewer_instances": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "required_reviewers": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1}},
+        "accepted_attestations": {"type": "object", "additionalProperties": {"type": "object", "required": ["attestation_ids", "reviewer_instances"], "properties": {"attestation_ids": {"type": "array", "items": {"type": "string", "pattern": "^vra-[0-9a-f]{20}$"}, "uniqueItems": true}, "reviewer_instances": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}}}}
+      },
+      "additionalProperties": false
+    },
+    "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

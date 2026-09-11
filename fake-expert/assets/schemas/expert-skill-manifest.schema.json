@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.1/expert-skill-manifest.schema.json",
+  "title": "TKC Expert Skill Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "package",
+    "distribution",
+    "sources",
+    "modules",
+    "capabilities",
+    "build"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "tkc.expert-skill/v0.1"
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "version", "domain", "status"],
+      "properties": {
+        "id": {"$ref": "#/$defs/slug"},
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"},
+        "domain": {"$ref": "#/$defs/slug"},
+        "status": {"enum": ["draft", "ready", "deprecated", "revoked"]}
+      }
+    },
+    "distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_mode", "verification"],
+      "properties": {
+        "source_mode": {"enum": ["source-required", "evidence-pack", "full"]},
+        "verification": {
+          "enum": [
+            "external-source-required",
+            "evidence-pack-verifiable",
+            "self-contained-source-verifiable"
+          ]
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/source"}
+    },
+    "modules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/module"}
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "decision_support", "executable"],
+      "properties": {
+        "reference": {"type": "boolean"},
+        "decision_support": {"type": "boolean"},
+        "executable": {"type": "boolean"}
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compiler",
+        "compiler_version",
+        "schema_version",
+        "created_at",
+        "input_fingerprint",
+        "prompt_versions",
+        "model_ids"
+      ],
+      "properties": {
+        "compiler": {"type": "string", "minLength": 1},
+        "compiler_version": {"type": "string", "minLength": 1},
+        "schema_version": {"const": "tkc.expert-skill/v0.1"},
+        "created_at": {"type": "string", "format": "date-time"},
+        "input_fingerprint": {"$ref": "#/$defs/sha256"},
+        "prompt_versions": {"type": "array", "items": {"type": "string"}},
+        "model_ids": {"type": "array", "items": {"type": "string"}},
+        "execution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bundle", "policy", "input_manifest_sha256", "compiler_instance"],
+          "properties": {
+            "bundle": {"const": "references/execution/manifest.json"},
+            "policy": {"const": "references/execution/policy.json"},
+            "input_manifest_sha256": {"$ref": "#/$defs/sha256"},
+            "compiler_instance": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "sealed_at", "files"],
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "sealed_at": {"type": "string", "format": "date-time"},
+        "files": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "title",
+        "sha256",
+        "media_type",
+        "size_bytes",
+        "original_filename",
+        "included_path"
+      ],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1},
+        "title": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "media_type": {"const": "application/pdf"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "original_filename": {"type": "string", "minLength": 1},
+        "included_path": {"type": ["string", "null"]},
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["physical_pages", "printed_page_labels"],
+          "properties": {
+            "physical_pages": {
+              "type": "array",
+              "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}],
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "printed_page_labels": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module_id",
+        "version",
+        "knowledge_index",
+        "exports",
+        "dependencies"
+      ],
+      "properties": {
+        "module_id": {"$ref": "#/$defs/slug"},
+        "version": {"type": "string", "minLength": 1},
+        "knowledge_index": {"type": "string", "minLength": 1},
+        "exports": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["module_id", "version_range"],
+            "properties": {
+              "module_id": {"$ref": "#/$defs/slug"},
+              "version_range": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/tkc/v0.2/semantic-assertion.schema.json",
+  "title": "TKC Atomic Semantic Assertion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "assertion_id", "parent_item_ref", "unit_id", "kind",
+    "origin", "payload", "evidence_spans", "dependency_assertion_ids",
+    "formula_node_paths", "visual_task_ids", "risk_tier", "proposal_sha256",
+    "assertion_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tkc.semantic-assertion/v0.2"},
+    "assertion_id": {"type": "string", "pattern": "^sa-[0-9a-f]{20}$"},
+    "parent_item_ref": {"type": "string", "minLength": 1},
+    "unit_id": {"type": "string", "pattern": "^swu-[0-9a-f]{20}$"},
+    "kind": {"enum": ["proposition", "numeric", "unit", "symbol", "assumption", "applicability", "failure_condition", "derivation_step", "visual_fact"]},
+    "origin": {"enum": ["source-explicit", "source-paraphrase", "compiler-derived"]},
+    "payload": {"type": "object", "minProperties": 1},
+    "evidence_spans": {"type": "array", "items": {"$ref": "#/$defs/span"}},
+    "dependency_assertion_ids": {"type": "array", "items": {"type": "string", "pattern": "^sa-[0-9a-f]{20}$"}, "uniqueItems": true},
+    "formula_node_paths": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "visual_task_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "visual_object_ids": {"type": "array", "items": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"}, "uniqueItems": true},
+    "table_cell_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "series_ids": {"type": "array", "items": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"}, "uniqueItems": true},
+    "render_sha256s": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "uniqueItems": true},
+    "crop_sha256s": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "uniqueItems": true},
+    "bbox_sha256s": {"type": "array", "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "uniqueItems": true},
+    "risk_tier": {"type": "integer", "minimum": 1, "maximum": 2},
+    "proposal_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "assertion_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "span": {
+      "type": "object", "additionalProperties": false,
+      "required": ["page", "start", "end", "span_sha256"],
+      "properties": {
+        "page": {"type": "integer", "minimum": 1},
+        "start": {"type": "integer", "minimum": 0},
+        "end": {"type": "integer", "minimum": 1},
+        "span_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
