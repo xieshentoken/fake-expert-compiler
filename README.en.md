@@ -16,6 +16,7 @@ Design principle: preserve uncertainty by default. PDFs, code, shell commands an
 - **Answer-free workbench**: the compiler never generates review verdicts, independent attestations, Gold, hidden answers or any other reviewer's results.
 - **Reproducible jobs**: a job is a closed, canonical-JSON, SHA-256-bound intent file; the `required_reading` list is hash-locked document by document and any drift halts the run.
 - **Progressive references**: `references/` is organized by task (quickstart / glossary / troubleshooting / compilation / OCR / visual semantics, etc.).
+- **Science consultation layer (source-candidate)**: an additive multi-domain implementation of science proposals, an offline index, read-only querying, controlled scalar calculation and blind acceptance (M1–M4) — answer-free, never authorizes execution, leaves the formal gates untouched.
 
 ## Quick start
 
@@ -48,6 +49,16 @@ PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/fake_expert.py comp
 
 The unified CLI also provides `status`, `resume` and read-only `review list / locate / status / validate-submission` subcommands. Without a complete semantic workpack the flow pauses at `semantic_authoring_required` — the compiler does not author semantic answers.
 
+## Science consultation layer (M1–M4, source-candidate)
+
+Alongside the compiler core, this repository ships an additive multi-domain science-consultation layer (candidate identities `1.2.0-science-m1`…`m4`): offline and answer-free, it changes no formal v1.2.0 gate and certifies no domain knowledge. Every new output is a fresh file; existing packages, sidecars, reviews and Gold are never overwritten.
+
+- **M1 proposals & freeze** (`science_contract.py` / `science_workpack.py`): science content is described by five closed record kinds — SymbolBinding, ConditionSet, MaterialState, PropertyObservation, FormulaCard — and is only structurally validated and frozen answer-free; evidence references bind the exact package/version/object/anchor rather than a book title or glyph similarity, and a hash match proves binding, not scientific truth.
+- **M2 index & read-only query** (`science_index.py` / `science_reference_runtime.py`): a rebuildable offline Chinese/math candidate index (explicit aliases, case-preserving math channel) plus the read-only `query / object / locator / source / validate-answer / prepare-support-review / validate-support-review` protocol, which always returns `execution_authorized=false`. `consultation_contract.py` only validates host-authored consultation drafts — it never generates answers or approval.
+- **M3 controlled scalar calculation** (`science_calculation.py` / `science_units.py`): gated scalar calculation over hash-bound specifications (binding the exact M2 request, a FormulaCard, every input/output SymbolBinding and ConditionSet mapping), returning separate calculation receipts instead of accepted M2 answers; an unreviewed Draft never becomes executable through it, and execution permission always remains an explicit, separate contract.
+- **M4 lifecycle & domain profiles** (`science_acceptance.py`): `validate-suite / blind-plan / freeze-review / report` drives blind-evaluation acceptance; `assets/domain-profiles/` ships thin `heat-transfer` and `materials-optics` configurations whose content is an original synthetic question catalog (not book excerpts, answers or Gold), fixed to `execution_authorized=false` and `knowledge_verified=false`.
+- **Boundaries unchanged**: operator-local libraries, indexes, source maps and receipts never enter sealed packages; no network, no models, no Review/Gold/promotion/execution authority.
+
 ## Dependencies
 
 | Dependency | Role | Notes |
@@ -76,8 +87,9 @@ fake-expert/
 ├── SKILL.md          # Agent-side skill instructions (read this first)
 ├── agents/           # Agent adapter config
 ├── assets/schemas/   # All JSON schemas (job/manifest/review/receipt, 140+)
-├── references/       # Task-oriented required-reading documents
-├── scripts/          # Compiler, workbench and acceptance scripts
+├── assets/domain-profiles/ # Thin science domain profiles (heat-transfer, materials-optics)
+├── references/       # Task-oriented required-reading documents (incl. science-consultation / science-calculation)
+├── scripts/          # Compiler, workbench, science-consultation and acceptance scripts
 └── requirements-*.txt
 ```
 
