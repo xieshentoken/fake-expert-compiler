@@ -1,0 +1,457 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.science-lifecycle/v0.1",
+  "$ref": "#/$defs/domain_profile",
+  "$defs": {
+    "domain_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "protocol",
+        "domain_id",
+        "version",
+        "science_profile",
+        "tokenizer",
+        "quantity_kinds",
+        "symbol_hints",
+        "calculation_policy",
+        "question_catalog",
+        "knowledge_verified",
+        "execution_authorized"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-domain-profile/v0.1"
+        },
+        "protocol": {
+          "const": "science-lifecycle-v0.1"
+        },
+        "domain_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "[A-Za-z0-9_.:-]+"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "science_profile": {
+          "$ref": "science-sidecar.schema.json#/$defs/profile"
+        },
+        "tokenizer": {
+          "$ref": "science-consultation.schema.json#/$defs/tokenizer"
+        },
+        "quantity_kinds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "[A-Za-z0-9_.:-]+"
+          }
+        },
+        "symbol_hints": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "glyph",
+              "quantity_kind",
+              "scope_aliases"
+            ],
+            "properties": {
+              "glyph": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "quantity_kind": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "[A-Za-z0-9_.:-]+"
+              },
+              "scope_aliases": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              }
+            }
+          }
+        },
+        "calculation_policy": {
+          "enum": [
+            "requires-existing-gates",
+            "reference-only"
+          ]
+        },
+        "question_catalog": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "case_id",
+              "layer",
+              "question",
+              "data_origin"
+            ],
+            "properties": {
+              "case_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "[A-Za-z0-9_.:-]+"
+              },
+              "layer": {
+                "enum": [
+                  "unit",
+                  "parse",
+                  "retrieval",
+                  "support",
+                  "applicability",
+                  "execution",
+                  "host"
+                ]
+              },
+              "question": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "data_origin": {
+                "const": "synthetic"
+              }
+            }
+          }
+        },
+        "knowledge_verified": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        }
+      }
+    },
+    "link_endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_package",
+        "record_ref"
+      ],
+      "properties": {
+        "base_package": {
+          "$ref": "science-consultation.schema.json#/$defs/fingerprint"
+        },
+        "record_ref": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "sha256"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "[A-Za-z0-9_.:-]+"
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "[0-9a-f]{64}"
+            }
+          }
+        }
+      }
+    },
+    "link_proposals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "proposal_id",
+        "pairs"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-link-proposals/v0.1"
+        },
+        "proposal_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "[A-Za-z0-9_.:-]+"
+        },
+        "pairs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "left",
+              "right",
+              "relation"
+            ],
+            "properties": {
+              "left": {
+                "$ref": "#/$defs/link_endpoint"
+              },
+              "right": {
+                "$ref": "#/$defs/link_endpoint"
+              },
+              "relation": {
+                "enum": [
+                  "related",
+                  "equivalent",
+                  "contradicts",
+                  "alias"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "evaluation_suite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "suite_id",
+        "version",
+        "cases"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-evaluation-suite/v0.1"
+        },
+        "suite_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "[A-Za-z0-9_.:-]+"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 512,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "case_id",
+              "layer",
+              "data_origin",
+              "split",
+              "question",
+              "groups",
+              "evidence_refs",
+              "category"
+            ],
+            "properties": {
+              "case_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "[A-Za-z0-9_.:-]+"
+              },
+              "layer": {
+                "enum": [
+                  "unit",
+                  "parse",
+                  "retrieval",
+                  "support",
+                  "applicability",
+                  "execution",
+                  "host"
+                ]
+              },
+              "data_origin": {
+                "enum": [
+                  "synthetic",
+                  "source-backed"
+                ]
+              },
+              "split": {
+                "enum": [
+                  "development",
+                  "blind"
+                ]
+              },
+              "question": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "groups": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source_sha256",
+                  "chapter",
+                  "formula_family",
+                  "material_sample"
+                ],
+                "properties": {
+                  "source_sha256": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "[0-9a-f]{64}"
+                  },
+                  "chapter": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "formula_family": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "material_sample": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              },
+              "evidence_refs": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 32,
+                "items": {
+                  "$ref": "science-sidecar.schema.json#/$defs/evidence_ref"
+                }
+              },
+              "category": {
+                "enum": [
+                  "concept-paraphrase",
+                  "symbol",
+                  "conditions",
+                  "scalar-calculation",
+                  "conflict-or-complex"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "evaluation_results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "suite_sha256",
+        "evaluator_instance",
+        "rows"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-evaluation-results/v0.1"
+        },
+        "suite_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "evaluator_instance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "[A-Za-z0-9_.:-]+"
+        },
+        "rows": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 512,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "case_id",
+              "case_sha256",
+              "status",
+              "evidence_sha256",
+              "reason_codes"
+            ],
+            "properties": {
+              "case_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "[A-Za-z0-9_.:-]+"
+              },
+              "case_sha256": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "[0-9a-f]{64}"
+              },
+              "status": {
+                "enum": [
+                  "passed",
+                  "failed",
+                  "skipped",
+                  "blocked"
+                ]
+              },
+              "evidence_sha256": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "[0-9a-f]{64}"
+                  },
+                  {
+                    "const": null
+                  }
+                ]
+              },
+              "reason_codes": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "[A-Za-z0-9_.:-]+"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

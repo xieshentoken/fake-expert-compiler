@@ -18,6 +18,7 @@ try:
     from compiler_version import (
         RELEASE_VERSION as VERSION,
         UX_SOURCE_CANDIDATE_VERSION,
+        SCIENCE_LIFECYCLE_COMPILER_VERSION,
         DIRECT_REFERENCE_COMPILER_VERSION,
         DIRECT_REFERENCE_PROTOCOL,
         DIRECT_REFERENCE_SCHEMA,
@@ -27,6 +28,7 @@ try:
 except ModuleNotFoundError:
     VERSION = "1.2.0"  # standalone-release fallback; package time cross-checks this literal
     UX_SOURCE_CANDIDATE_VERSION = "1.2.0-ux"  # standalone-release fallback
+    SCIENCE_LIFECYCLE_COMPILER_VERSION = "1.2.0-science-m4"  # standalone-release fallback
     DIRECT_REFERENCE_COMPILER_VERSION = "1.1.0-direct-reference"  # standalone-release fallback
     DIRECT_REFERENCE_PROTOCOL = "direct-reference-draft-v0.1"  # standalone-release fallback
     DIRECT_REFERENCE_SCHEMA = "tkc.direct-reference/v0.1"  # standalone-release fallback
@@ -36,7 +38,7 @@ except ModuleNotFoundError:
 
 RELEASE_SCHEMA = "tkc.fake-expert-release/v0.4"
 LEGACY_RELEASE_SCHEMA = "tkc.fake-expert-release/v0.1"
-CANDIDATE_VERSIONS = {VERSION, HARDENING_VERSION, UX_SOURCE_CANDIDATE_VERSION}
+CANDIDATE_VERSIONS = {VERSION, HARDENING_VERSION, UX_SOURCE_CANDIDATE_VERSION, SCIENCE_LIFECYCLE_COMPILER_VERSION}
 LEGACY_COMPATIBLE_VERSIONS = {VERSION, *READONLY_COMPATIBLE_SOURCE_CANDIDATE_VERSIONS}
 ARTIFACT_STAGES = {"candidate-verified", "release-verified"}
 MVP_ACCEPTANCE_SCHEMA = "fake-expert-mvp-1.2-product-scope-v1"
@@ -58,6 +60,53 @@ FORBIDDEN_SUFFIXES = {
     ".webp",
 }
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+SCIENCE_REQUIRED_PATHS = {
+    "scripts/science_contract.py", "scripts/science_workpack.py", "scripts/science_index.py",
+    "scripts/science_reference_runtime.py", "scripts/consultation_contract.py", "scripts/science_units.py",
+    "scripts/science_calculation.py", "scripts/science_acceptance.py", "scripts/pipeline_orchestrator.py",
+    "scripts/incremental_build_dag.py", "assets/schemas/science-sidecar.schema.json",
+    "assets/schemas/science-consultation.schema.json", "assets/schemas/science-calculation-receipt.schema.json",
+    "assets/schemas/science-lifecycle.schema.json", "assets/domain-profiles/heat-transfer.json",
+    "assets/domain-profiles/materials-optics.json", "references/science-consultation.md",
+}
+SCIENCE_SCHEMA_IDS = {
+    "assets/schemas/science-sidecar.schema.json": "tkc.science-sidecar/v0.1",
+    "assets/schemas/science-consultation.schema.json": "tkc.science-consultation/v0.1",
+    "assets/schemas/science-calculation-receipt.schema.json": "tkc.science-calculation-receipt/v0.1",
+    "assets/schemas/science-lifecycle.schema.json": "tkc.science-lifecycle/v0.1",
+}
+
+
+def science_source_file_error(relative: str, content: str) -> str | None:
+    """M4 compiler inventory permits schemas/configuration, never runtime JSON."""
+    path = PurePosixPath(relative)
+    if any(part in {"tests", "evidence", "workpacks", "submissions", "receipts", "gold", "evaluations"} for part in path.parts):
+        return "science_private_payload_path_forbidden"
+    if path.suffix != ".json":
+        return None
+    try:
+        value = json.loads(content)
+    except (ValueError, TypeError):
+        return "science_source_json_invalid"
+    if path.parent.as_posix() == "assets/schemas" and path.name.endswith(".schema.json"):
+        if not isinstance(value, dict) or not isinstance(value.get("$id"), str):
+            return "science_schema_identity_required"
+        if relative in SCIENCE_SCHEMA_IDS and value["$id"] != SCIENCE_SCHEMA_IDS[relative]:
+            return "science_schema_identity_drift"
+        return None
+    if relative == "references/review-convention-profile-v0.2.json":
+        return None if isinstance(value, dict) and value.get("schema_version") == "tkc.visual-review-convention-profile/v0.2" else "science_legacy_profile_invalid"
+    if relative not in {"assets/domain-profiles/heat-transfer.json", "assets/domain-profiles/materials-optics.json"}:
+        return "science_runtime_payload_forbidden"
+    if (not isinstance(value, dict) or set(value) != {"schema_version", "protocol", "domain_id", "version", "science_profile", "tokenizer",
+            "quantity_kinds", "symbol_hints", "calculation_policy", "question_catalog", "knowledge_verified", "execution_authorized"}
+            or value.get("schema_version") != "tkc.science-domain-profile/v0.1"
+            or value.get("knowledge_verified") is not False or value.get("execution_authorized") is not False
+            or not isinstance(value.get("question_catalog"), list)
+            or any(not isinstance(row, dict) or row.get("data_origin") != "synthetic"
+                   or set(row) != {"case_id", "layer", "question", "data_origin"} for row in value["question_catalog"])):
+        return "science_domain_payload_invalid"
+    return None
 RESTRICTION_KEYS = {
     "source_pdf_included",
     "page_renders_included",
@@ -808,6 +857,8 @@ def verify_compiler_release(
         raise CompilerReleaseVerificationError("selective_visual_schema_missing")
     if not required_direct_paths.issubset(inventory):
         raise CompilerReleaseVerificationError("direct_reference_release_path_missing")
+    if compiler_version == SCIENCE_LIFECYCLE_COMPILER_VERSION and not SCIENCE_REQUIRED_PATHS.issubset(inventory):
+        raise CompilerReleaseVerificationError("science_release_path_missing")
     members: dict[str, zipfile.ZipInfo] = {}
     with zipfile.ZipFile(archive_path) as archive:
         for info in archive.infolist():
@@ -832,6 +883,11 @@ def verify_compiler_release(
             members[relative] = info
         if set(members) != set(inventory):
             raise CompilerReleaseVerificationError("compiler_inventory_mismatch")
+        if compiler_version == SCIENCE_LIFECYCLE_COMPILER_VERSION:
+            for relative, info in members.items():
+                error = science_source_file_error(relative, archive.read(info).decode("utf-8"))
+                if error:
+                    raise CompilerReleaseVerificationError(error)
         expected_schema_versions = {
             "assets/schemas/visual-batch-receipt.schema.json": "tkc.visual-batch-receipt/v0.1",
             "assets/schemas/technical-chart-candidate.schema.json": "tkc.technical-chart-candidate/v0.2",

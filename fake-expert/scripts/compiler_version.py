@@ -9,6 +9,41 @@ where it is stamped.
 from __future__ import annotations
 
 RELEASE_VERSION = "1.2.0"
+# Additive science proposals; never a release, promotion or execution identity.
+SCIENCE_COMPILER_VERSION = "1.2.0-science-m1"
+SCIENCE_SIDECAR_SCHEMA = "tkc.science-sidecar/v0.1"
+SCIENCE_RECORD_SCHEMA = "tkc.science-record/v0.1"
+SCIENCE_PROFILE_SCHEMA = "tkc.science-profile/v0.1"
+SCIENCE_REVIEW_SCHEMA = "tkc.science-review-inputs/v0.1"
+SCIENCE_PROTOCOL = "science-proposal-v0.1"
+SCIENCE_REFERENCE_COMPILER_VERSION = "1.2.0-science-m2"
+SCIENCE_REFERENCE_PROTOCOL = "science-reference-v0.1"
+SCIENCE_CONSULTATION_SCHEMA = "tkc.science-consultation/v0.1"
+SCIENCE_INDEX_SCHEMA = "tkc.science-index/v0.1"
+SCIENCE_TOKENIZER_SCHEMA = "tkc.science-tokenizer/v0.1"
+SCIENCE_LIBRARY_SCHEMA = "tkc.science-library/v0.1"
+SCIENCE_SOURCE_MAP_SCHEMA = "tkc.science-source-map/v0.1"
+SCIENCE_SUPPORT_REVIEW_SCHEMA = "tkc.science-support-review/v0.1"
+SCIENCE_CALCULATION_COMPILER_VERSION = "1.2.0-science-m3"
+SCIENCE_CALCULATION_PROTOCOL = "science-calculation-v0.1"
+SCIENCE_UNITS_PROTOCOL = "science-units-v0.1"
+SCIENCE_CALCULATION_SCHEMA = "tkc.science-calculation/v0.1"
+SCIENCE_CALCULATION_RECEIPT_SCHEMA = "tkc.science-calculation-receipt/v0.1"
+SCIENCE_CALCULATION_REVIEW_SCHEMA = "tkc.science-calculation-review/v0.1"
+SCIENCE_EXECUTION_PERMISSION_SCHEMA = "tkc.science-execution-permission/v0.1"
+
+# Additive source-only multi-domain lifecycle; not a formal release identity.
+SCIENCE_LIFECYCLE_COMPILER_VERSION = "1.2.0-science-m4"
+SCIENCE_LIFECYCLE_PROTOCOL = "science-lifecycle-v0.1"
+SCIENCE_LIFECYCLE_SCHEMA = "tkc.science-lifecycle/v0.1"
+SCIENCE_DOMAIN_PROFILE_SCHEMA = "tkc.science-domain-profile/v0.1"
+SCIENCE_LINK_PROPOSALS_SCHEMA = "tkc.science-link-proposals/v0.1"
+SCIENCE_LINKS_SCHEMA = "tkc.science-cross-links/v0.1"
+SCIENCE_SNAPSHOT_SCHEMA = "tkc.science-incremental-snapshot/v0.1"
+SCIENCE_EVALUATION_SUITE_SCHEMA = "tkc.science-evaluation-suite/v0.1"
+SCIENCE_EVALUATION_RESULTS_SCHEMA = "tkc.science-evaluation-results/v0.1"
+SCIENCE_EVALUATION_REVIEW_SCHEMA = "tkc.science-evaluation-review/v0.1"
+SCIENCE_EVALUATION_REPORT_SCHEMA = "tkc.science-evaluation-report/v0.1"
 # Retained only so historical v1.2.0-ux candidate manifests remain
 # identifiable. Newly created unified jobs use UX_COMPILER_VERSION.
 UX_SOURCE_CANDIDATE_VERSION = "1.2.0-ux"

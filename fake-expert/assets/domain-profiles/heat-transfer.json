@@ -1,0 +1,89 @@
+{
+  "schema_version": "tkc.science-domain-profile/v0.1",
+  "protocol": "science-lifecycle-v0.1",
+  "domain_id": "heat-transfer",
+  "version": "0.1.0",
+  "science_profile": {
+    "schema_version": "tkc.science-profile/v0.1",
+    "profile_id": "heat-transfer",
+    "version": "0.1.0",
+    "required_material_fields": [
+      "material_identity",
+      "sample_identity",
+      "orientation_frame",
+      "composition",
+      "processing_history",
+      "phase_microstructure"
+    ],
+    "required_measurement_conditions": [
+      "temperature"
+    ]
+  },
+  "tokenizer": {
+    "schema_version": "tkc.science-tokenizer/v0.1",
+    "aliases": [
+      {
+        "phrase": "热怎么过去",
+        "terms": [
+          "heat conduction"
+        ]
+      },
+      {
+        "phrase": "导热系数",
+        "terms": [
+          "thermal conductivity"
+        ]
+      }
+    ]
+  },
+  "quantity_kinds": [
+    "thermal-conductivity",
+    "thermal-resistance",
+    "power",
+    "length",
+    "area",
+    "temperature",
+    "temperature-difference"
+  ],
+  "symbol_hints": [
+    {
+      "glyph": "k",
+      "quantity_kind": "thermal-conductivity",
+      "scope_aliases": [
+        "conductivity",
+        "导热系数"
+      ]
+    },
+    {
+      "glyph": "λ",
+      "quantity_kind": "thermal-conductivity",
+      "scope_aliases": [
+        "conductivity",
+        "导热率"
+      ]
+    }
+  ],
+  "calculation_policy": "requires-existing-gates",
+  "question_catalog": [
+    {
+      "case_id": "heat-transfer-symbol-scope",
+      "layer": "retrieval",
+      "question": "合成软件测试：同名字形 k 在两个领域中是否保持各自的作用域和量类型？",
+      "data_origin": "synthetic"
+    },
+    {
+      "case_id": "heat-transfer-missing-conditions",
+      "layer": "applicability",
+      "question": "合成软件测试：缺少样本、方向或测量条件时是否明确阻止套用？",
+      "data_origin": "synthetic"
+    },
+    {
+      "case_id": "heat-transfer-source-claim",
+      "layer": "support",
+      "question": "合成软件测试：缺少原文支持或独立复核时是否保持未验证？",
+      "data_origin": "synthetic"
+    }
+  ],
+  "knowledge_verified": false,
+  "execution_authorized": false
+}

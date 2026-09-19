@@ -22,6 +22,7 @@ from compiler_version import (
     HEADING_LOCATOR_PROTOCOL,
     RELEASE_VERSION as VERSION,
     UX_SOURCE_CANDIDATE_VERSION,
+    SCIENCE_LIFECYCLE_COMPILER_VERSION,
     SCAN_PDF_COMPILER_VERSION,
     SEMANTIC_ASSURANCE_COMPILER_VERSION,
     SEMANTIC_ASSURANCE_PROTOCOL,
@@ -108,6 +109,7 @@ SOURCE_CANDIDATE_VERSIONS = {
     VERSION,
     SCAN_MVP_CONTRACT_HARDENING_COMPILER_VERSION,
     UX_SOURCE_CANDIDATE_VERSION,
+    SCIENCE_LIFECYCLE_COMPILER_VERSION,
 }
 ARTIFACT_STAGES = {"candidate-verified", "release-verified"}
 MVP_ACCEPTANCE_SCHEMA = "fake-expert-mvp-1.2-product-scope-v1"
@@ -370,7 +372,7 @@ def _ensure_empty_output(path: Path) -> Path:
     return path
 
 
-def _source_files(skill_root: Path) -> list[Path]:
+def _source_files(skill_root: Path, *, science: bool = False) -> list[Path]:
     required = {
         "SKILL.md",
         "requirements-compiler.txt",
@@ -390,6 +392,9 @@ def _source_files(skill_root: Path) -> list[Path]:
         "scripts/verify_skill_release.py",
     }
     paths: list[Path] = []
+    if science:
+        from verify_fake_expert_release import SCIENCE_REQUIRED_PATHS, science_source_file_error
+        required.update(SCIENCE_REQUIRED_PATHS)
     for path in sorted(skill_root.rglob("*")):
         relative = path.relative_to(skill_root)
         if path.is_symlink():
@@ -415,11 +420,18 @@ def _source_files(skill_root: Path) -> list[Path]:
         if path.suffix.casefold() not in ALLOWED_SUFFIXES:
             raise CompilerReleasePackagingError(f"unsupported_release_file: {relative.as_posix()}")
         try:
-            path.read_text(encoding="utf-8")
+            content = path.read_text(encoding="utf-8")
         except UnicodeDecodeError as error:
             raise CompilerReleasePackagingError(
                 f"non_text_release_file: {relative.as_posix()}"
             ) from error
+        if science:
+            error = science_source_file_error(relative.as_posix(), content)
+            if error:
+                raise CompilerReleasePackagingError(error + ":" + relative.as_posix())
+            if relative.parent.as_posix() == "assets/domain-profiles":
+                from science_workpack import domain_inputs
+                domain_inputs(json.loads(content))
         paths.append(path)
     found = {path.relative_to(skill_root).as_posix() for path in paths}
     missing = sorted(required - found)
@@ -571,7 +583,7 @@ def package_fake_expert_skill(
         raise CompilerReleasePackagingError("skill_entrypoint_missing") from error
     if not skill_text.startswith("---\nname: fake-expert\n"):
         raise CompilerReleasePackagingError("skill_entrypoint_identity_invalid")
-    files = _source_files(skill_root)
+    files = _source_files(skill_root, science=version == SCIENCE_LIFECYCLE_COMPILER_VERSION)
     output = _ensure_empty_output(output)
     archive_name = f"{SKILL_NAME}-v{version}.zip"
     archive_path = output / archive_name
@@ -615,6 +627,7 @@ def package_fake_expert_skill(
     standalone_bindings = {
         "VERSION": VERSION,
         "UX_SOURCE_CANDIDATE_VERSION": UX_SOURCE_CANDIDATE_VERSION,
+        "SCIENCE_LIFECYCLE_COMPILER_VERSION": SCIENCE_LIFECYCLE_COMPILER_VERSION,
         "DIRECT_REFERENCE_COMPILER_VERSION": DIRECT_REFERENCE_COMPILER_VERSION,
         "DIRECT_REFERENCE_PROTOCOL": DIRECT_REFERENCE_PROTOCOL,
         "DIRECT_REFERENCE_SCHEMA": DIRECT_REFERENCE_SCHEMA,

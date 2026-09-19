@@ -1226,6 +1226,10 @@ def _inventory_package(package: Path) -> tuple[dict[str, Any], list[dict[str, An
 
 def _load_snapshot_input(value: Path | dict[str, Any]) -> dict[str, Any]:
     if isinstance(value, dict):
+        from compiler_version import SCIENCE_SNAPSHOT_SCHEMA
+        if value.get("schema_version") == SCIENCE_SNAPSHOT_SCHEMA:
+            from pipeline_orchestrator import validate_science_snapshot
+            validate_science_snapshot(value)
         graph, _ = _explicit_snapshot(value)
         return graph
     path = value.expanduser().resolve()

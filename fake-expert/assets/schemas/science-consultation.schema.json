@@ -1,0 +1,735 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.science-consultation/v0.1",
+  "title": "Science consultation and local read-only input contracts",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/answer"
+    }
+  ],
+  "$defs": {
+    "fingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package_id",
+        "package_version",
+        "manifest_sha256",
+        "content_sha256"
+      ],
+      "properties": {
+        "package_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "package_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "manifest_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "content_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_hops",
+        "max_objects",
+        "max_bytes"
+      ],
+      "properties": {
+        "max_hops": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "max_objects": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 4096,
+          "maximum": 1048576
+        }
+      }
+    },
+    "tokenizer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "aliases"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-tokenizer/v0.1"
+        },
+        "aliases": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "phrase",
+              "terms"
+            ],
+            "properties": {
+              "phrase": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "terms": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "library": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "packages",
+        "tokenizer"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-library/v0.1"
+        },
+        "packages": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "package",
+              "sidecar",
+              "profile"
+            ],
+            "properties": {
+              "package": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "sidecar": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  {
+                    "const": null
+                  }
+                ]
+              },
+              "profile": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            }
+          }
+        },
+        "tokenizer": {
+          "$ref": "#/$defs/tokenizer"
+        }
+      }
+    },
+    "source_map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "sources"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-source-map/v0.1"
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_id",
+              "source_sha256",
+              "path",
+              "allowed_pages"
+            ],
+            "properties": {
+              "source_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "source_sha256": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "[0-9a-f]{64}"
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "allowed_pages": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 512,
+                "items": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100000
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "protocol",
+        "request_id",
+        "question",
+        "intent",
+        "domain_candidates",
+        "source_scope",
+        "facts",
+        "requested_output",
+        "user_assumptions",
+        "execution_requested"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-consultation/v0.1"
+        },
+        "protocol": {
+          "const": "science-reference-v0.1"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "[A-Za-z0-9_.:-]+"
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "intent": {
+          "enum": [
+            "explain",
+            "compare",
+            "calculate"
+          ]
+        },
+        "domain_candidates": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "source_scope": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/fingerprint"
+          }
+        },
+        "facts": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "value",
+              "source_ref"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "[A-Za-z0-9_.:-]+"
+              },
+              "value": {
+                "$ref": "science-sidecar.schema.json#/$defs/quantity"
+              },
+              "source_ref": {
+                "oneOf": [
+                  {
+                    "$ref": "science-sidecar.schema.json#/$defs/evidence_ref"
+                  },
+                  {
+                    "$ref": "science-sidecar.schema.json#/$defs/unknown"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "requested_output": {
+          "enum": [
+            "evidence",
+            "answer-draft"
+          ]
+        },
+        "user_assumptions": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "value",
+              "reason"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "[A-Za-z0-9_.:-]+"
+              },
+              "value": {
+                "$ref": "science-sidecar.schema.json#/$defs/quantity"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            }
+          }
+        },
+        "execution_requested": {
+          "type": "boolean"
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "text",
+        "kind",
+        "supports",
+        "assumptions",
+        "derivation_ref"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "[A-Za-z0-9_.:-]+"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "kind": {
+          "enum": [
+            "source-statement",
+            "interpretation",
+            "derived",
+            "assumed",
+            "calculated"
+          ]
+        },
+        "supports": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "$ref": "science-sidecar.schema.json#/$defs/evidence_ref"
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "[A-Za-z0-9_.:-]+"
+          }
+        },
+        "derivation_ref": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "[A-Za-z0-9_.:-]+"
+          }
+        }
+      }
+    },
+    "answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "protocol",
+        "request_id",
+        "request_sha256",
+        "bundle_sha256",
+        "claims",
+        "missing_inputs",
+        "conflict_disclosures",
+        "limitations",
+        "calculation_receipt_refs",
+        "assurance_sha256",
+        "warnings"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-consultation/v0.1"
+        },
+        "protocol": {
+          "const": "science-reference-v0.1"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "[A-Za-z0-9_.:-]+"
+        },
+        "request_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "bundle_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "claims": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/claim"
+          }
+        },
+        "missing_inputs": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "conflict_disclosures": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 128,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "[0-9a-f]{64}"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "calculation_receipt_refs": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "[0-9a-f]{64}"
+          }
+        },
+        "assurance_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "warnings": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "review_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "request_sha256",
+        "bundle_sha256",
+        "answer_sha256",
+        "claims_sha256",
+        "proposer_instance",
+        "reviewer_instances",
+        "review_session_id",
+        "attestation_level",
+        "plan_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-support-review/v0.1"
+        },
+        "request_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "bundle_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "answer_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "claims_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "proposer_instance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "[A-Za-z0-9_.:-]+"
+        },
+        "reviewer_instances": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "[A-Za-z0-9_.:-]+"
+          }
+        },
+        "review_session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "[A-Za-z0-9_.:-]+"
+        },
+        "attestation_level": {
+          "const": "host-orchestrator-recorded-not-cryptographic"
+        },
+        "plan_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        }
+      }
+    },
+    "support_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "plan_sha256",
+        "request_sha256",
+        "bundle_sha256",
+        "answer_sha256",
+        "claims_sha256",
+        "reviewer_instance",
+        "review_session_id",
+        "review_method",
+        "claims",
+        "attestation_level"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-support-review/v0.1"
+        },
+        "plan_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "request_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "bundle_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "answer_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "claims_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "reviewer_instance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "[A-Za-z0-9_.:-]+"
+        },
+        "review_session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "[A-Za-z0-9_.:-]+"
+        },
+        "review_method": {
+          "const": "fresh-source-inspection"
+        },
+        "claims": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "claim_id",
+              "claim_sha256",
+              "verdict",
+              "inspected_supports",
+              "observation"
+            ],
+            "properties": {
+              "claim_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "[A-Za-z0-9_.:-]+"
+              },
+              "claim_sha256": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "[0-9a-f]{64}"
+              },
+              "verdict": {
+                "enum": [
+                  "supported",
+                  "unsupported",
+                  "uncertain"
+                ]
+              },
+              "inspected_supports": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 64,
+                "items": {
+                  "$ref": "science-sidecar.schema.json#/$defs/evidence_ref"
+                }
+              },
+              "observation": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              }
+            }
+          }
+        },
+        "attestation_level": {
+          "const": "host-orchestrator-recorded-not-cryptographic"
+        }
+      }
+    }
+  }
+}

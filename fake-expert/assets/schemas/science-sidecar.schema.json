@@ -1,0 +1,2015 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.science-sidecar/v0.1",
+  "title": "Candidate science sidecar; does not grant review or execution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol",
+    "base_package",
+    "profile_sha256",
+    "tool_sha256s",
+    "data_origin",
+    "review_state",
+    "production_eligible",
+    "knowledge_verified",
+    "executable",
+    "records",
+    "inventory",
+    "sidecar_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "tkc.science-sidecar/v0.1"
+    },
+    "protocol": {
+      "const": "science-proposal-v0.1"
+    },
+    "base_package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package_id",
+        "package_version",
+        "manifest_sha256",
+        "content_sha256"
+      ],
+      "properties": {
+        "package_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "package_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "manifest_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "content_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        }
+      }
+    },
+    "profile_sha256": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "[0-9a-f]{64}"
+    },
+    "tool_sha256s": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "science_contract.py",
+        "science_workpack.py",
+        "compiler_version.py",
+        "semantic_assurance.py",
+        "science-sidecar.schema.json",
+        "formula_execution.py",
+        "expert_skill_contract.py"
+      ],
+      "properties": {
+        "science_contract.py": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "science_workpack.py": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "compiler_version.py": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "semantic_assurance.py": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "science-sidecar.schema.json": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "formula_execution.py": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "expert_skill_contract.py": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        }
+      }
+    },
+    "data_origin": {
+      "enum": [
+        "synthetic",
+        "source-backed-proposal"
+      ]
+    },
+    "review_state": {
+      "const": "candidate"
+    },
+    "production_eligible": {
+      "const": false
+    },
+    "knowledge_verified": {
+      "const": false
+    },
+    "executable": {
+      "const": false
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/record"
+      },
+      "maxItems": 256,
+      "minItems": 1
+    },
+    "inventory": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "sha256"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 28,
+            "pattern": "scr-[0-9a-f]{24}"
+          },
+          "sha256": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "[0-9a-f]{64}"
+          }
+        }
+      },
+      "maxItems": 256,
+      "minItems": 1
+    },
+    "sidecar_sha256": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "[0-9a-f]{64}"
+    }
+  },
+  "$defs": {
+    "unknown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason"
+      ],
+      "properties": {
+        "status": {
+          "const": "unknown"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      }
+    },
+    "object_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package_id",
+        "package_version",
+        "object_id",
+        "object_sha256"
+      ],
+      "properties": {
+        "package_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "package_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "object_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "object_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        }
+      }
+    },
+    "evidence_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "object_ref",
+        "evidence_id",
+        "evidence_sha256"
+      ],
+      "properties": {
+        "object_ref": {
+          "$ref": "#/$defs/object_ref"
+        },
+        "evidence_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "evidence_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        }
+      }
+    },
+    "quantity": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/unknown"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "value",
+            "unit",
+            "quantity_kind",
+            "frame"
+          ],
+          "properties": {
+            "status": {
+              "const": "known"
+            },
+            "value": {
+              "oneOf": [
+                {
+                  "type": "number",
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                }
+              ]
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "quantity_kind": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "frame": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        }
+      ]
+    },
+    "operand": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "source",
+            "name"
+          ],
+          "properties": {
+            "kind": {
+              "const": "input"
+            },
+            "source": {
+              "enum": [
+                "request",
+                "property"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "value"
+          ],
+          "properties": {
+            "kind": {
+              "const": "constant"
+            },
+            "value": {
+              "$ref": "#/$defs/quantity"
+            }
+          }
+        }
+      ]
+    },
+    "predicate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "args"
+          ],
+          "properties": {
+            "op": {
+              "enum": [
+                "all",
+                "any"
+              ]
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/predicate"
+              },
+              "maxItems": 32,
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "arg"
+          ],
+          "properties": {
+            "op": {
+              "const": "not"
+            },
+            "arg": {
+              "$ref": "#/$defs/predicate"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "arg"
+          ],
+          "properties": {
+            "op": {
+              "const": "known"
+            },
+            "arg": {
+              "$ref": "#/$defs/operand"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "left",
+            "right"
+          ],
+          "properties": {
+            "op": {
+              "enum": [
+                "eq",
+                "gt",
+                "ge",
+                "lt",
+                "le",
+                "same_quantity_kind",
+                "same_frame"
+              ]
+            },
+            "left": {
+              "$ref": "#/$defs/operand"
+            },
+            "right": {
+              "$ref": "#/$defs/operand"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "left",
+            "choices"
+          ],
+          "properties": {
+            "op": {
+              "const": "in"
+            },
+            "left": {
+              "$ref": "#/$defs/operand"
+            },
+            "choices": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/operand"
+              },
+              "maxItems": 32,
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "left",
+            "lower",
+            "upper"
+          ],
+          "properties": {
+            "op": {
+              "const": "between"
+            },
+            "left": {
+              "$ref": "#/$defs/operand"
+            },
+            "lower": {
+              "$ref": "#/$defs/operand"
+            },
+            "upper": {
+              "$ref": "#/$defs/operand"
+            }
+          }
+        }
+      ]
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "profile_id",
+        "version",
+        "required_material_fields",
+        "required_measurement_conditions"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-profile/v0.1"
+        },
+        "profile_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "required_material_fields": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "material_identity",
+              "composition",
+              "processing_history",
+              "phase_microstructure",
+              "orientation_frame",
+              "sample_identity"
+            ]
+          },
+          "maxItems": 6,
+          "minItems": 0
+        },
+        "required_measurement_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+          },
+          "maxItems": 64,
+          "minItems": 0
+        }
+      }
+    },
+    "SymbolBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "content_sha256",
+        "kind",
+        "source_object_ref",
+        "source_evidence_refs",
+        "review_state",
+        "provenance",
+        "scope_ref",
+        "original_glyph",
+        "display_latex",
+        "canonical_quantity_id",
+        "quantity_kind",
+        "unit",
+        "dimension",
+        "value_type",
+        "shape",
+        "definition_ref",
+        "coordinate_frame",
+        "value_domain"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-record/v0.1"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28,
+          "pattern": "scr-[0-9a-f]{24}"
+        },
+        "content_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "kind": {
+          "const": "SymbolBinding"
+        },
+        "source_object_ref": {
+          "$ref": "#/$defs/object_ref"
+        },
+        "source_evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          },
+          "maxItems": 128,
+          "minItems": 0
+        },
+        "review_state": {
+          "enum": [
+            "candidate",
+            "pending-review",
+            "rejected",
+            "quarantined"
+          ]
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "field",
+              "status",
+              "evidence_refs",
+              "derivation_refs",
+              "reason"
+            ],
+            "properties": {
+              "field": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+              },
+              "status": {
+                "enum": [
+                  "source-explicit",
+                  "source-paraphrase",
+                  "inferred",
+                  "assumed",
+                  "unknown"
+                ]
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidence_ref"
+                },
+                "maxItems": 128,
+                "minItems": 0
+              },
+              "derivation_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 28,
+                  "pattern": "scr-[0-9a-f]{24}"
+                },
+                "maxItems": 128,
+                "minItems": 0
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              }
+            }
+          },
+          "maxItems": 64,
+          "minItems": 1
+        },
+        "scope_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "$ref": "#/$defs/object_ref"
+            }
+          ]
+        },
+        "original_glyph": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "display_latex": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "canonical_quantity_id": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          ]
+        },
+        "quantity_kind": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          ]
+        },
+        "unit": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          ]
+        },
+        "dimension": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": -16,
+                "maximum": 16
+              },
+              "maxItems": 7,
+              "minItems": 7
+            }
+          ]
+        },
+        "value_type": {
+          "enum": [
+            "scalar",
+            "vector",
+            "tensor",
+            "complex",
+            "unknown"
+          ]
+        },
+        "shape": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8
+              },
+              "maxItems": 3,
+              "minItems": 0
+            }
+          ]
+        },
+        "definition_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "$ref": "#/$defs/object_ref"
+            }
+          ]
+        },
+        "coordinate_frame": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known"
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                }
+              }
+            }
+          ]
+        },
+        "value_domain": {
+          "enum": [
+            "real",
+            "positive-real",
+            "nonnegative-real",
+            "complex",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "ConditionSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "content_sha256",
+        "kind",
+        "source_object_ref",
+        "source_evidence_refs",
+        "review_state",
+        "provenance",
+        "predicates",
+        "declared_inputs",
+        "required_for",
+        "source_or_assumption_refs",
+        "assessment_policy"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-record/v0.1"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28,
+          "pattern": "scr-[0-9a-f]{24}"
+        },
+        "content_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "kind": {
+          "const": "ConditionSet"
+        },
+        "source_object_ref": {
+          "$ref": "#/$defs/object_ref"
+        },
+        "source_evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          },
+          "maxItems": 128,
+          "minItems": 0
+        },
+        "review_state": {
+          "enum": [
+            "candidate",
+            "pending-review",
+            "rejected",
+            "quarantined"
+          ]
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "field",
+              "status",
+              "evidence_refs",
+              "derivation_refs",
+              "reason"
+            ],
+            "properties": {
+              "field": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+              },
+              "status": {
+                "enum": [
+                  "source-explicit",
+                  "source-paraphrase",
+                  "inferred",
+                  "assumed",
+                  "unknown"
+                ]
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidence_ref"
+                },
+                "maxItems": 128,
+                "minItems": 0
+              },
+              "derivation_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 28,
+                  "pattern": "scr-[0-9a-f]{24}"
+                },
+                "maxItems": 128,
+                "minItems": 0
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              }
+            }
+          },
+          "maxItems": 64,
+          "minItems": 1
+        },
+        "predicates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/predicate"
+          },
+          "maxItems": 64,
+          "minItems": 1
+        },
+        "declared_inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source",
+              "name"
+            ],
+            "properties": {
+              "source": {
+                "enum": [
+                  "request",
+                  "property"
+                ]
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+              }
+            }
+          },
+          "maxItems": 64,
+          "minItems": 0
+        },
+        "required_for": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "reference",
+              "calculation"
+            ]
+          },
+          "maxItems": 2,
+          "minItems": 1
+        },
+        "source_or_assumption_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/object_ref"
+          },
+          "maxItems": 128,
+          "minItems": 0
+        },
+        "assessment_policy": {
+          "const": "three-state-required-v0.1"
+        }
+      }
+    },
+    "MaterialState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "content_sha256",
+        "kind",
+        "source_object_ref",
+        "source_evidence_refs",
+        "review_state",
+        "provenance",
+        "material_identity",
+        "composition",
+        "processing_history",
+        "phase_microstructure",
+        "orientation_frame",
+        "sample_identity",
+        "conditions"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-record/v0.1"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28,
+          "pattern": "scr-[0-9a-f]{24}"
+        },
+        "content_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "kind": {
+          "const": "MaterialState"
+        },
+        "source_object_ref": {
+          "$ref": "#/$defs/object_ref"
+        },
+        "source_evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          },
+          "maxItems": 128,
+          "minItems": 0
+        },
+        "review_state": {
+          "enum": [
+            "candidate",
+            "pending-review",
+            "rejected",
+            "quarantined"
+          ]
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "field",
+              "status",
+              "evidence_refs",
+              "derivation_refs",
+              "reason"
+            ],
+            "properties": {
+              "field": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+              },
+              "status": {
+                "enum": [
+                  "source-explicit",
+                  "source-paraphrase",
+                  "inferred",
+                  "assumed",
+                  "unknown"
+                ]
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidence_ref"
+                },
+                "maxItems": 128,
+                "minItems": 0
+              },
+              "derivation_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 28,
+                  "pattern": "scr-[0-9a-f]{24}"
+                },
+                "maxItems": 128,
+                "minItems": 0
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              }
+            }
+          },
+          "maxItems": 64,
+          "minItems": 1
+        },
+        "material_identity": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known"
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                }
+              }
+            }
+          ]
+        },
+        "composition": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "basis",
+                "scale",
+                "components"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known"
+                },
+                "basis": {
+                  "enum": [
+                    "mass",
+                    "volume",
+                    "mole"
+                  ]
+                },
+                "scale": {
+                  "enum": [
+                    "fraction",
+                    "percent"
+                  ]
+                },
+                "components": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "component",
+                      "value"
+                    ],
+                    "properties": {
+                      "component": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "value": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      }
+                    }
+                  },
+                  "maxItems": 64,
+                  "minItems": 1
+                }
+              }
+            }
+          ]
+        },
+        "processing_history": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known"
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                }
+              }
+            }
+          ]
+        },
+        "phase_microstructure": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known"
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                }
+              }
+            }
+          ]
+        },
+        "orientation_frame": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known"
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                }
+              }
+            }
+          ]
+        },
+        "sample_identity": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "value"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known"
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                }
+              }
+            }
+          ]
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "value"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+              },
+              "value": {
+                "$ref": "#/$defs/quantity"
+              }
+            }
+          },
+          "maxItems": 64,
+          "minItems": 0
+        }
+      }
+    },
+    "PropertyObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "content_sha256",
+        "kind",
+        "source_object_ref",
+        "source_evidence_refs",
+        "review_state",
+        "provenance",
+        "property_quantity_id",
+        "material_state_ref",
+        "value_representation",
+        "unit",
+        "measurement_conditions",
+        "method_ref",
+        "uncertainty",
+        "source_refs",
+        "evidence_refs",
+        "source_category",
+        "value_qualifier"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-record/v0.1"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28,
+          "pattern": "scr-[0-9a-f]{24}"
+        },
+        "content_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "kind": {
+          "const": "PropertyObservation"
+        },
+        "source_object_ref": {
+          "$ref": "#/$defs/object_ref"
+        },
+        "source_evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          },
+          "maxItems": 128,
+          "minItems": 0
+        },
+        "review_state": {
+          "enum": [
+            "candidate",
+            "pending-review",
+            "rejected",
+            "quarantined"
+          ]
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "field",
+              "status",
+              "evidence_refs",
+              "derivation_refs",
+              "reason"
+            ],
+            "properties": {
+              "field": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+              },
+              "status": {
+                "enum": [
+                  "source-explicit",
+                  "source-paraphrase",
+                  "inferred",
+                  "assumed",
+                  "unknown"
+                ]
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidence_ref"
+                },
+                "maxItems": 128,
+                "minItems": 0
+              },
+              "derivation_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 28,
+                  "pattern": "scr-[0-9a-f]{24}"
+                },
+                "maxItems": 128,
+                "minItems": 0
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              }
+            }
+          },
+          "maxItems": 64,
+          "minItems": 1
+        },
+        "property_quantity_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "material_state_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 28,
+              "pattern": "scr-[0-9a-f]{24}"
+            }
+          ]
+        },
+        "value_representation": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "value"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "scalar"
+                },
+                "value": {
+                  "type": "number",
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "x_unit",
+                "points"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "curve"
+                },
+                "x_unit": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "points": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "minimum": -1e+100,
+                        "maximum": 1e+100
+                      },
+                      "y": {
+                        "type": "number",
+                        "minimum": -1e+100,
+                        "maximum": 1e+100
+                      }
+                    }
+                  },
+                  "maxItems": 256,
+                  "minItems": 2
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "shape",
+                "values",
+                "frame"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "tensor"
+                },
+                "shape": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 8
+                  },
+                  "maxItems": 3,
+                  "minItems": 1
+                },
+                "values": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "minimum": -1e+100,
+                    "maximum": 1e+100
+                  },
+                  "maxItems": 512,
+                  "minItems": 1
+                },
+                "frame": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                }
+              }
+            }
+          ]
+        },
+        "unit": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          ]
+        },
+        "measurement_conditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "value"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+              },
+              "value": {
+                "$ref": "#/$defs/quantity"
+              }
+            }
+          },
+          "maxItems": 64,
+          "minItems": 0
+        },
+        "method_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "$ref": "#/$defs/object_ref"
+            }
+          ]
+        },
+        "uncertainty": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "value",
+                "unit",
+                "kind",
+                "basis"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known"
+                },
+                "value": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1e+100
+                },
+                "unit": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "kind": {
+                  "enum": [
+                    "standard",
+                    "expanded",
+                    "bound",
+                    "digitization"
+                  ]
+                },
+                "basis": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048
+                }
+              }
+            }
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/object_ref"
+          },
+          "maxItems": 128,
+          "minItems": 0
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          },
+          "maxItems": 128,
+          "minItems": 0
+        },
+        "source_category": {
+          "enum": [
+            "measured",
+            "supplier-reported",
+            "literature-reported",
+            "computed",
+            "fitted",
+            "assumed",
+            "illustrative"
+          ]
+        },
+        "value_qualifier": {
+          "enum": [
+            "typical",
+            "reported-bound",
+            "measurement",
+            "illustrative",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "FormulaCard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "content_sha256",
+        "kind",
+        "source_object_ref",
+        "source_evidence_refs",
+        "review_state",
+        "provenance",
+        "notation_refs",
+        "equation_kind",
+        "formula_role",
+        "symbol_bindings",
+        "dependency_refs",
+        "condition_set_ref",
+        "representation_state",
+        "executable_ast_ref",
+        "execution_state",
+        "unit_convention"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.science-record/v0.1"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 28,
+          "pattern": "scr-[0-9a-f]{24}"
+        },
+        "content_sha256": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "[0-9a-f]{64}"
+        },
+        "kind": {
+          "const": "FormulaCard"
+        },
+        "source_object_ref": {
+          "$ref": "#/$defs/object_ref"
+        },
+        "source_evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_ref"
+          },
+          "maxItems": 128,
+          "minItems": 0
+        },
+        "review_state": {
+          "enum": [
+            "candidate",
+            "pending-review",
+            "rejected",
+            "quarantined"
+          ]
+        },
+        "provenance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "field",
+              "status",
+              "evidence_refs",
+              "derivation_refs",
+              "reason"
+            ],
+            "properties": {
+              "field": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "[A-Za-z][A-Za-z0-9_-]{0,63}"
+              },
+              "status": {
+                "enum": [
+                  "source-explicit",
+                  "source-paraphrase",
+                  "inferred",
+                  "assumed",
+                  "unknown"
+                ]
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/evidence_ref"
+                },
+                "maxItems": 128,
+                "minItems": 0
+              },
+              "derivation_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 28,
+                  "pattern": "scr-[0-9a-f]{24}"
+                },
+                "maxItems": 128,
+                "minItems": 0
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              }
+            }
+          },
+          "maxItems": 64,
+          "minItems": 1
+        },
+        "notation_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "latex",
+              "source_object_ref"
+            ],
+            "properties": {
+              "role": {
+                "enum": [
+                  "original",
+                  "normalized",
+                  "derived"
+                ]
+              },
+              "latex": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "source_object_ref": {
+                "$ref": "#/$defs/object_ref"
+              }
+            }
+          },
+          "maxItems": 16,
+          "minItems": 1
+        },
+        "equation_kind": {
+          "enum": [
+            "quantity-equation",
+            "numerical-value-equation",
+            "unknown"
+          ]
+        },
+        "formula_role": {
+          "enum": [
+            "definition",
+            "balance-law",
+            "constitutive-law",
+            "empirical-correlation",
+            "approximation",
+            "derivation"
+          ]
+        },
+        "symbol_bindings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 28,
+            "pattern": "scr-[0-9a-f]{24}"
+          },
+          "maxItems": 128,
+          "minItems": 0
+        },
+        "dependency_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 28,
+            "pattern": "scr-[0-9a-f]{24}"
+          },
+          "maxItems": 128,
+          "minItems": 0
+        },
+        "condition_set_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 28,
+              "pattern": "scr-[0-9a-f]{24}"
+            }
+          ]
+        },
+        "representation_state": {
+          "enum": [
+            "opaque",
+            "reference",
+            "scalar-ast"
+          ]
+        },
+        "executable_ast_ref": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "source_object_ref",
+                "ast_sha256"
+              ],
+              "properties": {
+                "source_object_ref": {
+                  "$ref": "#/$defs/object_ref"
+                },
+                "ast_sha256": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "[0-9a-f]{64}"
+                }
+              }
+            }
+          ]
+        },
+        "execution_state": {
+          "enum": [
+            "reference-only",
+            "unavailable",
+            "requires-existing-gates"
+          ]
+        },
+        "unit_convention": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/unknown"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "input_units",
+                "coefficient_basis"
+              ],
+              "properties": {
+                "status": {
+                  "const": "known"
+                },
+                "input_units": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "symbol_binding_ref",
+                      "unit",
+                      "temperature_scale"
+                    ],
+                    "properties": {
+                      "symbol_binding_ref": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 28,
+                        "pattern": "scr-[0-9a-f]{24}"
+                      },
+                      "unit": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "temperature_scale": {
+                        "enum": [
+                          "absolute",
+                          "difference",
+                          "not-applicable"
+                        ]
+                      }
+                    }
+                  },
+                  "maxItems": 128,
+                  "minItems": 1
+                },
+                "coefficient_basis": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "record": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/SymbolBinding"
+        },
+        {
+          "$ref": "#/$defs/ConditionSet"
+        },
+        {
+          "$ref": "#/$defs/MaterialState"
+        },
+        {
+          "$ref": "#/$defs/PropertyObservation"
+        },
+        {
+          "$ref": "#/$defs/FormulaCard"
+        }
+      ]
+    }
+  }
+}

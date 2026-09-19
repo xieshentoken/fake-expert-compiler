@@ -26,6 +26,49 @@ produce a separately sealed version.
 
 ## Codex adapter
 
+### Optional science-reference-v0.1 host workflow
+
+The separate source-candidate entry points are `scripts/science_index.py` and
+`scripts/science_reference_runtime.py`. Keep their operator-local library,
+science sidecar, profiles, index, requests, bundles and host-authored drafts
+outside the canonical package. All writes use fresh files; index/query/validation
+never rewrite a base package, sidecar, review, Gold or existing output.
+
+Use `query` with an explicit request and a freshly validated index before the
+host writes a draft. Preserve the complete returned assurance, warnings, missing
+inputs, limitations and conflict hashes. Then use `validate-answer`; its
+`structure-valid` result is not semantic support. `calculate` and
+`execution_requested` do not grant execution. M2 always returns
+`execution_authorized=false`, and rejects calculated claims/receipts.
+
+Each legacy catalog is queried first. Policy/decision/out-of-scope and known-gap
+abstentions prevent retrieval from that package. A pure legacy lexical miss may
+coexist with candidates from the new Chinese/math index; both the old abstention
+and `new-protocol-candidates-with-legacy-lexical-miss` remain visible. These are
+new-protocol candidates, not a rewritten successful legacy response. The host
+must not reinterpret a denied decision as an explanation to evade its policy.
+
+`object`, `locator` and `source` are separate read operations. Original text needs
+an explicitly supplied local source-map and authorized source root. Source-map
+paths must be relative to that root and cannot use symlinks or traversal. Native
+span verification proves hashes/ranges only; neighboring context is labeled
+`is_supporting_evidence=false`. Source paths stay local and missing originals
+report `external-source-unavailable`. Do not send sources or private operating
+conditions to a provider through this protocol.
+
+`prepare-support-review` requires explicit proposer, separate reviewers and a
+session; it writes only a blank review plan. `validate-support-review` consumes
+externally supplied per-claim reports. Without them semantic support is
+`unavailable`; valid bindings alone never become `semantically_verified=true`.
+The strongest reported result is `external-review-reported-supported`, still
+host-recorded, not cryptographic identity, scientific proof or publication
+authority. No genuine support report or host inference certification is included
+in the synthetic software acceptance.
+
+The complete CLI sequence and supported limitations are recorded in the repository
+at `docs/science/host-integration.md`. These additions do not change the packaged
+legacy `query_reference.py` runtime or its hash. Formal packaging is a later gate.
+
 Preserve the generated package's existing `agents/openai.yaml`. Add a separate
 host-side discovery wrapper only if the target Codex environment requires one;
 do not edit the canonical `SKILL.md`, runtime, or knowledge files. Validate

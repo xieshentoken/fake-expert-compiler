@@ -664,9 +664,116 @@ def resume_incremental_job(job_path: Path) -> dict[str, Any]:
     return {"job": job, "status": {**inspect_incremental_job(job), **resumed}}
 
 
+def build_science_snapshot(library, tokenizer, index, *, receipts=None, generated_at):
+    """Project science dependencies into the existing DAG; never run its gates."""
+    import science_contract as sc
+    import science_index as si
+    import science_workpack as sw
+    import science_calculation as calc
+    import incremental_build_dag as dag
+    from compiler_version import SCIENCE_SNAPSHOT_SCHEMA, SCIENCE_LIFECYCLE_PROTOCOL
+    si.validate_index(index, library, tokenizer)
+    nodes, edges = [], []
+    def add(kind, key, payload):
+        nodes.append({"kind": kind, "stable_key": key, "protocol_id": SCIENCE_LIFECYCLE_PROTOCOL,
+                      "identity": {"key": key}, "payload": payload,
+                      "capabilities": {"execution_authorized": False, "knowledge_verified": False}})
+        return key
+    def depend(source, target):
+        edges.append({"from": source, "to": target, "type": "depends_on"})
+    tools = add("artifact", "science-tools", sw.lifecycle_tool_hashes())
+    token = add("artifact", "science-tokenizer", tokenizer)
+    indexed = add("artifact", "science-index", index)
+    certificate = add("host_certificate", "science-query-certification", {"status": "pending", "scope": "science-query-only"})
+    depend(token, indexed); depend(tools, indexed); depend(indexed, certificate)
+    entry_keys = {}
+    source_keys = set()
+    for entry in library:
+        package, sidecar, profile = entry["package"], entry["sidecar"], entry["profile"]
+        fingerprint = package["fingerprint"]
+        key = "science-package-" + sc.sha256_json([fingerprint["package_id"], fingerprint["package_version"]])[:24]
+        base = add("artifact", key, fingerprint)
+        prof = add("artifact", key + ":profile", profile)
+        for source in package["manifest"]["sources"]:
+            src = "science-source-" + source["sha256"]
+            if src not in source_keys:
+                add("source", src, {"source_sha256": source["sha256"]}); source_keys.add(src)
+            depend(src, base)
+        depend(base, indexed); depend(prof, indexed)
+        if sidecar is None:
+            continue
+        side = add("artifact", key + ":sidecar", {"sha256": sidecar["sidecar_sha256"]})
+        review = add("review_plan", key + ":science-review", {"status": "pending", "sidecar_sha256": sidecar["sidecar_sha256"]})
+        depend(base, side); depend(prof, side); depend(tools, side); depend(side, indexed); depend(side, review)
+        for row in sidecar["records"]:
+            record_key = add("semantic_assertion", key + ":" + row["id"], row)
+            depend(base, record_key); depend(record_key, side)
+            # Record dependencies were already validated by the sidecar contract.
+            dependencies = {ref for p in row["provenance"] for ref in p["derivation_refs"]}
+            dependencies.update(row.get("symbol_bindings", []))
+            dependencies.update(row.get("dependency_refs", []))
+            for field in ("material_state_ref", "condition_set_ref"):
+                if isinstance(row.get(field), str):
+                    dependencies.add(row[field])
+            for reference in sorted(dependencies):
+                depend(key + ":" + reference, record_key)
+        entry_keys[sc.sha256_json(fingerprint)] = (base, prof, side, sidecar)
+    receipts = receipts or []
+    if not isinstance(receipts, list) or len(receipts) > 128:
+        raise ValueError("science_snapshot_receipt_limit")
+    receipt_ids = set()
+    for receipt in receipts:
+        calc.shape(receipt, "receipt")
+        digest = sc.sha256_json({k: v for k, v in receipt.items() if k != "receipt_sha256"})
+        if digest != receipt["receipt_sha256"] or digest in receipt_ids:
+            raise ValueError("science_snapshot_receipt_hash_or_duplicate")
+        receipt_ids.add(digest)
+        bound = entry_keys.get(sc.sha256_json(receipt["base_package"]))
+        if bound is None:
+            raise ValueError("science_snapshot_receipt_package_missing")
+        base, prof, side, sidecar = bound
+        # Hash-valid old receipts remain dependency data, including after a
+        # sidecar edit. They are never requalified by this graph projection.
+        key = add("receipt", "science-calculation-" + digest, {"receipt_sha256": digest,
+                  "current_sidecar_matches": receipt["sidecar_sha256"] == sidecar["sidecar_sha256"],
+                  "status": "requires-current-gates-and-replay"})
+        for dependency in (base, prof, side, tools):
+            depend(dependency, key)
+    result = dag.build_dag({"nodes": nodes, "edges": edges}, generated_at=generated_at)
+    result.update(schema_version=SCIENCE_SNAPSHOT_SCHEMA, protocol=SCIENCE_LIFECYCLE_PROTOCOL,
+                  execution_authorized=False, knowledge_verified=False)
+    result["snapshot_sha256"] = sc.sha256_json(result)
+    validate_science_snapshot(result)
+    return result
+
+
+def validate_science_snapshot(value):
+    import science_contract as sc
+    import incremental_build_dag as dag
+    from compiler_version import SCIENCE_SNAPSHOT_SCHEMA, SCIENCE_LIFECYCLE_PROTOCOL
+    sc.canonical_json(value)
+    if (set(value) != {"schema_version", "protocol", "manifest", "nodes", "edges", "execution_authorized", "knowledge_verified", "snapshot_sha256"}
+            or value["schema_version"] != SCIENCE_SNAPSHOT_SCHEMA or value["protocol"] != SCIENCE_LIFECYCLE_PROTOCOL
+            or value["execution_authorized"] is not False or value["knowledge_verified"] is not False
+            or value["snapshot_sha256"] != sc.sha256_json({k: v for k, v in value.items() if k != "snapshot_sha256"})):
+        raise ValueError("science_snapshot_binding_invalid")
+    for node in value["nodes"]:
+        if node.get("capabilities") != {"execution_authorized": False, "knowledge_verified": False}:
+            raise ValueError("science_snapshot_capability_forbidden")
+    rebuilt = dag.build_dag({"nodes": value["nodes"], "edges": value["edges"]}, generated_at=value["manifest"]["generated_at"])
+    if any(value[key] != rebuilt[key] for key in ("manifest", "nodes", "edges")):
+        raise ValueError("science_snapshot_graph_drift")
+    return {"status": "science-dependency-snapshot-valid", "execution_authorized": False}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
+    science = sub.add_parser("science-snapshot")
+    for name in ("library", "tokenizer", "index", "output"):
+        science.add_argument("--" + name, type=Path, required=True)
+    science.add_argument("--receipt", type=Path, action="append", default=[])
+    science.add_argument("--created-at", required=True)
     plan = sub.add_parser("plan")
     plan.add_argument("--job", required=True, type=Path)
     plan.add_argument("--source", required=True, type=Path)
@@ -708,7 +815,18 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        if args.command == "plan":
+        if args.command == "science-snapshot":
+            import science_contract as sc
+            import science_index as si
+            import science_workpack as sw
+            library, _ = si.load_library(args.library)
+            si.check_output(args.output, args.library)
+            snapshot = build_science_snapshot(library, sc.load_json(args.tokenizer), sc.load_json(args.index),
+                receipts=[sc.load_json(path) for path in args.receipt], generated_at=args.created_at)
+            sw._write_new(args.output, snapshot)
+            print(sc.canonical_json(snapshot).decode())
+            return 0
+        elif args.command == "plan":
             job = create_job(
                 job_path=args.job,
                 source=args.source,

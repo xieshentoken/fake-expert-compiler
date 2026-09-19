@@ -6,6 +6,68 @@ maintain its own copy. Update this file and `scripts/compiler_version.py` togeth
 
 ## Release version
 
+Science M1 adds independent proposal identities; it does not modify the formal
+release, expert-skill v0.1, formula AST, old runtime hashes, or any execution gate.
+
+| Constant | Value | Meaning |
+|----------|-------|---------|
+| `SCIENCE_COMPILER_VERSION` | `1.2.0-science-m1` | Additive source candidate; not packaged/certified |
+| `SCIENCE_SIDECAR_SCHEMA` | `tkc.science-sidecar/v0.1` | Hash-bound, candidate-only science envelope |
+| `SCIENCE_RECORD_SCHEMA` | `tkc.science-record/v0.1` | Five closed science record shapes in one schema document |
+| `SCIENCE_PROFILE_SCHEMA` | `tkc.science-profile/v0.1` | Declarative required material/measurement fields; no authority |
+| `SCIENCE_REVIEW_SCHEMA` | `tkc.science-review-inputs/v0.1` | Frozen field-level input for existing independent attestation checks |
+| `SCIENCE_PROTOCOL` | `science-proposal-v0.1` | Read-only validation and answer-free freeze; no production publication |
+| `SCIENCE_REFERENCE_COMPILER_VERSION` | `1.2.0-science-m2` | Additive source candidate; bounded offline evidence retrieval, not a release |
+| `SCIENCE_REFERENCE_PROTOCOL` | `science-reference-v0.1` | Independent read-only query/host contract; legacy policy abstentions retained |
+| `SCIENCE_CONSULTATION_SCHEMA` | `tkc.science-consultation/v0.1` | Closed request/answer contracts; bundles validated by exact reconstruction |
+| `SCIENCE_INDEX_SCHEMA` | `tkc.science-index/v0.1` | Rebuildable index bound to packages, sidecars, profiles, tokenizer and tools |
+| `SCIENCE_TOKENIZER_SCHEMA` | `tkc.science-tokenizer/v0.1` | Explicit deterministic aliases, Chinese grams and case-preserving math channel |
+| `SCIENCE_LIBRARY_SCHEMA` | `tkc.science-library/v0.1` | Operator-local input paths; never exported in the index or bundle |
+| `SCIENCE_SOURCE_MAP_SCHEMA` | `tkc.science-source-map/v0.1` | Operator-authorized relative original paths, source hashes and physical pages |
+| `SCIENCE_SUPPORT_REVIEW_SCHEMA` | `tkc.science-support-review/v0.1` | Externally supplied claim support reports bound to a separate review plan; no promotion |
+| `SCIENCE_CALCULATION_COMPILER_VERSION` | `1.2.0-science-m3` | Scalar protocol identity retained inside the M4 candidate; no production qualification |
+| `SCIENCE_CALCULATION_PROTOCOL` | `science-calculation-v0.1` | Original qualified execution AND independent science/request reviews AND current host permission |
+| `SCIENCE_UNITS_PROTOCOL` | `science-units-v0.1` | Explicit quantity-kind mappings, absolute/difference temperature and fraction basis |
+| `SCIENCE_CALCULATION_SCHEMA` | `tkc.science-calculation/v0.1` | Closed specification and deterministically reconstructed plan |
+| `SCIENCE_CALCULATION_RECEIPT_SCHEMA` | `tkc.science-calculation-receipt/v0.1` | Bound inputs, conversions, selections, gates, original runner and conditional result |
+| `SCIENCE_CALCULATION_REVIEW_SCHEMA` | `tkc.science-calculation-review/v0.1` | Answer-free exact-request freeze for existing external attestation validator |
+| `SCIENCE_EXECUTION_PERMISSION_SCHEMA` | `tkc.science-execution-permission/v0.1` | Explicit host/session/plan/time-bound permission; no automatic grant |
+| `SCIENCE_LIFECYCLE_COMPILER_VERSION` | `1.2.0-science-m4` | Explicit private candidate packaging identity; never formal release |
+| `SCIENCE_LIFECYCLE_PROTOCOL` | `science-lifecycle-v0.1` | Data-only domain configuration, candidate links, DAG and evaluation interface |
+| `SCIENCE_LIFECYCLE_SCHEMA` | `tkc.science-lifecycle/v0.1` | Closed domain/proposal/evaluation input definitions |
+| `SCIENCE_DOMAIN_PROFILE_SCHEMA` | `tkc.science-domain-profile/v0.1` | Domain wrapper exports unchanged M1 profile and M2 tokenizer contracts |
+| `SCIENCE_LINK_PROPOSALS_SCHEMA` | `tkc.science-link-proposals/v0.1` | Explicit cross-source endpoint proposals, no name-based equivalence |
+| `SCIENCE_LINKS_SCHEMA` | `tkc.science-cross-links/v0.1` | Reconstructed composer candidates; original identities retained |
+| `SCIENCE_SNAPSHOT_SCHEMA` | `tkc.science-incremental-snapshot/v0.1` | Hash-bound existing-DAG projection, all authority false |
+| `SCIENCE_EVALUATION_SUITE_SCHEMA` | `tkc.science-evaluation-suite/v0.1` | Answer-free grouped cases, seven layers and five blind categories |
+| `SCIENCE_EVALUATION_RESULTS_SCHEMA` | `tkc.science-evaluation-results/v0.1` | External observations bound to case and suite hashes |
+| `SCIENCE_EVALUATION_REVIEW_SCHEMA` | `tkc.science-evaluation-review/v0.1` | External Gold hash and existing-composer review inputs, no Gold authoring |
+| `SCIENCE_EVALUATION_REPORT_SCHEMA` | `tkc.science-evaluation-report/v0.1` | Full denominators and per-case statuses; independent domain results remain separate |
+
+Schema identities are imported from `compiler_version.py`; the consolidated JSON
+schema is checked against that registry at load. Missing sidecars are unavailable.
+There is no automatic migration or in-place reseal of an old package. Existing
+jobs that hash-bind changed source documentation require an explicit new plan.
+The M2 registry and numeric-bound hardening change M1 tool fingerprints. Preserve
+old sidecars/freezes; explicitly rebuild and re-freeze new candidates with the
+current source if needed. Never edit their hashes or reuse stale review inputs.
+M2 does not execute formulas, package a release, call a host model, or certify
+domain accuracy. Its source retrieval reuses pypdf 6.10.0 native span verification;
+scan replay and missing originals remain unavailable.
+
+M3 remains a separate protocol: M2's closed answer validator still rejects
+calculated claims/receipt references. Use the separate M3 receipt as a conditional
+result. M3 never upgrades a Draft/sidecar or publishes knowledge; synthetic inputs
+cannot authorize its production path. See [scalar calculation](science-calculation.md).
+M4 packages these scripts through the existing candidate route; no exact-package
+formal Codex certification or independent domain Gold is asserted. M4 also changes
+tool hashes: explicitly rebuild fresh sidecars/indexes/plans/review inputs rather
+than editing older receipts. See [science consultation](science-consultation.md).
+The M3 registry update changes M1/M2 tool fingerprints: keep prior artifacts and
+explicitly rebuild new sidecars, indexes, plans and external review inputs. Do not
+patch hashes or reuse old review/permission fragments. Legacy compiler release,
+AST, unit table, generated module and sandbox runner protocols are unchanged.
+
 | Constant | Value | Meaning |
 |----------|-------|---------|
 | `RELEASE_VERSION` | `1.2.0` | Formal private fake-expert compiler Skill product release. It retains source-free queryable `fake-*` Reference Drafts and adds a hash-bound mandatory-reading route, machine-checked documentation contract, unified UX hardening, and Codex negative certification. Historical v1.1.0 and earlier archives remain immutable. |
