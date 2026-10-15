@@ -21,6 +21,7 @@ from compiler_version import (
     DIRECT_REFERENCE_SCHEMA,
     HEADING_LOCATOR_PROTOCOL,
     RELEASE_VERSION as VERSION,
+    REPAIR_SOURCE_CANDIDATE_VERSION,
     UX_SOURCE_CANDIDATE_VERSION,
     SCIENCE_LIFECYCLE_COMPILER_VERSION,
     SCAN_PDF_COMPILER_VERSION,
@@ -107,6 +108,7 @@ SKILL_NAME = "fake-expert"
 ARCHIVE_NAME = f"{SKILL_NAME}-v{VERSION}.zip"
 SOURCE_CANDIDATE_VERSIONS = {
     VERSION,
+    REPAIR_SOURCE_CANDIDATE_VERSION,
     SCAN_MVP_CONTRACT_HARDENING_COMPILER_VERSION,
     UX_SOURCE_CANDIDATE_VERSION,
     SCIENCE_LIFECYCLE_COMPILER_VERSION,
@@ -626,6 +628,7 @@ def package_fake_expert_skill(
     verifier_text = verifier_source.read_text(encoding="utf-8")
     standalone_bindings = {
         "VERSION": VERSION,
+        "REPAIR_SOURCE_CANDIDATE_VERSION": REPAIR_SOURCE_CANDIDATE_VERSION,
         "UX_SOURCE_CANDIDATE_VERSION": UX_SOURCE_CANDIDATE_VERSION,
         "SCIENCE_LIFECYCLE_COMPILER_VERSION": SCIENCE_LIFECYCLE_COMPILER_VERSION,
         "DIRECT_REFERENCE_COMPILER_VERSION": DIRECT_REFERENCE_COMPILER_VERSION,
@@ -634,7 +637,7 @@ def package_fake_expert_skill(
     }
     for binding, expected in standalone_bindings.items():
         match = re.search(
-            rf"{binding} = \"([^\"]+)\"  # standalone-release fallback",
+            rf"(?m)^[ \t]*{binding} = \"([^\"]+)\"  # standalone-release fallback",
             verifier_text,
         )
         if match is None or match.group(1) != expected:

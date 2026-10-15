@@ -128,6 +128,9 @@ def _validate_package(
         errors = validate_direct_reference(root)
         if errors:
             raise ReleasePackagingError(f"input_candidate_invalid: {errors[0]}")
+        # Figure indexes and images are source-derived; keep them private.
+        if (manifest.get("distribution") or {}).get("source_derived_content"):
+            raise ReleasePackagingError("candidate_source_derived_content_not_distributable")
         return "expert-reference"
     if manifest.get("schema_version") == COMPOSITE_SCHEMA:
         issues = validate_composite_skill(root, level="publish")

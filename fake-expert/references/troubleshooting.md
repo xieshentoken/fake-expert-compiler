@@ -25,7 +25,15 @@
 | `backend_invalid_for_profile` | backend 不在所选 profile 的允许集合内 | 保留旧 job，使用正确 backend 创建新 job；不自动 fallback |
 | `runtime_qualification_validator_required` | 已绑定 backend 没有统一 shortcut validator | 使用该 backend 的既有专项 validator 并重新绑定结果；保持当前 job 暂停 |
 | `runtime_qualification_unverified` | hash-bound runtime receipt 未通过既有专项 validator | 修复或重新取得外部 qualification receipt；不要启动模型重试 |
-| `semantic_authoring_required` | semantic proposal 不完整或不存在 | 通过既有 workpack 流程补齐 proposal |
+| `semantic_authoring_required` | semantic proposal 不完整或不存在 | 未绑定 workpack 时，`compile` 先在 `<workspace>/extraction/` 生成 IR、workpack、figure crops 和 authoring packets；然后用 `semantic_authoring.py run --command ...`（显式模型 CLI）或手写 drafts 补齐，再次 `compile` |
+| `extraction_failed` | 统一入口的自动抽取（IR / workpack / authoring packets）失败，例如标题定位需要人工处理或 `extraction/` 非空 | 按附带的原错误码处理（如 `heading_resolution_required` 走既有 heading override）；保留旧目录，换新 workspace 重新 plan |
+| `extraction_workpack_mismatch` | `<workspace>/extraction/workpack` 绑定的 source SHA-256 与 job 不一致 | 不要覆盖；为该 source 新建 workspace 并重新 plan |
+| `numeric_token_untraced` | draft 的数字不在文本证据中，且未绑定图对象（现为 error） | 在 evidence 中引用含该数字的原文，或用 `figure_object_ids` 绑定读数所在的 figure/table |
+| `numeric_token_figure_derived` | 数字来自已绑定的图对象（warning） | 可接受；打包后记录 `value_basis=figure-unreviewed`，查询结果带 `figure_value_unreviewed` |
+| `figure_object_unresolved` / `figure_fact_object_missing` | `figure_object_ids` 不属于该对象的 visual task，或 Figure/Table/DataPoint 缺少图对象 | 从 packet 的 FIGURES 中选择同页 `vo-…` ID |
+| `figure_ocr_backend_missing` | 显式选择了 `--figure-ocr tesseract` 但本机没有 tesseract | 安装本地 tesseract 或去掉该选项；不会自动回退 |
+| `candidate_source_derived_content_not_distributable` | Draft 含图表索引/图片（来源派生内容） | 仅私有使用；如需发布，重新 build 时不加 `--figure-index` |
+| `runtime_self_check_failed` | 某个对象的 title 无法检索到自身，或决策请求未 abstain | 检查该对象 title 是否只有停用词/单字符；修改 draft 后重建 |
 | `workpack_format_unrecognized` | 输入不是可识别 semantic workpack | 检查目录边界和既有 schema |
 | `runtime_qualification_required` | 扫描路由缺少匹配的本地 runtime receipt | 由有权限的 operator 完成既有 qualification；不自动启动模型 |
 | `structure_review_required` | 扫描候选缺少外部结构 Review | 使用现有 scan structure workbench |
@@ -51,3 +59,13 @@
 - schema 通过、计划存在或 dry-run 输出不能替代 source/render/worker/runtime/Review 的实际绑定。
 - doctor 的推荐不等于 backend 选择；统一入口不会 fallback。
 - `status --all` 只接受显式 workspace，不接受 home、项目根或宽目录。
+
+
+## Native evidence repair candidate
+
+- `numeric_review_required`: proposed figure values remain in the workpack. Use the existing independent semantic and visual Review route, then resume; a figure ID, origin label, boolean or presence-only inspection cannot authorize numbers.
+- `legacy_numeric_revalidation_required`: old packages remain readable. Rebuild from a correctly reviewed workpack to migrate untraced numbers; never patch the sealed old package.
+- `structure_review_required` after native extraction: inspect the retained IR and explicitly select actual source text boundaries using `plan --structure-selections`, or bind a validated external workpack. No chapter is invented.
+- `extraction_workpack_mismatch`: source/tool/render/checkpoint content drifted, or an unbound workspace contains drafts. Preserve the directory and replan into a fresh workspace.
+- Failed or interrupted extraction directories remain recoverable as `extraction-failed-*` / `extraction-incomplete-*`; no partial directory clears completion.
+- `authoring_packet_drift` / `authoring_response_binding_drift`: preserve the responses and prepare a fresh source-bound workpack, or explicitly rerun the configured command. Existing drafts require `--replace-drafts` for replacement.

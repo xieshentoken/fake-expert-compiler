@@ -90,7 +90,12 @@ KNOWLEDGE_TYPES = {
     "Method",
     "Procedure",
     "DecisionRule",
+    "Figure",
+    "Table",
+    "DataPoint",
 }
+# Facts read from a figure/table candidate; they must name the visual objects.
+FIGURE_KNOWLEDGE_TYPES = {"Figure", "Table", "DataPoint"}
 RELATION_TYPES = {
     "is_a",
     "part_of",

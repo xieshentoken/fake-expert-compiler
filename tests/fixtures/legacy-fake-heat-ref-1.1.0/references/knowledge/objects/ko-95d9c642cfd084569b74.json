@@ -1,0 +1,30 @@
+{
+  "applicability": {
+    "excluded_conclusions": [],
+    "physical_pages": [
+      1,
+      1
+    ]
+  },
+  "assumptions": [],
+  "confidence": {
+    "extraction": 0.0,
+    "interpretation": 0.0
+  },
+  "evidence_ids": [
+    "ev-8f5e5c9cf31ce33908b1"
+  ],
+  "fails_when": [],
+  "formula": null,
+  "id": "ko-95d9c642cfd084569b74",
+  "origin": "source-paraphrase",
+  "schema_version": "tkc.expert-skill/v0.1",
+  "source_ids": [
+    "src-0ebede49c4f3b7ad2edc"
+  ],
+  "statement": "Thermal conductivity k is a material property linking conductive heat flux to the local temperature gradient.",
+  "status": "unreviewed-candidate",
+  "title": "Thermal conductivity",
+  "type": "Definition",
+  "valid_when": []
+}

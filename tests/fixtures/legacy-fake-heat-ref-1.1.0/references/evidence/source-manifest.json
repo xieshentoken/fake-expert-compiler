@@ -1,0 +1,27 @@
+{
+  "schema_version": "tkc.expert-skill/v0.1",
+  "sources": [
+    {
+      "included_path": null,
+      "media_type": "application/pdf",
+      "original_filename": "heat-book.pdf",
+      "scope": {
+        "physical_pages": [
+          1,
+          5
+        ],
+        "printed_page_labels": [
+          "1",
+          "2",
+          "401",
+          "4",
+          "5"
+        ]
+      },
+      "sha256": "0ebede49c4f3b7ad2edc2bb0f9686d1728ff8c000084f015ac8d7e1d0cc62c62",
+      "size_bytes": 4312733,
+      "source_id": "src-0ebede49c4f3b7ad2edc",
+      "title": "heat-book"
+    }
+  ]
+}

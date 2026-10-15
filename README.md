@@ -1,5 +1,7 @@
 # fake-expert
 
+> 当前修复候选：`1.2.3-private-images-default`。修复原生文字坐标、图表边界及表格裁剪；支持可重放的公式数值证据。新建原生文本 Draft 默认附带图表索引和图片，查询返回相关图片路径，Agent 先查看再展示。纯文本模式用 `--figures none`。新生成包仍为未审核候选；真实模型/OCR、资料准确性与正式发布认证需单独验收。
+
 简体中文 | [English](./README.en.md)
 
 > **⚠️ 本项目仍在测试中（beta）**：接口、schema 与门禁行为可能随时调整，暂不建议用于生产流程。欢迎试用并提交 issue 反馈。
@@ -16,7 +18,12 @@
 - **Answer-free workbench**：编译器不生成 review verdict、独立认证、Gold、隐藏答案或任何 reviewer 的结果。
 - **可复现 job**：job 是闭合的 canonical-JSON、SHA-256 绑定文件；`required_reading` 清单逐 hash 锁定，漂移即停止。
 - **渐进式参考文档**：`references/` 按任务场景组织（快速上手 / 术语 / 排错 / 编译 / OCR / 视觉语义等）。
+- **图表即知识**：识别栅格图、嵌入式 PDF 图（Form XObject）和矢量图；附带图注、图内文字、crop 图片和可选的本地 OCR（仅候选）；`Figure`/`Table`/`DataPoint` 事实必须绑定图对象，图中读取但缺少文本证据的数值必须先完成独立语义及视觉 Review，未完成时保留提案并暂停入包。
+- **显式 authoring 步骤**：`compile` 自动抽取并生成逐节 authoring packets；`semantic_authoring.py` 把它们交给你指定的模型命令，模型以原文引文作答，编译器把引文解析为精确 span/SHA-256（编译器本身不调用模型）。
+- **中英文检索**：Draft 内置 BM25 + 中文 n-gram + 词干检索，返回事实全文、适用条件、页码、证据和相关图表；可选 embedding 混合检索。
 - **Science 咨询层（source-candidate）**：多领域科学提案、离线索引、只读查询、受控标量计算与盲评验收的增量实现（M1–M4），answer-free、不授权执行、不改变正式门禁。
+
+默认图文 Draft 含来源图像，仅供私有本地使用；整体复制生成的 Skill 目录及 `assets/figures/` 即可查询图片。普通 source-free 分发仍要求 `--figures none`，不会放行来源图像。历史包保持不变，工具或参考文档变化时重新创建 job。
 
 ## 快速开始
 
@@ -35,19 +42,33 @@ brew install poppler   # 或系统包管理器安装 pdftoppm（视觉基底）
 ### 3. 运行
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/fake_expert.py doctor \
+PYTHONDONTWRITEBYTECODE=1 python3 fake-expert/scripts/fake_expert.py doctor \
   --profile native-text --source /absolute/path/to/book.pdf --json
 
-PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/fake_expert.py plan \
+PYTHONDONTWRITEBYTECODE=1 python3 fake-expert/scripts/fake_expert.py plan \
   --source /absolute/path/to/book.pdf --workspace /absolute/path/to/job \
   --profile native-text --name domain-reference \
   --display-name "Domain Reference" --domain domain-name --version 0.1.0 --json
 
-PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/fake_expert.py compile \
+PYTHONDONTWRITEBYTECODE=1 python3 fake-expert/scripts/fake_expert.py compile \
   --job /absolute/path/to/job/fake-expert-job.json --progress --json
 ```
 
-统一 CLI 还提供 `status`、`resume` 与只读的 `review list / locate / status / validate-submission` 子命令。没有完整 semantic workpack 时，流程会在 `semantic_authoring_required` 处暂停——编译器不写语义答案。
+首次 `compile` 会把 IR、workpack、图表 crops 和 authoring packets 写入 `<workspace>/extraction/`，然后在 `semantic_authoring_required` 暂停——编译器不写语义答案。用你指定的模型命令补齐后再次 `compile`：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 fake-expert/scripts/semantic_authoring.py run \
+  --workpack /absolute/path/to/job/extraction/workpack \
+  --command "<读取 stdin prompt、输出 JSON 的模型 CLI>" \
+  --proposer-instance my-model-1 --source /absolute/path/to/book.pdf --json
+
+PYTHONDONTWRITEBYTECODE=1 python3 fake-expert/scripts/fake_expert.py compile \
+  --job /absolute/path/to/job/fake-expert-job.json --json
+
+python3 -B /absolute/path/to/job/fake-domain-reference/scripts/query_reference.py --query "什么是…？"
+```
+
+统一 CLI 还提供 `status`、`resume` 与只读的 `review list / locate / status / validate-submission` 子命令。详见 `fake-expert/references/authoring-and-figures.md`。
 
 ## Science 咨询层（M1–M4，source-candidate）
 
@@ -80,6 +101,29 @@ PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/fake_expert.py comp
 - **不可原地覆盖**：旧包、source、workpack、Gold、receipt 与 release 目录一律不可覆盖；扩展必须走新目录、新版本。
 - **不加抽象层**：禁止为“未来扩展”新增 Manager / Service / Factory / Strategy / Adapter / Coordinator / Provider / Resolver / Registry 层。
 
+## 核心路径
+
+从 PDF 到可查询 Draft 只需要以下脚本；其余脚本服务于 Review、Gold、扫描 OCR、组合与发布等后续门禁，保持兼容但不是入门必读。
+
+| 步骤 | 脚本 |
+|---|---|
+| 统一入口 | `fake_expert.py`（doctor / plan / compile / status） |
+| PDF IR、标题、页面路由 | `pdf_structure.py`（`reconstruct_pdf.py`） |
+| 图表候选、图注、图内文字 | `visual_semantics.py` |
+| 语义 workpack、crops、可选 OCR | `semantic_workpack.py` → `semantic_promotion.py` |
+| 模型 authoring 与引文解析 | `semantic_authoring.py` |
+| 构建 / 扩展 / 校验 Draft | `direct_reference_skill.py` |
+| Draft 内检索 runtime | `reference_search.py`（打包为 `scripts/query_reference.py`） |
+
+## 测试
+
+```bash
+pip install -r requirements-test.txt   # synthetic developer tests
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+```
+
+需要渲染的测试使用 PATH 上的 `pdftoppm`（或 `FAKE_EXPERT_TEST_PDFTOPPM`），缺失时自动跳过。
+
 ## 仓库结构
 
 ```
@@ -92,6 +136,19 @@ fake-expert/
 ├── scripts/          # 编译器、workbench、science 咨询与验收脚本
 └── requirements-*.txt
 ```
+
+## 测试修复候选
+
+在此仓库根目录使用已具备 `requirements-test.txt` 中依赖的 Python：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+```
+
+图形测试使用真实 `pdftoppm`；缺少渲染器时会明确跳过。可用
+`FAKE_EXPERT_TEST_PDFTOPPM` 指定本地二进制。测试自带合成资料，不调用真实模型或 OCR。
+`FAKE_EXPERT_HISTORY_ROOT` 可指向原项目，以只读方式重放历史发布包与选定真实 PDF
+回归；未提供这些私有资源时，对应测试会跳过。这些检查不代表整本资料准确性或正式发布认证。
 
 ## License
 

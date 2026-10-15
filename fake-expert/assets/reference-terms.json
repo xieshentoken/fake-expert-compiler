@@ -1,0 +1,107 @@
+{
+  "schema_version": "tkc.reference-term-aliases/v0.1",
+  "terms": [
+    {
+      "term": "fourier_law",
+      "aliases": [
+        "Fourier's law",
+        "Fourier law",
+        "傅里叶定律"
+      ]
+    },
+    {
+      "term": "thermal_conductivity",
+      "aliases": [
+        "thermal conductivity",
+        "导热系数",
+        "导热率"
+      ]
+    },
+    {
+      "term": "heat_transfer_coefficient",
+      "aliases": [
+        "heat transfer coefficient",
+        "heat-transfer coefficient",
+        "对流换热系数",
+        "换热系数"
+      ]
+    },
+    {
+      "term": "thermal_resistance",
+      "aliases": [
+        "thermal resistance",
+        "热阻"
+      ]
+    },
+    {
+      "term": "heat_flux",
+      "aliases": [
+        "heat flux",
+        "热流密度"
+      ]
+    },
+    {
+      "term": "natural_convection",
+      "aliases": [
+        "natural convection",
+        "自然对流"
+      ]
+    },
+    {
+      "term": "forced_convection",
+      "aliases": [
+        "forced convection",
+        "强制对流"
+      ]
+    },
+    {
+      "term": "reynolds_number",
+      "aliases": [
+        "Reynolds number",
+        "雷诺数"
+      ]
+    },
+    {
+      "term": "nusselt_number",
+      "aliases": [
+        "Nusselt number",
+        "努塞尔数"
+      ]
+    },
+    {
+      "term": "prandtl_number",
+      "aliases": [
+        "Prandtl number",
+        "普朗特数"
+      ]
+    },
+    {
+      "term": "refractive_index",
+      "aliases": [
+        "refractive index",
+        "折射率"
+      ]
+    },
+    {
+      "term": "heat_capacity",
+      "aliases": [
+        "specific heat capacity",
+        "比热容"
+      ]
+    },
+    {
+      "term": "thermal_diffusivity",
+      "aliases": [
+        "thermal diffusivity",
+        "热扩散率"
+      ]
+    },
+    {
+      "term": "copper",
+      "aliases": [
+        "copper",
+        "铜"
+      ]
+    }
+  ]
+}

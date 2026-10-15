@@ -15,6 +15,7 @@ import hashlib
 import json
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Iterable
@@ -24,7 +25,13 @@ from compiler_version import (
     DIRECT_REFERENCE_PROTOCOL,
     DIRECT_REFERENCE_RUNTIME_SHA256,
     DIRECT_REFERENCE_SCHEMA,
+    FIGURE_INDEX_SCHEMA,
+    LEGACY_DIRECT_REFERENCE_COMPILER_VERSION,
+    OPUS_DIRECT_REFERENCE_COMPILER_VERSION,
+    OPUS_REFERENCE_SEARCH_RUNTIME_SHA256,
     PORTABLE_REFERENCE_RUNTIME_SHA256,
+    REFERENCE_SEARCH_RUNTIME_SHA256,
+    REFERENCE_SEARCH_RUNTIME_VERSION,
 )
 from expert_skill_contract import (
     SCHEMA_ID,
@@ -39,10 +46,14 @@ from expert_skill_contract import (
 from formula_execution import FORMULA_AST_SCHEMA, sha256_json as formula_sha256_json
 from pdf_structure import detect_printed_page_label, normalize_text, stable_id
 from direct_reference_runtime import query_direct_catalog
+import reference_search
+import reference_search_v130
+from numeric_evidence import NumericEvidenceError, checked_untraced_numbers, reviewed_figure_basis, check_legacy_numeric
 from reference_tier import _runtime_guide, build_runtime_catalog
 from scanned_pdf_ocr import ScanOcrError, build_scan_evidence_locator
 from semantic_promotion import (
     NORMALIZATION_PROFILE,
+    NUMBER_PATTERN,
     SemanticPromotionError,
     _iter_strings,
     _load_source,
@@ -67,6 +78,10 @@ GOLD_MODES = {"none", "reuse", "create", "update"}
 DIRECT_REFERENCE_PATH = "references/runtime/direct-reference.json"
 SELF_CHECK_PATH = "references/runtime/self-check.json"
 RESPONSE_SCHEMA_PATH = "references/runtime/response.schema.json"
+FIGURE_INDEX_PATH = "references/figures/index.json"
+FIGURE_ASSET_DIRECTORY = "assets/figures"
+EMBEDDINGS_PATH = "references/runtime/embeddings.json"
+FIGURE_KINDS = {"figure", "plot", "diagram", "table"}
 DEFAULT_POLICY = {
     "decision_guard_terms": [
         "approve",
@@ -248,6 +263,8 @@ def _formula(proposal: dict[str, Any]) -> dict[str, Any] | None:
             "derived_notation",
             "representation_relation",
             "dimension_check",
+            "notation_symbols",
+            "native_numeric_evidence",
         )
     }
     if isinstance(value.get("ast"), dict):
@@ -546,6 +563,18 @@ def _materialize_workpack(
         for object_id in supports:
             anchor_ids_by_object[object_id].append(anchor_id)
 
+    pending_numeric = {}
+    for reference in object_refs:
+        proposal = proposals[reference][1]
+        text = " ".join(page_texts[int(span["page"])][int(span["start"]):int(span["end"])]
+                        for span in proposal["evidence_spans"])
+        if checked_untraced_numbers(proposal, text, source):
+            pending_numeric[reference] = proposal
+    try:
+        numeric_reviews = reviewed_figure_basis(source, root, pending_numeric)
+    except NumericEvidenceError as error:
+        raise DirectReferenceError(str(error)) from error
+
     objects: list[dict[str, Any]] = []
     for reference in sorted(object_refs, key=lambda value: object_id_by_ref[value]):
         object_id = object_id_by_ref[reference]
@@ -569,6 +598,17 @@ def _materialize_workpack(
         }
         if proposal.get("visual_task_ids"):
             record["visual_task_ids"] = sorted(set(proposal["visual_task_ids"]))
+        figure_ids = sorted(set(proposal.get("figure_object_ids", [])))
+        if figure_ids:
+            record["figure_refs"] = figure_ids
+            evidence_text = " ".join(
+                page_texts[int(span["page"])][int(span["start"]) : int(span["end"])]
+                for span in proposal["evidence_spans"]
+            )
+            untraced = checked_untraced_numbers(proposal, evidence_text, source)
+            if untraced:
+                record["value_basis"] = {"source": "figure-reviewed", "untraced_values": untraced,
+                                         **numeric_reviews[reference]}
         objects.append(record)
 
     relations: list[dict[str, Any]] = []
@@ -694,7 +734,73 @@ def _materialize_workpack(
         "conflicts": conflicts,
         "gaps": gaps,
         "binding": binding,
+        "figures": _workpack_figures(root, manifest, reader, source_id, objects),
     }
+
+
+def _workpack_figures(
+    root: Path,
+    manifest: dict[str, Any],
+    reader: Any,
+    source_id: str,
+    objects: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Collect figure/table candidates for the opt-in package figure index.
+
+    Captions and in-figure text are source-derived; they enter a package only
+    through ``--figure-index`` and are declared in the manifest.  The crop path
+    is a private workpack path and is dropped before packaging.
+    """
+
+    objects_path = root / "visual-objects.jsonl"
+    if not objects_path.is_file():
+        return []
+    rows = {row["visual_object_id"]: row for row in load_jsonl(objects_path)}
+    captions: dict[str, str] = {}
+    relations_path = root / "visual-relations.jsonl"
+    for relation in load_jsonl(relations_path) if relations_path.is_file() else []:
+        if relation.get("relation_type") == "caption_of":
+            caption = rows.get(str(relation.get("source_visual_object_id")), {})
+            text = (caption.get("attributes") or {}).get("caption_text_candidate")
+            if isinstance(text, str) and text:
+                captions[str(relation.get("target_visual_object_id"))] = text
+    visual = manifest.get("visual_semantics") if isinstance(manifest.get("visual_semantics"), dict) else {}
+    crops = visual.get("figure_crops") if isinstance(visual.get("figure_crops"), dict) else {}
+    ocr_rows: dict[str, dict[str, Any]] = {}
+    ocr = visual.get("figure_ocr") if isinstance(visual.get("figure_ocr"), dict) else None
+    if ocr and (root / str(ocr.get("path"))).is_file():
+        ocr_rows = {row["visual_object_id"]: row for row in load_jsonl(root / str(ocr["path"]))}
+    linked: dict[str, list[str]] = {}
+    for obj in objects:
+        for figure_id in obj.get("figure_refs", []):
+            linked.setdefault(figure_id, []).append(obj["id"])
+    figures = []
+    for figure_id, row in sorted(rows.items()):
+        if row.get("type") not in FIGURE_KINDS or row.get("parent"):
+            continue
+        page = int(row["physical_page"])
+        attributes = row.get("attributes") if isinstance(row.get("attributes"), dict) else {}
+        crop = crops.get(figure_id) if isinstance(crops.get(figure_id), dict) else None
+        crop_path = root / str(crop["path"]) if crop else None
+        figures.append({
+            "id": figure_id,
+            "kind": row["type"],
+            "label": row.get("label"),
+            "source_id": source_id,
+            "physical_page": page,
+            "printed_page_label": detect_printed_page_label(reader.pages[page - 1].extract_text() or "")
+            or str(reader.page_labels[page - 1]),
+            "bbox_pdf_points": [round(float(value), 3) for value in row["bbox"]],
+            "caption": captions.get(figure_id),
+            "figure_text": [
+                str(item.get("text")) for item in attributes.get("figure_text_candidates", []) if isinstance(item, dict)
+            ],
+            "ocr_text": [str(line) for line in ocr_rows.get(figure_id, {}).get("lines", [])],
+            "object_ids": sorted(linked.get(figure_id, [])),
+            "crop_sha256": crop.get("sha256") if crop else None,
+            "_crop_path": str(crop_path) if crop_path is not None and crop_path.is_file() else None,
+        })
+    return figures
 
 
 def _merge_by_id(
@@ -796,7 +902,21 @@ def _assurance(gold: dict[str, Any], version: str) -> dict[str, Any]:
     }
 
 
-def _skill_markdown(name: str, display_name: str) -> str:
+def _skill_markdown(name: str, display_name: str, *, figures: bool = False) -> str:
+    figure_line = (
+        "\n8. `figures` lists figure/table candidates (label, caption, page, and an\n"
+        "   `image` path under `assets/figures/` when packaged). Open the image before\n"
+        "   describing it. Resolve `image` relative to this Skill directory and display\n"
+        "   relevant inspected images inline as `![Figure label — PDF page](absolute/local/path.png)`.\n"
+        "   Keep the figure ID, caption and physical page beside each image. Do not attach\n"
+        "   unrelated same-page images or treat image presence as numeric verification.\n"
+        "   With `figure_candidates_only`, display the returned source images even when\n"
+        "   `behavior` is `abstain`; abstention still applies to unsupported factual claims.\n"
+        "   If no related image is returned, state that; do not invent a path or figure link.\n"
+        if figures
+        else ""
+    )
+    package_state = "private, source-derived candidate" if figures else "draft-distributable candidate"
     return f"""---
 name: {name}
 description: Use the traceable, queryable but unreviewed {display_name} candidate for bounded technical reference retrieval; cite object and evidence IDs, surface its assurance warning, and abstain from decisions or execution.
@@ -804,21 +924,24 @@ description: Use the traceable, queryable but unreviewed {display_name} candidat
 
 # {display_name}
 
-This is a directly usable Reference Skill in `draft-distributable` candidate
-state. Its knowledge was materialized from validated proposals but has not passed
+This is a directly usable Reference Skill in {package_state} state. Its knowledge was materialized from validated proposals but has not passed
 independent semantic Review. It is not ready, promoted, decision-capable, or
 executable.
 
 ## Runtime workflow
 
 1. Run `python3 -B scripts/query_reference.py --query "<request>" --limit 8`.
+   English and Chinese queries are supported (word stems and CJK n-grams).
 2. Preserve the returned `assurance` and `warnings` in every technical answer.
-3. Read only returned paths from `references/runtime/catalog.json`.
+3. Answer from `results`: each has the statement, assumptions, `valid_when`,
+   `fails_when`, formula, physical pages / printed page labels, and IDs.
 4. State assumptions, applicability, valid conditions, and failure conditions.
 5. Cite every technical claim with both knowledge-object IDs and evidence IDs.
-6. Preserve unresolved conflicts and known gaps; do not silently reconcile them.
-7. Abstain outside the declared source scope and for design, safety, approval,
-   decision, or execution requests.
+6. A result warning `figure_value_unreviewed` means its numbers were read from a
+   figure and await visual review; say so when you use them.
+7. Preserve unresolved conflicts and known gaps; do not silently reconcile them.
+   Abstain when `behavior` is `abstain`, outside the declared source scope, and
+   for design-for-me, safety-judgement, approval, decision, or execution requests.{figure_line}
 
 ## Trust and update boundary
 
@@ -834,10 +957,13 @@ executable.
 """
 
 
-def _receiver_markdown(name: str) -> str:
+def _receiver_markdown(name: str, *, figures: bool = False) -> str:
+    content = ("This private Draft includes a source-derived figure/table index. "
+               "If assets/figures exists, copy it with the whole directory. Do not label this Draft source-free or pass it through the source-free release route."
+               if figures else "This package is a source-free, queryable **unreviewed candidate**.")
     return f"""# Receiving `{name}`
 
-This package is a source-free, queryable **unreviewed candidate**. Copy the
+{content} Copy the
 entire `{name}` directory into the receiving Agent's local Skill directory and
 keep it read-only.
 
@@ -859,7 +985,9 @@ filesystem, network, or permission policy.
 """
 
 
-def _runtime_self_check(root: Path, catalog: dict[str, Any]) -> dict[str, Any]:
+def _runtime_self_check(root: Path, catalog: dict[str, Any], *, legacy: bool = False, opus: bool = False) -> dict[str, Any]:
+    if not legacy:
+        return _search_runtime_self_check(root, catalog, runtime=reference_search_v130 if opus else reference_search)
     runtime_target = root / "scripts/query_reference.py"
     base_runtime_target = root / "scripts/portable_reference_runtime.py"
     checks = []
@@ -906,90 +1034,129 @@ def _runtime_self_check(root: Path, catalog: dict[str, Any]) -> dict[str, Any]:
     return receipt
 
 
-def _write_runtime(root: Path, control: dict[str, Any]) -> dict[str, Any]:
-    runtime_source = Path(__file__).with_name("direct_reference_runtime.py")
-    base_runtime_source = Path(__file__).with_name("portable_reference_runtime.py")
+def _search_runtime_self_check(root: Path, catalog: dict[str, Any], *, runtime=reference_search) -> dict[str, Any]:
+    checks = []
+    for entry in catalog["objects"]:
+        response = runtime.query_package(catalog, entry["title"], limit=25)
+        checks.append(
+            {
+                "code": "title_retrieves_object",
+                "object_id": entry["id"],
+                "passed": entry["id"] in response.get("matched_object_ids", []),
+                "response_sha256": sha256_json(response),
+            }
+        )
+    for code, query in (
+        ("decision_request_abstains", "certify safe design decision"),
+        ("chinese_decision_request_abstains", "推荐一个安全设计并批准执行"),
+    ):
+        guarded = runtime.query_package(catalog, query, limit=8)
+        checks.append(
+            {
+                "code": code,
+                "passed": guarded.get("behavior") == "abstain"
+                and "decision_capability_unavailable" in guarded.get("reason_codes", []),
+                "response_sha256": sha256_json(guarded),
+            }
+        )
+    receipt = {
+        "schema_version": "tkc.direct-reference-self-check/v0.2",
+        "runtime_version": runtime.RUNTIME_VERSION,
+        "runtime_sha256": sha256_file(root / "scripts/query_reference.py"),
+        "catalog_sha256": sha256_json(catalog),
+        "checks": checks,
+        "passed": bool(checks) and all(row["passed"] for row in checks),
+        "attestation_level": "deterministic-recomputed-not-human",
+    }
+    if not receipt["passed"]:
+        failed = [row.get("object_id", row["code"]) for row in checks if not row["passed"]]
+        raise DirectReferenceError(f"runtime_self_check_failed: {failed[:5]}")
+    return receipt
+
+
+def _figure_section(catalog: dict[str, Any]) -> str:
+    figures = catalog.get("figures", [])
+    if not figures:
+        return ""
+    lines = ["", "## Figures and tables (source-derived candidates)", "", "| Label | Page | Object IDs | Image |", "| --- | --- | --- | --- |"]
+    for entry in figures:
+        label = str(entry.get("label") or entry["id"]).replace("|", "\\|")
+        objects = ", ".join(f"`{value}`" for value in entry.get("object_ids", []))
+        image = f"`{entry['image']}`" if entry.get("image") else ""
+        lines.append(f"| {label} | {entry.get('physical_page')} | {objects} | {image} |")
+    return "\n".join(lines) + "\n"
+
+
+def _write_runtime(root: Path, control: dict[str, Any], *, embedding_command: str | None = None) -> dict[str, Any]:
+    """Install the current search runtime, catalog, response schema, and self-check."""
+
     runtime_target = root / "scripts/query_reference.py"
-    base_runtime_target = root / "scripts/portable_reference_runtime.py"
     runtime_target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(runtime_source, runtime_target)
-    shutil.copyfile(base_runtime_source, base_runtime_target)
-    policy = dict(DEFAULT_POLICY)
-    policy["assurance"] = _assurance(
-        control["gold"], control["package"]["version"]
-    )
-    catalog = build_runtime_catalog(root, policy)
+    shutil.copyfile(Path(__file__).with_name("reference_search.py"), runtime_target)
+    legacy_base = root / "scripts/portable_reference_runtime.py"
+    if legacy_base.exists():
+        legacy_base.unlink()
+    policy = {
+        "decision_guard": "intent-patterns-v0.2",
+        "out_of_scope_terms": list(DEFAULT_POLICY["out_of_scope_terms"]),
+        "assurance": _assurance(control["gold"], control["package"]["version"]),
+    }
+    catalog = reference_search.build_catalog(root, policy)
     write_json(root / "references/runtime/catalog.json", catalog)
-    write_json(
-        root / RESPONSE_SCHEMA_PATH,
-        {
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "tkc.direct-reference-runtime-response/v0.1",
-            "title": "fake-expert direct Reference response",
-            "type": "object",
-            "additionalProperties": False,
-            "required": [
-                "schema_version",
-                "runtime_version",
-                "behavior",
-                "reason_codes",
-                "matched_object_ids",
-                "evidence_ids",
-                "conflict_ids",
-                "gap_ids",
-                "package_id",
-                "module_id",
-                "assurance",
-                "warnings",
-            ],
-            "properties": {
-                "schema_version": {"const": "tkc.runtime-response/v0.1"},
-                "runtime_version": {"type": "string", "minLength": 1},
-                "behavior": {"enum": ["answer", "abstain"]},
-                "reason_codes": {
-                    "type": "array",
-                    "minItems": 1,
-                    "uniqueItems": True,
-                    "items": {"type": "string", "minLength": 1},
-                },
-                "matched_object_ids": {
-                    "type": "array",
-                    "uniqueItems": True,
-                    "items": {"type": "string", "minLength": 1},
-                },
-                "evidence_ids": {
-                    "type": "array",
-                    "uniqueItems": True,
-                    "items": {"type": "string", "minLength": 1},
-                },
-                "conflict_ids": {
-                    "type": "array",
-                    "uniqueItems": True,
-                    "items": {"type": "string", "minLength": 1},
-                },
-                "gap_ids": {
-                    "type": "array",
-                    "uniqueItems": True,
-                    "items": {"type": "string", "minLength": 1},
-                },
-                "package_id": {"type": "string", "pattern": "^fake-"},
-                "module_id": {"type": "string", "minLength": 1},
-                "assurance": {"type": "object"},
-                "warnings": {
-                    "type": "array",
-                    "minItems": 5,
-                    "uniqueItems": True,
-                    "items": {"type": "string", "minLength": 1},
-                },
-            },
-        },
-    )
+    embeddings_path = root / EMBEDDINGS_PATH
+    if embeddings_path.exists():
+        embeddings_path.unlink()
+    if embedding_command:
+        try:
+            write_json(embeddings_path, reference_search.build_embeddings(catalog, embedding_command))
+        except (ValueError, OSError, subprocess.SubprocessError) as error:
+            raise DirectReferenceError(f"embedding_build_failed: {error}") from error
+    write_json(root / RESPONSE_SCHEMA_PATH, _search_response_schema())
     (root / "references/runtime/reference-map.md").write_text(
-        _runtime_guide(catalog), encoding="utf-8"
+        _runtime_guide(catalog) + _figure_section(catalog), encoding="utf-8"
     )
-    receipt = _runtime_self_check(root, catalog)
+    receipt = _search_runtime_self_check(root, catalog)
     write_json(root / SELF_CHECK_PATH, receipt)
     return receipt
+
+
+def _search_response_schema() -> dict[str, Any]:
+    id_list = {"type": "array", "uniqueItems": True, "items": {"type": "string", "minLength": 1}}
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "tkc.direct-reference-runtime-response/v0.2",
+        "title": "fake-expert direct Reference response",
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "schema_version", "runtime_version", "behavior", "reason_codes", "matched_object_ids",
+            "evidence_ids", "conflict_ids", "gap_ids", "results", "figures", "retrieval",
+            "package_id", "module_id", "assurance", "warnings",
+        ],
+        "properties": {
+            "schema_version": {"const": reference_search.RESPONSE_SCHEMA},
+            "runtime_version": {"type": "string", "minLength": 1},
+            "behavior": {"enum": ["answer", "abstain"]},
+            "reason_codes": {**id_list, "minItems": 1},
+            "matched_object_ids": id_list,
+            "evidence_ids": id_list,
+            "conflict_ids": id_list,
+            "gap_ids": id_list,
+            "results": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["id", "type", "title", "statement", "evidence_ids", "physical_pages", "warnings"],
+                },
+            },
+            "figures": {"type": "array", "items": {"type": "object", "required": ["id", "label", "physical_page"]}},
+            "retrieval": {"type": "object", "required": ["method", "query_terms"]},
+            "package_id": {"type": "string", "pattern": "^fake-"},
+            "module_id": {"type": "string", "minLength": 1},
+            "assurance": {"type": "object"},
+            "warnings": {**id_list, "minItems": 5},
+        },
+    }
 
 
 def _write_package(
@@ -1009,7 +1176,11 @@ def _write_package(
     bindings: list[dict[str, Any]],
     gold: dict[str, Any],
     update: dict[str, Any],
+    figures: list[dict[str, Any]] | None = None,
+    figure_images: bool = False,
+    embedding_command: str | None = None,
 ) -> dict[str, Any]:
+    figure_entries = _write_figures(output, figures, figure_images=figure_images)
     object_index = [
         {
             "id": row["id"],
@@ -1040,6 +1211,19 @@ def _write_package(
             ],
         },
         "gold": gold,
+        **(
+            {
+                "figures": {
+                    "index": FIGURE_INDEX_PATH,
+                    "count": len(figure_entries),
+                    "images": any(entry.get("image") for entry in figure_entries),
+                    "source_derived": True,
+                    "candidate_only": True,
+                }
+            }
+            if figure_entries is not None
+            else {}
+        ),
         "workpack_bindings": sorted(
             bindings,
             key=lambda row: (
@@ -1062,6 +1246,11 @@ def _write_package(
         "distribution": {
             "source_mode": "source-required",
             "verification": "external-source-required",
+            **(
+                {"source_derived_content": _source_derived_content(figure_entries)}
+                if figure_entries is not None
+                else {}
+            ),
         },
         "sources": sources,
         "modules": [
@@ -1093,7 +1282,7 @@ def _write_package(
             "prompt_versions": [
                 "semantic-proposal-v0.1",
                 DIRECT_REFERENCE_PROTOCOL,
-                "runtime-reference-v0.1",
+                REFERENCE_SEARCH_RUNTIME_VERSION,
             ],
             "model_ids": [],
         },
@@ -1128,9 +1317,9 @@ def _write_package(
     )
     write_json(output / DIRECT_REFERENCE_PATH, control)
     (output / "SKILL.md").write_text(
-        _skill_markdown(name, display_name), encoding="utf-8"
+        _skill_markdown(name, display_name, figures=bool(figure_entries)), encoding="utf-8"
     )
-    (output / "RECEIVER.md").write_text(_receiver_markdown(name), encoding="utf-8")
+    (output / "RECEIVER.md").write_text(_receiver_markdown(name, figures=bool(figure_entries)), encoding="utf-8")
     (output / "agents/openai.yaml").parent.mkdir(parents=True, exist_ok=True)
     (output / "agents/openai.yaml").write_text(
         "interface:\n"
@@ -1143,7 +1332,7 @@ def _write_package(
     for stale in (runtime_dir / "catalog.json", runtime_dir / "reference-map.md", runtime_dir / "self-check.json"):
         if stale.exists():
             stale.unlink()
-    _write_runtime(output, control)
+    _write_runtime(output, control, embedding_command=embedding_command)
     manifest.pop("integrity", None)
     manifest["integrity"] = {
         "algorithm": "sha256",
@@ -1162,9 +1351,92 @@ def _write_package(
         "artifact_stage": "draft-distributable",
         "object_count": len(objects),
         "anchor_count": len(anchors),
+        "figure_count": len(figure_entries or []),
+        "image_count": sum(bool(row.get("image")) for row in (figure_entries or [])),
+        "usage_scope": "private-source-derived" if figure_entries else "source-free-reference",
+        "embeddings": bool(embedding_command),
         "gold": gold,
         "update": update,
     }
+
+
+def _source_derived_content(figure_entries: list[dict[str, Any]]) -> list[str]:
+    content = {"figure-captions", "figure-text"}
+    if any(entry.get("image") for entry in figure_entries):
+        content.add("figure-images")
+    return sorted(content)
+
+
+def _write_figures(
+    output: Path,
+    figures: list[dict[str, Any]] | None,
+    *,
+    figure_images: bool,
+) -> list[dict[str, Any]] | None:
+    """Write the opt-in figure index (and images); remove stale ones otherwise."""
+
+    index_path = output / FIGURE_INDEX_PATH
+    asset_root = output / FIGURE_ASSET_DIRECTORY
+    if figures is None:
+        if index_path.exists():
+            index_path.unlink()
+        if asset_root.exists():
+            shutil.rmtree(asset_root)
+        return None
+    entries = []
+    for row in sorted(figures, key=lambda value: value["id"]):
+        entry = {key: value for key, value in row.items() if not key.startswith("_") and key not in {"image", "image_sha256"}}
+        relative = f"{FIGURE_ASSET_DIRECTORY}/{row['id']}.png"
+        crop_path = row.get("_crop_path")
+        if figure_images and not crop_path and not (output / relative).is_file():
+            raise DirectReferenceError(f"figure_crop_unavailable: {row['id']}")
+        if figure_images and crop_path:
+            data = Path(crop_path).read_bytes()
+            if row.get("crop_sha256") and sha256_bytes(data) != row["crop_sha256"]:
+                raise DirectReferenceError(f"figure_crop_hash_mismatch: {row['id']}")
+            (output / relative).parent.mkdir(parents=True, exist_ok=True)
+            (output / relative).write_bytes(data)
+        if (output / relative).is_file():
+            entry["image"] = relative
+            entry["image_sha256"] = sha256_file(output / relative)
+        else:
+            entry["image"] = None
+        entries.append(entry)
+    write_json(
+        index_path,
+        {
+            "schema_version": FIGURE_INDEX_SCHEMA,
+            "candidate_only": True,
+            "source_derived": True,
+            "note": "Captions, in-figure text, OCR lines and images are unreviewed source-derived candidates.",
+            "figures": entries,
+        },
+    )
+    return entries
+
+
+def _merge_figures(
+    base: list[dict[str, Any]], new: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    merged = {row["id"]: dict(row) for row in base}
+    for row in new:
+        if row["id"] in merged:
+            merged[row["id"]]["object_ids"] = sorted(set(merged[row["id"]].get("object_ids", [])) | set(row.get("object_ids", [])))
+            for key in ("_crop_path", "crop_sha256"):
+                if row.get(key) and not merged[row["id"]].get(key):
+                    merged[row["id"]][key] = row[key]
+        else:
+            merged[row["id"]] = dict(row)
+    return [merged[key] for key in sorted(merged)]
+
+
+def _load_base_figures(base: Path) -> list[dict[str, Any]] | None:
+    path = base / FIGURE_INDEX_PATH
+    return list(load_json(path).get("figures", [])) if path.is_file() else None
+
+
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
 
 
 def build_direct_reference(
@@ -1180,7 +1452,12 @@ def build_direct_reference(
     source_title: str | None = None,
     gold_mode: str = "none",
     gold_revision: Path | None = None,
+    figure_index: bool = False,
+    figure_images: bool = False,
+    embedding_command: str | None = None,
 ) -> dict[str, Any]:
+    if figure_images and not figure_index:
+        raise DirectReferenceError("figure_crops_require_figure_index")
     _validate_timestamp(created_at)
     _version_key(version)
     name = normalize_fake_name(name)
@@ -1221,6 +1498,9 @@ def build_direct_reference(
             "unchanged_object_ids": [],
             "removed_object_ids": [],
         },
+        figures=material["figures"] if figure_index else None,
+        figure_images=figure_images,
+        embedding_command=embedding_command,
     )
 
 
@@ -1245,7 +1525,12 @@ def extend_direct_reference(
     version: str,
     created_at: str,
     source_title: str | None = None,
+    figure_index: bool = False,
+    figure_images: bool = False,
+    embedding_command: str | None = None,
 ) -> dict[str, Any]:
+    if figure_images and not figure_index:
+        raise DirectReferenceError("figure_crops_require_figure_index")
     _validate_timestamp(created_at)
     new_key = _version_key(version)
     base, manifest, control = _load_direct_base(base)
@@ -1254,6 +1539,12 @@ def extend_direct_reference(
     _reject_directory_overlap(output, base, workpack)
     material = _materialize_workpack(source, workpack, source_title=source_title)
     records = _load_package_records(base)
+    if manifest["build"]["compiler_version"] != DIRECT_REFERENCE_COMPILER_VERSION:
+        try:
+            check_legacy_numeric(records, manifest, source)
+        except NumericEvidenceError as error:
+            raise DirectReferenceError(str(error)) from error
+
     base_object_ids = sorted(str(row["id"]) for row in records["objects"])
     objects, added, _duplicate_objects = _merge_by_id(
         records["objects"], material["objects"], "knowledge_object"
@@ -1284,10 +1575,19 @@ def extend_direct_reference(
     if added and gold.get("status") == "bound":
         gold["status"] = "stale"
         gold["coverage_state"] = "invalidated-by-extension"
+    base_figures = _load_base_figures(base)
+    figures = (
+        _merge_figures(base_figures or [], material["figures"] if figure_index else [])
+        if figure_index or base_figures is not None
+        else None
+    )
     output = _ensure_empty_output(output)
     shutil.copytree(base, output, dirs_exist_ok=True)
     return _write_package(
         output,
+        figures=figures,
+        figure_images=figure_images,
+        embedding_command=embedding_command,
         name=manifest["package"]["id"],
         display_name=manifest["package"]["name"],
         domain=manifest["package"]["domain"],
@@ -1327,17 +1627,25 @@ def bind_gold(
         raise DirectReferenceError("package_version_not_incremented")
     _reject_directory_overlap(output, base)
     records = _load_package_records(base)
+    if manifest["build"]["compiler_version"] != DIRECT_REFERENCE_COMPILER_VERSION:
+        try:
+            check_legacy_numeric(records, manifest, None)
+        except NumericEvidenceError as error:
+            raise DirectReferenceError(str(error)) from error
+
     gold = _gold_binding(
         mode,
         revision,
         {row["sha256"] for row in manifest["sources"]},
         previous=control.get("gold"),
     )
+    base_figures = _load_base_figures(base)
     output = _ensure_empty_output(output)
     shutil.copytree(base, output, dirs_exist_ok=True)
     object_ids = sorted(row["id"] for row in records["objects"])
     return _write_package(
         output,
+        figures=base_figures,
         name=manifest["package"]["id"],
         display_name=manifest["package"]["name"],
         domain=manifest["package"]["domain"],
@@ -1389,9 +1697,14 @@ def validate_direct_reference(root: Path) -> list[str]:
         errors.append("fake_prefix_required")
     if package.get("status") != "draft":
         errors.append("candidate_status_must_be_draft")
-    if manifest.get("build", {}).get("compiler") != "fake-expert" or manifest.get(
-        "build", {}
-    ).get("compiler_version") != DIRECT_REFERENCE_COMPILER_VERSION:
+    compiler_version = manifest.get("build", {}).get("compiler_version")
+    # 1.1.0 packages keep validating against their original runtime pins.
+    legacy = compiler_version == LEGACY_DIRECT_REFERENCE_COMPILER_VERSION
+    if manifest.get("build", {}).get("compiler") != "fake-expert" or compiler_version not in {
+        DIRECT_REFERENCE_COMPILER_VERSION,
+        LEGACY_DIRECT_REFERENCE_COMPILER_VERSION,
+        OPUS_DIRECT_REFERENCE_COMPILER_VERSION,
+    }:
         errors.append("direct_reference_compiler_identity_invalid")
     if manifest.get("capabilities") != {
         "reference": True,
@@ -1669,9 +1982,17 @@ def validate_direct_reference(root: Path) -> list[str]:
         RESPONSE_SCHEMA_PATH,
         SELF_CHECK_PATH,
         "scripts/query_reference.py",
-        "scripts/portable_reference_runtime.py",
         *object_paths,
     }
+    if legacy:
+        expected_files.add("scripts/portable_reference_runtime.py")
+    else:
+        figure_files, figure_errors = _validate_figure_index(root, control, manifest, object_rows)
+        expected_files |= figure_files
+        errors.extend(figure_errors)
+        if (root / EMBEDDINGS_PATH).is_file():
+            expected_files.add(EMBEDDINGS_PATH)
+            errors.extend(_validate_embeddings(root, catalog))
     actual_files: set[str] = set()
     unsafe_file = False
     for path in root.rglob("*"):
@@ -1693,17 +2014,23 @@ def validate_direct_reference(root: Path) -> list[str]:
     if catalog.get("package_id") != package_id or not self_check.get("passed"):
         errors.append("runtime_self_check_invalid")
     try:
-        if self_check != _runtime_self_check(root, catalog):
+        if self_check != _runtime_self_check(root, catalog, legacy=legacy, opus=compiler_version == OPUS_DIRECT_REFERENCE_COMPILER_VERSION):
             errors.append("runtime_self_check_invalid")
     except (DirectReferenceError, OSError, KeyError, TypeError, ValueError):
         errors.append("runtime_self_check_invalid")
     try:
-        runtime_mismatch = (
-            sha256_file(root / "scripts/query_reference.py")
-            != DIRECT_REFERENCE_RUNTIME_SHA256
-            or sha256_file(root / "scripts/portable_reference_runtime.py")
-            != PORTABLE_REFERENCE_RUNTIME_SHA256
-        )
+        if legacy:
+            runtime_mismatch = (
+                sha256_file(root / "scripts/query_reference.py")
+                != DIRECT_REFERENCE_RUNTIME_SHA256
+                or sha256_file(root / "scripts/portable_reference_runtime.py")
+                != PORTABLE_REFERENCE_RUNTIME_SHA256
+            )
+        else:
+            runtime_mismatch = (
+                sha256_file(root / "scripts/query_reference.py")
+                != (OPUS_REFERENCE_SEARCH_RUNTIME_SHA256 if compiler_version == OPUS_DIRECT_REFERENCE_COMPILER_VERSION else REFERENCE_SEARCH_RUNTIME_SHA256)
+            )
     except OSError:
         runtime_mismatch = True
     if runtime_mismatch:
@@ -1713,6 +2040,119 @@ def validate_direct_reference(root: Path) -> list[str]:
     if not isinstance(manifest.get("integrity"), dict):
         errors.append("candidate_integrity_missing")
     return sorted(set(errors))
+
+
+def _validate_figure_index(
+    root: Path,
+    control: dict[str, Any],
+    manifest: dict[str, Any],
+    object_rows: list[dict[str, Any]],
+) -> tuple[set[str], list[str]]:
+    """Check the opt-in figure index, its declared images, and object figure refs."""
+
+    errors: list[str] = []
+    files: set[str] = set()
+    declared = control.get("figures")
+    index_path = root / FIGURE_INDEX_PATH
+    objects = [load_json(root / row["path"]) for row in object_rows if isinstance(row.get("path"), str) and (root / row["path"]).is_file()]
+    object_ids = {obj.get("id") for obj in objects}
+    for obj in objects:
+        basis = obj.get("value_basis")
+        if basis is not None and (
+            not isinstance(basis, dict)
+            or (set(basis) != {"source", "untraced_values", "protocol", "review_binding_sha256"}
+                if manifest.get("build", {}).get("compiler_version") == DIRECT_REFERENCE_COMPILER_VERSION
+                else set(basis) != {"source", "untraced_values"})
+            or (basis.get("source") != "figure-reviewed" or basis.get("protocol") not in {"numeric-evidence-v0.1", "numeric-evidence-v0.2"}
+                or not SHA256_RE.fullmatch(str(basis.get("review_binding_sha256", "")))
+                if manifest.get("build", {}).get("compiler_version") == DIRECT_REFERENCE_COMPILER_VERSION
+                else basis.get("source") != "figure-unreviewed")
+            or not basis.get("untraced_values")
+            or not obj.get("figure_refs")
+        ):
+            errors.append(f"value_basis_invalid:{obj.get('id')}")
+    if declared is None:
+        if index_path.exists() or (root / FIGURE_ASSET_DIRECTORY).exists():
+            errors.append("figure_index_undeclared")
+        if "source_derived_content" in manifest.get("distribution", {}):
+            errors.append("figure_declaration_mismatch")
+        return files, errors
+    files.add(FIGURE_INDEX_PATH)
+    try:
+        index = load_json(index_path)
+    except (OSError, json.JSONDecodeError):
+        return files, errors + ["figure_index_invalid"]
+    entries = index.get("figures") if isinstance(index, dict) else None
+    if index.get("schema_version") != FIGURE_INDEX_SCHEMA or not isinstance(entries, list):
+        return files, errors + ["figure_index_invalid"]
+    figure_ids = set()
+    for entry in entries:
+        if not isinstance(entry, dict) or not re.fullmatch(r"vo-[0-9a-f]{20}", str(entry.get("id"))):
+            errors.append("figure_entry_invalid")
+            continue
+        figure_ids.add(entry["id"])
+        if not set(entry.get("object_ids", [])) <= object_ids:
+            errors.append(f"figure_object_link_unresolved:{entry['id']}")
+        image = entry.get("image")
+        if image is not None:
+            expected = f"{FIGURE_ASSET_DIRECTORY}/{entry['id']}.png"
+            if image != expected or not (root / expected).is_file() or sha256_file(root / expected) != entry.get("image_sha256"):
+                errors.append(f"figure_image_invalid:{entry['id']}")
+            else:
+                files.add(expected)
+    for obj in objects:
+        if not set(obj.get("figure_refs", [])) <= figure_ids:
+            errors.append(f"figure_ref_unresolved:{obj.get('id')}")
+    expected_declaration = {
+        "index": FIGURE_INDEX_PATH,
+        "count": len(entries),
+        "images": any(entry.get("image") for entry in entries if isinstance(entry, dict)),
+        "source_derived": True,
+        "candidate_only": True,
+    }
+    if declared != expected_declaration or manifest.get("distribution", {}).get(
+        "source_derived_content"
+    ) != _source_derived_content([entry for entry in entries if isinstance(entry, dict)]):
+        errors.append("figure_declaration_mismatch")
+    return files, errors
+
+
+def _validate_embeddings(root: Path, catalog: dict[str, Any]) -> list[str]:
+    try:
+        embeddings = load_json(root / EMBEDDINGS_PATH)
+    except (OSError, json.JSONDecodeError):
+        return ["embeddings_invalid"]
+    vectors = embeddings.get("vectors") if isinstance(embeddings, dict) else None
+    entry_ids = {row["id"] for row in catalog.get("objects", []) + catalog.get("figures", [])}
+    if (
+        embeddings.get("schema_version") != reference_search.EMBEDDINGS_SCHEMA
+        or not isinstance(vectors, dict)
+        or set(vectors) != entry_ids
+        or not SHA256_RE.fullmatch(str(embeddings.get("command_sha256")))
+        or any(not isinstance(value, list) or len(value) != embeddings.get("dimensions") for value in vectors.values())
+    ):
+        return ["embeddings_invalid"]
+    return []
+
+
+def _add_figure_flags(parser: argparse.ArgumentParser, *, default_images: bool = False) -> None:
+    if default_images:
+        parser.add_argument("--figures", choices=("none", "index", "index+images"),
+            help="New private Drafts default to index+images; none produces source-free output. Cannot combine with legacy figure flags.")
+    parser.add_argument(
+        "--figure-index",
+        action="store_true",
+        help="Include a source-derived figure/table index (labels, captions, in-figure text, pages).",
+    )
+    parser.add_argument(
+        "--figure-crops",
+        action="store_true",
+        help="Also package figure/table crop images under assets/figures (requires --figure-index).",
+    )
+    parser.add_argument(
+        "--embedding-command",
+        help="Optional explicit embedding command (JSONL {id,text} in, {id,vector} out) for hybrid retrieval.",
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -1730,6 +2170,8 @@ def parse_args() -> argparse.Namespace:
     build.add_argument("--source-title")
     build.add_argument("--gold-mode", choices=sorted(GOLD_MODES), default="none")
     build.add_argument("--gold-revision", type=Path)
+    for command in (build,):
+        _add_figure_flags(command, default_images=True)
 
     extend = commands.add_parser("extend", help="Add a validated workpack in a new version.")
     extend.add_argument("--base", required=True, type=Path)
@@ -1739,6 +2181,7 @@ def parse_args() -> argparse.Namespace:
     extend.add_argument("--version", required=True)
     extend.add_argument("--created-at", required=True)
     extend.add_argument("--source-title")
+    _add_figure_flags(extend)
 
     gold = commands.add_parser("bind-gold", help="Bind a Gold revision without mutating the base Skill.")
     gold.add_argument("--base", required=True, type=Path)
@@ -1753,7 +2196,16 @@ def parse_args() -> argparse.Namespace:
     validate = commands.add_parser("validate", help="Validate a direct Reference Skill.")
     validate.add_argument("package", type=Path)
     parser.add_argument("--json", action="store_true", dest="json_output")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.command == "build":
+        if args.figures is not None:
+            if args.figure_index or args.figure_crops:
+                parser.error("--figures cannot be combined with --figure-index/--figure-crops")
+            args.figure_index = args.figures != "none"
+            args.figure_crops = args.figures == "index+images"
+        elif not args.figure_index and not args.figure_crops:
+            args.figure_index = args.figure_crops = True
+    return args
 
 
 def main() -> int:
@@ -1772,6 +2224,9 @@ def main() -> int:
                 source_title=args.source_title,
                 gold_mode=args.gold_mode,
                 gold_revision=args.gold_revision,
+                figure_index=args.figure_index,
+                figure_images=args.figure_crops,
+                embedding_command=args.embedding_command,
             )
         elif args.command == "extend":
             result = extend_direct_reference(
@@ -1782,6 +2237,9 @@ def main() -> int:
                 version=args.version,
                 created_at=args.created_at,
                 source_title=args.source_title,
+                figure_index=args.figure_index,
+                figure_images=args.figure_crops,
+                embedding_command=args.embedding_command,
             )
         elif args.command == "bind-gold":
             result = bind_gold(

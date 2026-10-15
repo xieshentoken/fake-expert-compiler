@@ -1,0 +1,30 @@
+{
+  "applicability": {
+    "excluded_conclusions": [],
+    "physical_pages": [
+      2,
+      2
+    ]
+  },
+  "assumptions": [],
+  "confidence": {
+    "extraction": 0.0,
+    "interpretation": 0.0
+  },
+  "evidence_ids": [
+    "ev-e6854cde66bf3d92ab92"
+  ],
+  "fails_when": [],
+  "formula": null,
+  "id": "ko-bc9d5929f59b800209e0",
+  "origin": "source-paraphrase",
+  "schema_version": "tkc.expert-skill/v0.1",
+  "source_ids": [
+    "src-0ebede49c4f3b7ad2edc"
+  ],
+  "statement": "Above the peak temperature, phonon-phonon Umklapp scattering lowers conductivity as temperature rises.",
+  "status": "unreviewed-candidate",
+  "title": "Umklapp scattering above the conductivity peak",
+  "type": "Claim",
+  "valid_when": []
+}

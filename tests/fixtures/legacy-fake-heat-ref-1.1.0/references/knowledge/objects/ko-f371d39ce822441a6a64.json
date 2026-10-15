@@ -1,0 +1,30 @@
+{
+  "applicability": {
+    "excluded_conclusions": [],
+    "physical_pages": [
+      3,
+      3
+    ]
+  },
+  "assumptions": [],
+  "confidence": {
+    "extraction": 0.0,
+    "interpretation": 0.0
+  },
+  "evidence_ids": [
+    "ev-1915347a6d4e3734865e"
+  ],
+  "fails_when": [],
+  "formula": null,
+  "id": "ko-f371d39ce822441a6a64",
+  "origin": "source-paraphrase",
+  "schema_version": "tkc.expert-skill/v0.1",
+  "source_ids": [
+    "src-0ebede49c4f3b7ad2edc"
+  ],
+  "statement": "Copper has a thermal conductivity of 401 W/(m K) at 300 K.",
+  "status": "unreviewed-candidate",
+  "title": "Copper conductivity at 300 K",
+  "type": "Claim",
+  "valid_when": []
+}

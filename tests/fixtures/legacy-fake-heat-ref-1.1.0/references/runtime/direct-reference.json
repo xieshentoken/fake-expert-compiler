@@ -1,0 +1,81 @@
+{
+  "gold": {
+    "coverage_state": "not-applicable",
+    "mode": "none",
+    "object_coverage_verified": false,
+    "promotion_authority": false,
+    "revision_schema_version": null,
+    "revision_sha256": null,
+    "source_sha256s": [],
+    "status": "not-requested"
+  },
+  "package": {
+    "id": "fake-heat-ref",
+    "version": "0.1.0"
+  },
+  "protocol": "direct-reference-draft-v0.1",
+  "schema_version": "tkc.direct-reference/v0.1",
+  "update": {
+    "added_object_ids": [
+      "ko-08bdc3e42e1f5bc9d2e3",
+      "ko-2a154c0483d562e07371",
+      "ko-43839e2870d944c5a086",
+      "ko-6f886b2f809cbdbcbf8d",
+      "ko-95d9c642cfd084569b74",
+      "ko-aee6bc24fe5b6abb8bc3",
+      "ko-bc9d5929f59b800209e0",
+      "ko-f371d39ce822441a6a64",
+      "ko-f6637d8cbb0558cf8562"
+    ],
+    "base_manifest_sha256": null,
+    "mode": "initial",
+    "removed_object_ids": [],
+    "unchanged_object_ids": []
+  },
+  "usage": {
+    "distributable_stage": "draft-distributable",
+    "external_source_required_for_full_verification": true,
+    "gold_required_for_extraction": false,
+    "gold_required_for_runtime": false,
+    "knowledge_state": "candidate",
+    "knowledge_verified": false,
+    "limitations": [
+      "unreviewed-candidate",
+      "not-ready",
+      "not-decision-capable",
+      "not-executable",
+      "external-source-required-for-full-verification"
+    ],
+    "queryable": true,
+    "review_state": "deferred"
+  },
+  "workpack_bindings": [
+    {
+      "draft_bundle_sha256": "a476a04a417a881baa110a468f05db1d198c8efbe64c42de80f62cfd187543ed",
+      "object_ids": [
+        "ko-08bdc3e42e1f5bc9d2e3",
+        "ko-2a154c0483d562e07371",
+        "ko-43839e2870d944c5a086",
+        "ko-6f886b2f809cbdbcbf8d",
+        "ko-95d9c642cfd084569b74",
+        "ko-aee6bc24fe5b6abb8bc3",
+        "ko-bc9d5929f59b800209e0",
+        "ko-f371d39ce822441a6a64",
+        "ko-f6637d8cbb0558cf8562"
+      ],
+      "proposal_validation": {
+        "status": "passed",
+        "summary_sha256": "3bd413b810993b2ad3472494b4a2218c8f996b552573caf44f4ee8b33e050c2f",
+        "warning_count": 1
+      },
+      "scope": {
+        "end_page": 5,
+        "start_page": 1
+      },
+      "source_id": "src-0ebede49c4f3b7ad2edc",
+      "source_sha256": "0ebede49c4f3b7ad2edc2bb0f9686d1728ff8c000084f015ac8d7e1d0cc62c62",
+      "workpack_id": "swp-6c0a932e33554a7a7f6c",
+      "workpack_sha256": "b7eba2c956cfdd1629b618c7c968dfa17f7ae44afe2ed3b5af684f7ce9d6dda1"
+    }
+  ]
+}

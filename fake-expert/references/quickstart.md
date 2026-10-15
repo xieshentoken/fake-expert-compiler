@@ -40,11 +40,24 @@ a matching semantic workpack is present. The job keeps only source/hash bindings
 `required_reference_hash_mismatch` 停止，必须重新阅读并创建新 plan。旧 v0.1 job
 只返回 `job_schema_upgrade_required`，不会原地升级。
 
-没有完整 proposal workpack 时，`compile` 会暂停在
-`semantic_authoring_required`；它不会替你写语义对象或调用模型。已有完整、哈希
-一致的 semantic workpack 可在 `plan` 时用 `--workpack` 绑定，目标为 `draft` 时由
-统一入口路由到既有 `direct_reference_skill.py`，结果仍是
-`status=draft`、`review_state=deferred`、`knowledge_verified=false`。
+没有绑定 workpack 时，首次 `compile` 会把 IR、workpack、图表 crops 和 authoring
+packets 写入 `<workspace>/extraction/`，然后暂停在 `semantic_authoring_required`；
+它不会替你写语义对象或调用模型。用你显式指定的模型命令补齐 drafts，再次 `compile`：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/semantic_authoring.py run \
+  --workpack /absolute/path/to/empty-job-workspace/extraction/workpack \
+  --command "<读取 stdin prompt、输出 JSON 的模型 CLI>" \
+  --proposer-instance my-model-1 --source /absolute/path/to/book.pdf --json
+PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/fake_expert.py compile \
+  --job /absolute/path/to/empty-job-workspace/fake-expert-job.json --json
+```
+
+新建 native-text `plan` 默认采用 `--figures index+images`，把来源派生的图表索引及图片打进
+Draft，仅供私有使用，发布打包会拒绝。已有完整、哈希一致的 semantic workpack
+仍可在 `plan` 时用 `--workpack` 绑定。结果仍是
+`status=draft`、`review_state=deferred`、`knowledge_verified=false`。详见
+`references/authoring-and-figures.md`。
 
 ## 2. 扫描 PDF Draft
 
@@ -133,3 +146,5 @@ PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/fake_expert.py resu
 
 `--dry-run` 不创建、修改或删除文件；progress 是 stderr 上的 JSONL 诊断，不是
 知识、Gold、准确率或发布证据。
+
+需要纯文本、source-free Draft 时显式传 `plan --figures none`；已有 job 不会改用新的带图默认值。查询相关图像位于 `figures[].image`，相对生成 Skill 目录解析，先查看后内联展示，并保留图号、物理页和未审核说明。

@@ -54,11 +54,21 @@ FAKE_EXPERT_JOB_PROTOCOL = "fake-expert-job-v0.2"
 # Source-free, queryable candidate Reference Skills.  This identity is not a
 # promotion identity: it keeps Review deferred, Gold optional, lifecycle at
 # draft, and all decision/execution capabilities disabled.
-DIRECT_REFERENCE_COMPILER_VERSION = "1.1.0-direct-reference"
+# 1.3.0 packages ship the BM25/CJK reference-search runtime, a v0.2 catalog
+# with fact text, and optional figure index/assets.  1.1.0 packages remain
+# valid against their original (unchanged, still pinned) runtime files.
+DIRECT_REFERENCE_COMPILER_VERSION = "1.4.0-direct-reference"
+OPUS_DIRECT_REFERENCE_COMPILER_VERSION = "1.3.0-direct-reference"
+LEGACY_DIRECT_REFERENCE_COMPILER_VERSION = "1.1.0-direct-reference"
 DIRECT_REFERENCE_PROTOCOL = "direct-reference-draft-v0.1"
 DIRECT_REFERENCE_SCHEMA = "tkc.direct-reference/v0.1"
 DIRECT_REFERENCE_RUNTIME_SHA256 = "4373790b353306851ca92debab4dc3e1b5a2c8c64178ade857b79cd99f34f19b"
 PORTABLE_REFERENCE_RUNTIME_SHA256 = "50de12e92c840806121d898d1f44d36c57d80e81ad13ef82e08b4417c6ba5581"
+REFERENCE_SEARCH_RUNTIME_VERSION = "reference-search-bm25-v0.3"
+REFERENCE_SEARCH_RUNTIME_SHA256 = "90a264aed1503bef1c8b80c41ec3069c4be32d3f9c207d4bf583eae7aff0573a"
+OPUS_REFERENCE_SEARCH_RUNTIME_SHA256 = "0c466de12c91d013c71f70e5ea512cbf0aa9c300738532b841eecbcd0b45c4ab"
+FIGURE_INDEX_SCHEMA = "tkc.figure-index/v0.1"
+SEMANTIC_AUTHORING_PROTOCOL = "semantic-authoring-v0.1"
 # Historical source-candidate manifests without an explicit artifact stage are
 # readable for audit only; they are never formal releases.
 READONLY_COMPATIBLE_SOURCE_CANDIDATE_VERSIONS = ("0.14.1",)
@@ -336,6 +346,11 @@ __all__ = [
     "FAKE_EXPERT_JOB_SCHEMA",
     "FAKE_EXPERT_JOB_PROTOCOL",
     "DIRECT_REFERENCE_COMPILER_VERSION",
+    "LEGACY_DIRECT_REFERENCE_COMPILER_VERSION",
+    "REFERENCE_SEARCH_RUNTIME_VERSION",
+    "REFERENCE_SEARCH_RUNTIME_SHA256",
+    "FIGURE_INDEX_SCHEMA",
+    "SEMANTIC_AUTHORING_PROTOCOL",
     "DIRECT_REFERENCE_PROTOCOL",
     "DIRECT_REFERENCE_SCHEMA",
     "DIRECT_REFERENCE_RUNTIME_SHA256",
@@ -505,3 +520,7 @@ __all__ = [
     "SEMANTIC_REVIEW_WORKBENCH_SUBMISSION_SCHEMA",
     "SEMANTIC_REVIEW_WORKBENCH_REVISION_SCHEMA",
 ]
+
+REFERENCE_TERM_ALIASES_SHA256 = "82fd9a695c8dd68e1b0ec8000288b73fd9821bba5ac30d6d721fe6d44fda26ab"
+
+REPAIR_SOURCE_CANDIDATE_VERSION = "1.2.3-private-images-default"

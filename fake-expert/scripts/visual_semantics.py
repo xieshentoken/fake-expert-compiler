@@ -25,6 +25,10 @@ import shutil
 import subprocess
 import tempfile
 import zlib
+
+from figure_crop_geometry import PROTOCOL as FIGURE_CROP_PROTOCOL, pixel_bounds
+from unlabelled_graphics import candidate_regions
+from native_text_geometry import PROTOCOL as NATIVE_GEOMETRY_PROTOCOL
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
@@ -87,6 +91,10 @@ NUMBER_TOKEN = r"(?:[A-Za-z]+|[IVXLCDM]+|\d+)(?:[.-](?:[A-Za-z]+|[IVXLCDM]+|\d+)
 FIGURE_RE = re.compile(r"(?<!\w)(?:Figure|Fig(?:ure)?\.?|图)\s*(" + NUMBER_TOKEN + r")", re.I)
 TABLE_RE = re.compile(r"(?<!\w)(?:Table|Tab(?:le)?\.?|表)\s*(" + NUMBER_TOKEN + r")", re.I)
 EQUATION_RE = re.compile(r"(?<!\w)(?:Equation|Eq(?:uation)?\.?|式)\s*(" + NUMBER_TOKEN + r")|\((" + NUMBER_TOKEN + r")\)", re.I)
+PROSE_AFTER_LABEL_RE = re.compile(
+    r"(?:shows?|illustrates?|depicts?|demonstrates?|presents?|lists?|provides?|indicates?|compares?|summarizes?|contains?|gives?|is|are|was|were|has|have|can|will|and|or|to)\b"
+    r"|(?:给出|所示|表明|显示|说明|反映|描述|展示|列出|示出|中的|中所|为|是|可见|可以|和图|与图|及图|和表|与表)"
+)
 PLOT_MARKER_RE = re.compile(r"(?:\b(?:plot|axis|legend|series|tick)\b|坐标图|坐标轴|图例|曲线|刻度)", re.I)
 PLOT_MARKER_LABEL_MAX_CHARS = 64
 NUMBER_RE = re.compile(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?")
@@ -361,6 +369,99 @@ def crop_commitment_sha256(render_bytes: bytes, bbox: Sequence[float], *, page_w
         return sha256_bytes(payload)
     except (ValueError, zlib.error, IndexError, struct_error):
         return sha256_bytes(b"tkc.crop/fallback-v0.1\0" + render_bytes + b"\0" + canonical_json({"bbox": list(bbox), "dpi": dpi}))
+
+
+def render_crop_png(source: Path, row: Mapping[str, Any], pdftoppm: Path, *, dpi: int = 150, padding: float = 4.0) -> bytes:
+    """Render a MediaBox-local candidate using Poppler's default rotated viewport."""
+    try:
+        x0, y0, crop_width, crop_height = pixel_bounds(row, dpi, padding)
+    except (KeyError, TypeError, ValueError) as error:
+        raise VisualSemanticsError(f"crop_geometry_invalid:{error}") from error
+    binary = shutil.which(str(pdftoppm))
+    if not binary:
+        raise VisualSemanticsError("pdftoppm_missing")
+    with tempfile.TemporaryDirectory(prefix="tkc-figure-crop-") as temporary:
+        prefix = Path(temporary) / "crop"
+        page = str(int(row["physical_page"]))
+        try:
+            completed = subprocess.run(
+                [binary, "-f", page, "-l", page, "-r", str(int(dpi)), "-x", str(x0), "-y", str(y0),
+                 "-W", str(crop_width), "-H", str(crop_height), "-singlefile", "-png", str(source), str(prefix)],
+                check=False, capture_output=True, text=True, timeout=120,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise VisualSemanticsError(f"crop_render_failed: {error}") from error
+        target = prefix.with_suffix(".png")
+        if completed.returncode != 0 or not target.is_file():
+            raise VisualSemanticsError(f"crop_render_failed: {completed.stderr.strip()[:200]}")
+        data = target.read_bytes()
+    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        raise VisualSemanticsError("crop_render_invalid_png")
+    return data
+
+
+FIGURE_OCR_ENGINES = {"tesseract"}
+
+
+def figure_ocr_config(engine: str, *, binary: str | Path | None = None, lang: str = "eng", timeout: int = 60) -> dict[str, Any]:
+    """Resolve an explicitly selected local figure-OCR engine; fail closed when absent."""
+
+    if engine not in FIGURE_OCR_ENGINES:
+        raise VisualSemanticsError(f"figure_ocr_engine_unsupported: {engine}")
+    resolved = shutil.which(str(binary or engine))
+    if not resolved:
+        raise VisualSemanticsError(f"figure_ocr_backend_missing: {binary or engine}")
+    if not re.fullmatch(r"[A-Za-z_]+(?:\+[A-Za-z_]+)*", lang):
+        raise VisualSemanticsError("figure_ocr_lang_invalid")
+    try:
+        completed = subprocess.run([resolved, "--version"], check=False, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise VisualSemanticsError(f"figure_ocr_backend_unrunnable: {error}") from error
+    version_lines = ((completed.stdout or "") + (completed.stderr or "")).strip().splitlines()
+    if completed.returncode != 0 or not version_lines:
+        raise VisualSemanticsError("figure_ocr_version_unavailable")
+    return {
+        "engine": engine,
+        "binary": resolved,
+        "binary_sha256": sha256_file(Path(resolved)),
+        "version": version_lines[0].strip(),
+        "lang": lang,
+        "timeout": int(timeout),
+    }
+
+
+def ocr_figure_crop(crop_png: bytes, config: Mapping[str, Any]) -> dict[str, Any]:
+    """Run the explicit local OCR engine on one crop; output is candidate-only."""
+
+    args = ["stdout", "-l", str(config["lang"]), "--psm", "11"]
+    with tempfile.TemporaryDirectory(prefix="tkc-figure-ocr-") as temporary:
+        target = Path(temporary) / "crop.png"
+        target.write_bytes(crop_png)
+        try:
+            completed = subprocess.run(
+                [str(config["binary"]), str(target), *args],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=int(config.get("timeout", 60)),
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            return {"status": "failed", "code": f"figure_ocr_failed: {type(error).__name__}", "lines": []}
+    if completed.returncode != 0:
+        return {"status": "failed", "code": f"figure_ocr_exit_{completed.returncode}", "lines": []}
+    lines = [re.sub(r"\s+", " ", line).strip() for line in completed.stdout.splitlines()]
+    lines = [line for line in lines if line]
+    return {
+        "status": "candidate",
+        "engine": config["engine"],
+        "engine_version": config["version"],
+        "engine_binary_sha256": config["binary_sha256"],
+        "args": args,
+        "crop_png_sha256": sha256_bytes(crop_png),
+        "lines": lines[:120],
+        "text_sha256": sha256_bytes("\n".join(lines).encode("utf-8")),
+        "verified": False,
+    }
 
 
 class struct_error(Exception):
@@ -842,46 +943,17 @@ def build_table_continuation_candidates(objects: Sequence[Mapping[str, Any]], gr
 
 
 def _text_boxes(page: Any, page_height: float, *, media_left: float = 0.0, media_bottom: float = 0.0) -> list[dict[str, Any]]:
-    boxes: list[dict[str, Any]] = []
+    from native_text_geometry import text_fragments
     try:
-        def visitor(text: str, cm: Sequence[float], tm: Sequence[float], font_dict: Mapping[str, Any] | None, font_size: float) -> None:
-            if not text or not text.strip():
-                return
-            # pypdf visitor coordinates use the PDF page's native bottom-left
-            # coordinate system.  Canonical visual geometry is MediaBox-local
-            # top-left points, so an offset MediaBox must be translated before
-            # bounds checks and candidate construction.
-            x = (float(tm[4]) if len(tm) > 4 and _finite_number(tm[4]) else 0.0) - float(media_left)
-            y_bottom = (float(tm[5]) if len(tm) > 5 and _finite_number(tm[5]) else 0.0) - float(media_bottom)
-            size = max(1.0, float(font_size) if _finite_number(font_size) else 8.0)
-            for line_index, line in enumerate(str(text).splitlines() or [str(text)]):
-                if not line.strip():
-                    continue
-                width = max(size * 0.45 * len(line), size * 0.5)
-                y_top = page_height - y_bottom - size * (1.15 + line_index)
-                bbox = [x, y_top, x + width, y_top + size * 1.2]
-                boxes.append(
-                    {
-                        "text": line,
-                        "bbox": bbox,
-                        "font_size": size,
-                        "fragment_index": len(boxes),
-                        "fragment_sha256": sha256_json(
-                            {
-                                "text": line,
-                                "bbox": [round(float(value), 6) for value in bbox],
-                                "font_size": round(size, 6),
-                            }
-                        ),
-                    }
-                )
-        page.extract_text(visitor_text=visitor)
-    except Exception:
-        # pypdf's visitor API is optional across supported minor releases.  The
-        # canonical text stream still remains available; geometry is simply a
-        # candidate-unavailable condition for this page.
-        return []
-    return _recombine_text_boxes(boxes)
+        fragments = text_fragments(page, page_height, media_left=media_left, media_bottom=media_bottom)
+    except (ValueError, KeyError, TypeError, UnicodeError) as error:
+        raise VisualSemanticsError(f"native_text_geometry_unavailable:{error}") from error
+    return _recombine_text_boxes(fragments)
+
+
+def dereference_pdf(value: Any) -> Any:
+    getter = getattr(value, "get_object", None)
+    return getter() if callable(getter) else value
 
 
 def _join_text_fragments(left: str, right: str) -> str:
@@ -911,6 +983,7 @@ def _fragment_provenance(row: Mapping[str, Any]) -> dict[str, Any]:
         "bbox": bbox,
         "font_size": font_size,
         "fragment_index": int(row.get("fragment_index", 0)),
+        **({"geometry_provenance": dict(row["geometry_provenance"])} if isinstance(row.get("geometry_provenance"), Mapping) else {}),
     }
 
 
@@ -940,8 +1013,15 @@ def _merge_text_rows(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         provenance = _row_provenance(row)
         fragment_rows.extend(provenance["fragments"])
     for row in rows[1:]:
-        text = _join_text_fragments(text, str(row.get("text", "")))
-        boxes.append(list(map(float, row.get("bbox", [0.0, 0.0, 0.0, 0.0]))))
+        next_text = str(row.get("text", ""))
+        next_box = list(map(float, row.get("bbox", [0.0, 0.0, 0.0, 0.0])))
+        # TJ kerning splits words without introducing whitespace. Only the
+        # stream-replayed path has enough geometry to distinguish that case.
+        contiguous = (isinstance(row.get("geometry_provenance"), Mapping)
+            and next_box[0]-boxes[-1][2] <= max(0.1,float(row.get("font_size",8.0))*0.12)
+            and not text[-1:].isspace() and not next_text[:1].isspace())
+        text = text+next_text if contiguous else _join_text_fragments(text, next_text)
+        boxes.append(next_box)
     return {
         "text": text,
         "bbox": [
@@ -995,6 +1075,9 @@ def _recombine_text_boxes(boxes: Sequence[Mapping[str, Any]]) -> list[dict[str, 
 
     indexed = [(index, dict(row)) for index, row in enumerate(boxes) if isinstance(row, Mapping)]
     indexed.sort(key=lambda item: (round(float(item[1].get("bbox", [0, 0, 0, 0])[1]), 6), round(float(item[1].get("bbox", [0, 0, 0, 0])[0]), 6), item[0]))
+    if indexed and all(isinstance(row.get("geometry_provenance"), Mapping) for _, row in indexed):
+        from native_text_geometry import order_fragments
+        indexed = list(enumerate(order_fragments([row for _, row in indexed])))
     line_rows: list[dict[str, Any]] = []
     current: list[dict[str, Any]] = []
     for _, row in indexed:
@@ -1759,7 +1842,37 @@ def _candidate_text(page_boxes: Sequence[Mapping[str, Any]]) -> str:
     return " ".join(str(row.get("text", "")) for row in page_boxes)
 
 
-def _find_label_boxes(page_boxes: Sequence[Mapping[str, Any]], pattern: re.Pattern[str], *, line_start_only: bool = False) -> list[tuple[str, list[float], str, dict[str, Any]]]:
+def _figure_text_candidates(page_boxes: Sequence[Mapping[str, Any]], figure_box: Sequence[float], *, exclude: Sequence[Sequence[float]] = (), limit: int = 80) -> list[dict[str, Any]]:
+    """Native text drawn inside a figure (axis labels, annotations, legend).
+
+    Candidate-only reading aid for authors and reviewers; the canonical text
+    stream and evidence offsets are unchanged.
+    """
+
+    rows: list[dict[str, Any]] = []
+    for row in page_boxes:
+        box = row.get("bbox")
+        if not isinstance(box, (list, tuple)) or len(box) != 4:
+            continue
+        center_x = (float(box[0]) + float(box[2])) / 2.0
+        center_y = (float(box[1]) + float(box[3])) / 2.0
+        if not (float(figure_box[0]) <= center_x <= float(figure_box[2]) and float(figure_box[1]) <= center_y <= float(figure_box[3])):
+            continue
+        if any(_bbox_iou(box, other) > 0.5 for other in exclude):
+            continue
+        text = str(row.get("text", "")).strip()
+        if text:
+            rows.append({"text": text, "bbox": [round(float(value), 3) for value in box], "origin": str(row.get("text_origin", "page"))})
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def _caption_text(raw: str, limit: int = 400) -> str:
+    return re.sub(r"\s+", " ", str(raw)).strip()[:limit]
+
+
+def _find_label_boxes(page_boxes: Sequence[Mapping[str, Any]], pattern: re.Pattern[str], *, line_start_only: bool = False, horizontal_rules: Sequence[Sequence[float]] = ()) -> list[tuple[str, list[float], str, dict[str, Any]]]:
     """Locate caption-style labels while retaining prose references as negatives."""
 
     rows = [row for row in page_boxes if isinstance(row, Mapping)]
@@ -1778,6 +1891,24 @@ def _find_label_boxes(page_boxes: Sequence[Mapping[str, Any]], pattern: re.Patte
             # sample and must not create a missing visual candidate.
             if suffix.startswith((")", "）", "]", "】", "}", "，", ",", "。", ";", "；")):
                 continue
+            # ``Figure 1.2 shows ...`` / ``图1.4给出了 ...`` opens a body
+            # sentence; a caption continues with a separator or a title.
+            # A panel designator does not turn a body reference into a caption:
+            # "Figure 1-12(c) depicts ...". Keep actual panel captions with titles.
+            prose_suffix = re.sub(r"^\(\s*[a-z]\s*\)\s*", "", suffix, flags=re.I)
+            if PROSE_AFTER_LABEL_RE.match(prose_suffix):
+                continue
+            # Wrapped prose: "Consider" / "see" on the previous line, followed
+            # by only "Figure 1-7.". A standalone real label remains supported.
+            if re.fullmatch(r"[.。]?", suffix) and index:
+                previous_row = rows[index - 1]
+                previous_box = previous_row.get("bbox", [0, 0, 0, 0])
+                current_box = row.get("bbox", [0, 0, 0, 0])
+                size = max(1.0, float(row.get("font_size", 10.0)))
+                if (re.search(r"(?:\bconsider|\bsee|\brefer\s+to|参见|见)\s*$", str(previous_row.get("text", "")), re.I)
+                    and 0 <= float(current_box[1]) - float(previous_box[3]) <= size * 1.8
+                    and abs(float(previous_row.get("font_size", size)) - size) <= .5):
+                    continue
             box = row.get("bbox", [0, 0, 1, 1])
             if isinstance(box, (list, tuple)) and len(box) == 4:
                 font_size = max(1.0, float(row.get("font_size", 8.0)))
@@ -1794,8 +1925,70 @@ def _find_label_boxes(page_boxes: Sequence[Mapping[str, Any]], pattern: re.Patte
                 if previous is not None:
                     continue
         label = next((group for group in match.groups() if group), match.group(0))
-        result.append((label, list(row.get("bbox", [0, 0, 1, 1])), text, _row_provenance(row)))
+        caption_box = list(row.get("bbox", [0, 0, 1, 1]))
+        if line_start_only:
+            size = float(row.get("font_size", 10.0))
+            for following in rows[index+1:index+3]:
+                box = following.get("bbox", [0,0,0,0])
+                continuation = str(following.get("text", "")).strip()
+                if (any(caption_box[3] <= (rule[1]+rule[3])/2 <= box[1] for rule in horizontal_rules)
+                    or text.rstrip().endswith((".", "。", ";", "；")) or not continuation
+                    or re.match(r"^(?:Figure|Fig\.|Table|图|表|\d+(?:\.\d+)*\s)", continuation, re.I)
+                    or abs(float(box[0])-float(caption_box[0])) > size*2
+                    or not 0 <= float(box[1])-float(caption_box[3]) <= size*1.6
+                    or abs(float(following.get("font_size",size))-size) > 0.5):
+                    break
+                text += " " + continuation
+                caption_box = [min(caption_box[0],box[0]),min(caption_box[1],box[1]),max(caption_box[2],box[2]),max(caption_box[3],box[3])]
+        result.append((label, caption_box, text, _row_provenance(row)))
     return result
+
+
+def _figure_cluster_above_caption(label_box: Sequence[float], drawing_boxes: Sequence[Sequence[float]], height: float, *, stop_y: float = 0.0, gap: float = 18.0) -> list[float] | None:
+    """Union the vector drawings stacked directly above a figure caption.
+
+    Figure captions conventionally sit below the artwork.  Growing a cluster
+    from the nearest drawing above the caption keeps table rulings or other
+    figures below it (or above a previous caption) out of the bbox.
+    """
+
+    top = float(label_box[1])
+    above = [
+        list(map(float, box))
+        for box in drawing_boxes
+        if isinstance(box, (list, tuple)) and len(box) == 4
+        and float(box[3]) <= top + 2.0
+        and float(box[1]) >= stop_y
+        and float(box[3]) >= top - height * 0.6
+    ]
+    if not above:
+        return None
+    above.sort(key=lambda box: top - box[3])
+    if top - above[0][3] > height * 0.12:
+        return None
+    union = list(above[0])
+    remaining = above[1:]
+    grew = True
+    while grew:
+        grew = False
+        for box in list(remaining):
+            if (
+                box[0] <= union[2] + gap and box[2] >= union[0] - gap
+                and box[1] <= union[3] + gap and box[3] >= union[1] - gap
+            ):
+                union = [min(union[0], box[0]), min(union[1], box[1]), max(union[2], box[2]), max(union[3], box[3])]
+                remaining.remove(box)
+                grew = True
+            # Same-band parts (e.g. a schematic beside its diagram) that sit
+            # under the caption's horizontal extent belong to the same figure.
+            elif (
+                box[1] <= union[3] and box[3] >= union[1]
+                and box[0] <= float(label_box[2]) + gap and box[2] >= float(label_box[0]) - gap
+            ):
+                union = [min(union[0], box[0]), min(union[1], box[1]), max(union[2], box[2]), max(union[3], box[3])]
+                remaining.remove(box)
+                grew = True
+    return union
 
 
 def _label_region(label_box: Sequence[float], drawing_boxes: Sequence[Sequence[float]], width: float, height: float, *, multiple_labels: bool, scale: float = 0.38, nearby_limit: float = 0.45, lower_scale: float = 0.1) -> list[float]:
@@ -1855,7 +2048,9 @@ def _make_render_context(source: Path, source_sha256: str, page: int, page_obj: 
     return {"width": width, "height": height, "rotation": int(receipt.get("rotation", rotation)) % 360, "page_geometry": page_geometry, "render": receipt}, b""
 
 
-def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None = None, pdftoppm: Path | None = None, render_receipts: Mapping[int, Mapping[str, Any]] | None = None, confirmed_locators: Sequence[Mapping[str, Any]] | None = None, parser_receipt: Mapping[str, Any] | None = None, backend_receipt: Mapping[str, Any] | None = None, model_receipt: Mapping[str, Any] | None = None, config_receipt: Mapping[str, Any] | None = None, render_dpi: int = 150) -> dict[str, Any]:
+def _extract_visual_page(source_path: Path, *, pages: Sequence[int] | None = None, pdftoppm: Path | None = None, render_receipts: Mapping[int, Mapping[str, Any]] | None = None, confirmed_locators: Sequence[Mapping[str, Any]] | None = None, parser_receipt: Mapping[str, Any] | None = None, backend_receipt: Mapping[str, Any] | None = None, model_receipt: Mapping[str, Any] | None = None, config_receipt: Mapping[str, Any] | None = None, render_dpi: int = 150, _reader: Any = None, _source_hash: str | None = None) -> dict[str, Any]:
+    config_receipt = {**(config_receipt or {"id": "native-label-locator-v0.1", "candidate_only": True}),
+                      "figure_crop_protocol": FIGURE_CROP_PROTOCOL, "native_geometry_protocol": NATIVE_GEOMETRY_PROTOCOL}
     """Build candidate visual objects/relations/grids/conflicts for bounded pages.
 
     ``confirmed_locators`` is an external, hash-bound locator input.  It is still
@@ -1866,12 +2061,12 @@ def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None 
     source = source_path.expanduser().resolve()
     if not source.is_file():
         raise VisualSemanticsError("source_missing")
-    source_hash = sha256_file(source)
+    source_hash = _source_hash or sha256_file(source)
     try:
         from pypdf import PdfReader
     except ModuleNotFoundError as error:
         raise VisualSemanticsError("pypdf_unavailable") from error
-    reader = PdfReader(str(source))
+    reader = _reader or PdfReader(str(source))
     if reader.is_encrypted:
         raise VisualSemanticsError("unsupported_encrypted_pdf")
     selected = sorted(set(int(page) for page in (pages or range(1, len(reader.pages) + 1))))
@@ -1924,7 +2119,10 @@ def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None 
                     conflicts.append(build_visual_conflict(source_sha256=source_hash, physical_page=page_number, conflict_type="locator", details={"locator": row, "code": str(error)}))
         else:
             figure_labels = _find_label_boxes(page_boxes, FIGURE_RE, line_start_only=True)
-            table_labels = _find_label_boxes(page_boxes, TABLE_RE, line_start_only=True)
+            from native_text_geometry import painted_rules
+            from native_table_geometry import ruled_table_candidate
+            table_rules = painted_rules(page_obj, height, media_left=media_left, media_bottom=media_bottom) if any(TABLE_RE.match(str(row.get("text", ""))) for row in page_boxes) else []
+            table_labels = _find_label_boxes(page_boxes, TABLE_RE, line_start_only=True, horizontal_rules=[r["bbox"] for r in table_rules])
             # Parenthetical prose references are not equation objects.  Keep only
             # lines containing an equation cue or a label at the line boundary.
             equation_labels = [
@@ -1962,18 +2160,30 @@ def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None 
                     }
                     conflicts.append(build_visual_conflict(source_sha256=source_hash, physical_page=page_number, conflict_type="missing", details={"candidate": "figure", "label": f"Figure {label}", "reason": "caption_not_adjacent_to_xobject"}))
                 else:
-                    figure_box = _label_region(bounded_label_box, drawing_boxes, width, height, multiple_labels=len(figure_labels) > 1, scale=0.45) if bounded_label_box is not None else None
+                    cluster_box = None
+                    if bounded_label_box is not None:
+                        stop_y = max(
+                            (float(row[1][3]) for row in figure_labels if float(row[1][3]) <= float(bounded_label_box[1]) and row[1] != label_box),
+                            default=0.0,
+                        )
+                        cluster_box = _figure_cluster_above_caption(bounded_label_box, drawing_boxes, height, stop_y=stop_y)
+                    if cluster_box is not None:
+                        figure_box = cluster_box
+                        geometry_evidence = "native-path-cluster-above-caption-v0.1"
+                    else:
+                        figure_box = _label_region(bounded_label_box, drawing_boxes, width, height, multiple_labels=len(figure_labels) > 1, scale=0.45) if bounded_label_box is not None else None
+                        geometry_evidence = "native-path-caption-local-candidate-v0.1" if bounded_label_box is not None else "caption-outside-page-no-figure-geometry"
                     locator_attributes["geometry_provenance"] = {
-                        "geometry_evidence": "native-path-caption-local-candidate-v0.1" if bounded_label_box is not None else "caption-outside-page-no-figure-geometry",
+                        "geometry_evidence": geometry_evidence,
                         "candidate_only": True,
                     }
                 figure = None
                 if figure_box is not None:
-                    figure = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="figure", subtype="figure", page_width=width, page_height=height, bbox=figure_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=crop_commitment_sha256(render_bytes, figure_box, page_width=width, page_height=height, dpi=int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256": receipt["render_sha256"], "bbox": figure_box}), label=f"Figure {label}", page_geometry=page_geometry, attributes=locator_attributes, parser_receipt=parser_receipt or {"id": "pypdf-native-baseline", "version": "pypdf-6.10.0", "candidate_only": True}, backend_receipt=backend_receipt or {"id": "reviewer-locator-confirmed-bbox", "candidate_only": True}, model_receipt=model_receipt or {"id": "none", "available": False, "download": False}, config_receipt=config_receipt or {"id": "native-label-locator-v0.1", "candidate_only": True})
+                    figure = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="figure", subtype="figure", page_width=width, page_height=height, bbox=figure_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=crop_commitment_sha256(render_bytes, figure_box, page_width=width, page_height=height, dpi=int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256": receipt["render_sha256"], "bbox": figure_box}), label=f"Figure {label}", page_geometry=page_geometry, attributes={**locator_attributes, "figure_text_candidates": _figure_text_candidates(page_boxes, figure_box, exclude=[label_box])}, parser_receipt=parser_receipt or {"id": "pypdf-native-baseline", "version": "pypdf-6.10.0", "candidate_only": True}, backend_receipt=backend_receipt or {"id": "reviewer-locator-confirmed-bbox", "candidate_only": True}, model_receipt=model_receipt or {"id": "none", "available": False, "download": False}, config_receipt=config_receipt or {"id": "native-label-locator-v0.1", "candidate_only": True})
                     created.append(figure)
                 caption = None
                 if bounded_label_box is not None:
-                    caption = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="caption", subtype="figure-caption", page_width=width, page_height=height, bbox=bounded_label_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=crop_commitment_sha256(render_bytes, bounded_label_box, page_width=width, page_height=height, dpi=int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256": receipt["render_sha256"], "bbox": bounded_label_box}), parent=figure["visual_object_id"] if figure else None, label=f"Figure {label}", content_sha256=sha256_json(raw), page_geometry=page_geometry, attributes=locator_attributes, parser_receipt=figure["parser_receipt"] if figure else parser_receipt or {"id": "pypdf-native-baseline", "version": "v0.1", "candidate_only": True}, backend_receipt=figure["backend_receipt"] if figure else backend_receipt or {"id": "reviewer-locator-confirmed-bbox", "candidate_only": True}, model_receipt=figure["model_receipt"] if figure else model_receipt or {"id": "none", "available": False, "download": False}, config_receipt=figure["config_receipt"] if figure else config_receipt or {"id": "native-label-locator-v0.1", "candidate_only": True})
+                    caption = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="caption", subtype="figure-caption", page_width=width, page_height=height, bbox=bounded_label_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=crop_commitment_sha256(render_bytes, bounded_label_box, page_width=width, page_height=height, dpi=int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256": receipt["render_sha256"], "bbox": bounded_label_box}), parent=figure["visual_object_id"] if figure else None, label=f"Figure {label}", content_sha256=sha256_json(raw), page_geometry=page_geometry, attributes={**locator_attributes, "caption_text_candidate": _caption_text(raw)}, parser_receipt=figure["parser_receipt"] if figure else parser_receipt or {"id": "pypdf-native-baseline", "version": "v0.1", "candidate_only": True}, backend_receipt=figure["backend_receipt"] if figure else backend_receipt or {"id": "reviewer-locator-confirmed-bbox", "candidate_only": True}, model_receipt=figure["model_receipt"] if figure else model_receipt or {"id": "none", "available": False, "download": False}, config_receipt=figure["config_receipt"] if figure else config_receipt or {"id": "native-label-locator-v0.1", "candidate_only": True})
                     created.append(caption)
                 else:
                     conflicts.append(build_visual_conflict(source_sha256=source_hash, physical_page=page_number, conflict_type="locator", details={"candidate": "caption", "label": f"Figure {label}", "reason": "caption_bbox_outside_page"}))
@@ -2019,6 +2229,8 @@ def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None 
                 locator_attributes = {"locator_provenance": locator_provenance}
                 table_box, table_geometry = _ruling_table_candidate(label_box, drawing_boxes, width, height)
                 if table_box is None:
+                    table_box, table_geometry = ruled_table_candidate(label_box, table_rules, page_boxes, width, height)
+                if table_box is None:
                     xobject_candidate = _caption_adjacent_xobject(label_box, xobject_candidates, width, height, used=used_xobject_candidates)
                     if xobject_candidate is not None:
                         table_box = list(xobject_candidate["bbox"])
@@ -2041,7 +2253,7 @@ def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None 
                 locator_attributes["geometry_provenance"] = table_geometry
                 table = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="table", subtype="table", page_width=width, page_height=height, bbox=table_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=crop_commitment_sha256(render_bytes, table_box, page_width=width, page_height=height, dpi=int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256": receipt["render_sha256"], "bbox": table_box}), label=f"Table {label}", page_geometry=page_geometry, attributes=locator_attributes, parser_receipt=parser_receipt or {"id": "pypdf-native-baseline", "version": "pypdf-6.10.0", "candidate_only": True}, backend_receipt=backend_receipt or {"id": "reviewer-locator-confirmed-bbox", "candidate_only": True}, model_receipt=model_receipt or {"id": "none", "available": False, "download": False}, config_receipt=config_receipt or {"id": "native-label-locator-v0.1", "candidate_only": True})
                 created.append(table)
-                caption = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="caption", subtype="table-caption", page_width=width, page_height=height, bbox=label_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=crop_commitment_sha256(render_bytes, label_box, page_width=width, page_height=height, dpi=int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256": receipt["render_sha256"], "bbox": label_box}), parent=table["visual_object_id"], label=f"Table {label}", content_sha256=sha256_json(raw), page_geometry=page_geometry, attributes=locator_attributes, parser_receipt=table["parser_receipt"], backend_receipt=table["backend_receipt"], model_receipt=table["model_receipt"], config_receipt=table["config_receipt"])
+                caption = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="caption", subtype="table-caption", page_width=width, page_height=height, bbox=label_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=crop_commitment_sha256(render_bytes, label_box, page_width=width, page_height=height, dpi=int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256": receipt["render_sha256"], "bbox": label_box}), parent=table["visual_object_id"], label=f"Table {label}", content_sha256=sha256_json(raw), page_geometry=page_geometry, attributes={**locator_attributes, "caption_text_candidate": _caption_text(raw)}, parser_receipt=table["parser_receipt"], backend_receipt=table["backend_receipt"], model_receipt=table["model_receipt"], config_receipt=table["config_receipt"])
                 created.append(caption)
                 relations.extend([
                     build_visual_relation(source_sha256=source_hash, relation_type="contains", source_visual_object_id=table["visual_object_id"], target_visual_object_id=caption["visual_object_id"], physical_page=page_number, evidence_hashes=[table["input_sha256"], caption["input_sha256"]]),
@@ -2055,7 +2267,29 @@ def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None 
                         cell_obj = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="table_cell", subtype="cell", page_width=width, page_height=height, bbox=cell["bbox"] or table_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=sha256_json({"render_sha256": receipt["render_sha256"], "bbox": cell["bbox"] or table_box}), parent=table["visual_object_id"], label=cell.get("text_candidate"), content_sha256=sha256_json(cell), page_geometry=page_geometry, parser_receipt=table["parser_receipt"], backend_receipt=table["backend_receipt"], model_receipt=table["model_receipt"], config_receipt=table["config_receipt"])
                         created.append(cell_obj)
                         relations.append(build_visual_relation(source_sha256=source_hash, relation_type="cell_of", source_visual_object_id=cell_obj["visual_object_id"], target_visual_object_id=table["visual_object_id"], physical_page=page_number, evidence_hashes=[grid["grid_sha256"]]))
+            # Superscripts and tall matrix cells can share a reconstructed
+            # line with a right-margin equation number. Prefer the actual
+            # placement-bound number fragment, not that line's union bbox.
+            precise_equations = {}
+            for text_row in page_boxes:
+                for fragment in _row_provenance(text_row)["fragments"]:
+                    placement = fragment.get("geometry_provenance", {})
+                    fragment_text = "".join(g["text"] for g in placement.get("glyphs", [])).strip()
+                    match = re.fullmatch(r"\(([^()]+)\)", fragment_text)
+                    if (match and EQUATION_LABEL_TOKEN_RE.fullmatch(match[1])
+                            and fragment["bbox"][0] >= width*0.7):
+                        precise_equations[match[1]] = (match[1], fragment["bbox"], fragment_text,
+                            {"method":NATIVE_GEOMETRY_PROTOCOL,"fragment_hashes":[fragment["fragment_sha256"]],"fragments":[fragment]})
+            equation_labels = [r for r in equation_labels if r[0] not in precise_equations]
+            equation_labels.extend(precise_equations.values())
             for label, label_box, raw, locator_provenance in equation_labels:
+                try:
+                    normalize_bbox(label_box, width, height)
+                except VisualSemanticsError as error:
+                    conflicts.append(build_visual_conflict(source_sha256=source_hash, physical_page=page_number,
+                        conflict_type="locator", details={"candidate":"equation_display", "label":label,
+                        "code":str(error),"reason":"equation_bbox_unavailable", "bbox_sha256":sha256_json(label_box)}))
+                    continue
                 equation = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="equation_display", subtype="numbered-equation", page_width=width, page_height=height, bbox=label_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=crop_commitment_sha256(render_bytes, label_box, page_width=width, page_height=height, dpi=int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256": receipt["render_sha256"], "bbox": label_box}), label=f"({label})", content_sha256=sha256_json(raw), page_geometry=page_geometry, attributes={"locator_provenance": locator_provenance}, parser_receipt=parser_receipt or {"id": "pypdf-native-baseline", "version": "pypdf-6.10.0", "candidate_only": True}, backend_receipt=backend_receipt or {"id": "reviewer-locator-confirmed-bbox", "candidate_only": True}, model_receipt=model_receipt or {"id": "none", "available": False, "download": False}, config_receipt=config_receipt or {"id": "native-equation-label-locator-v0.1", "candidate_only": True})
                 created.append(equation)
             marker_rows = _concise_plot_marker_rows(page_boxes)
@@ -2066,6 +2300,13 @@ def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None 
                 plot = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="plot", subtype="plot", page_width=width, page_height=height, bbox=plot_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=crop_commitment_sha256(render_bytes, plot_box, page_width=width, page_height=height, dpi=int(receipt["render_dpi"]) if "render_dpi" in receipt else int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256": receipt["render_sha256"], "bbox": plot_box}), label="plot", page_geometry=page_geometry, attributes={"geometry_evidence": "path-or-image-candidate", "axis_scale_candidate": "unknown", "series_values_candidate_only": True, "marker_policy": "concise-explicit-or-two-role-v0.2", "marker_label_max_chars": PLOT_MARKER_LABEL_MAX_CHARS}, uncertainty={"level": "candidate", "geometry_confirmed": False, "numeric_values_verified": False}, parser_receipt=parser_receipt or {"id": "pypdf-native-baseline", "version": "pypdf-6.10.0", "candidate_only": True}, backend_receipt=backend_receipt or {"id": "reviewer-locator-confirmed-bbox", "candidate_only": True}, model_receipt=model_receipt or {"id": "none", "available": False, "download": False}, config_receipt=config_receipt or {"id": "native-plot-marker-locator-v0.2-concise64", "candidate_only": True})
                 created.append(plot)
                 for row in marker_rows:
+                    try:
+                        normalize_bbox(row.get("bbox", plot_box), width, height)
+                    except VisualSemanticsError as error:
+                        conflicts.append(build_visual_conflict(source_sha256=source_hash, physical_page=page_number,
+                            conflict_type="locator", details={"candidate":"plot-marker", "code":str(error),
+                            "bbox_sha256":sha256_json(row.get("bbox"))}))
+                        continue
                     marker_text = str(row.get("text", ""))
                     marker_box = list(row.get("bbox", plot_box))
                     marker_type = "tick" if re.search(r"tick|刻度", marker_text, re.I) else ("axis" if re.search(r"axis|坐标轴|\bx\b|\by\b", marker_text, re.I) else ("legend" if re.search(r"legend|图例", marker_text, re.I) else "series"))
@@ -2096,10 +2337,43 @@ def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None 
             elif PLOT_MARKER_RE.search(text):
                 reason = "keyword-only-no-vector-or-image-geometry" if marker_rows else "prose-only-or-insufficient-chart-label-evidence"
                 conflicts.append(build_visual_conflict(source_sha256=source_hash, physical_page=page_number, conflict_type="missing", details={"candidate": "plot", "reason": reason, "text_sha256": sha256_json(text)}))
+        if not page_locators:
+            occupied = [row["bbox"] for row in created if row["type"] in {"figure","table","plot","diagram"}]
+            regions, rejected = candidate_regions(drawing_boxes, xobject_candidates, occupied, width, height)
+            for region in regions:
+                box = region["bbox"]
+                attributes = {"geometry_provenance":{"geometry_evidence":"unlabelled-graphic-region-v0.1",
+                    "candidate_only":True, **region["provenance"]}, "label_unconfirmed":True,
+                    "figure_text_candidates":_figure_text_candidates(page_boxes, box)}
+                created.append(build_visual_object(source_sha256=source_hash, physical_page=page_number,
+                    object_type="figure", subtype="unlabelled", page_width=width, page_height=height, bbox=box,
+                    render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]),
+                    crop_sha256=crop_commitment_sha256(render_bytes, box, page_width=width, page_height=height,
+                        dpi=int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256":receipt["render_sha256"],"bbox":box}),
+                    label=None, page_geometry=page_geometry, attributes=attributes,
+                    config_receipt=config_receipt))
+            from pdf_structure import page_graphics_summary
+            graphics = page_graphics_summary(page_obj)
+            if rejected or (not created and (graphics["vector_paint_op_count"] or graphics["form_xobject_count"] or graphics["raster_image_count"])):
+                conflicts.append(build_visual_conflict(source_sha256=source_hash, physical_page=page_number,
+                    conflict_type="missing", details={"candidate":"unlabelled-graphic", "reason":"unlocalised_or_ambiguous_graphics",
+                    "rejected_region_count":rejected, "graphics_summary":graphics}))
         annotation_rows = _candidate_annotation_rows(page_boxes, drawing_boxes, created, page_width=width, page_height=height)
         for annotation_row in annotation_rows:
             parent = annotation_row["parent"]
             annotation_box = list(annotation_row["bbox"])
+            try:
+                normalize_bbox(annotation_box, width, height)
+            except VisualSemanticsError as exc:
+                # Native text may lie outside the MediaBox even when it is
+                # close enough to associate with a figure. Do not clip its
+                # evidence or let one invalid candidate abort the page.
+                conflicts.append(build_visual_conflict(source_sha256=source_hash,
+                    physical_page=page_number, conflict_type="locator",
+                    object_ids=[parent["visual_object_id"]], details={
+                        "candidate":"annotation", "reason":"annotation_bbox_out_of_page",
+                        "geometry_error":str(exc), "bbox_sha256":sha256_json(annotation_box)}))
+                continue
             annotation = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="annotation", subtype=str(annotation_row["subtype"]), page_width=width, page_height=height, bbox=annotation_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=crop_commitment_sha256(render_bytes, annotation_box, page_width=width, page_height=height, dpi=int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256": receipt["render_sha256"], "bbox": annotation_box}), parent=parent["visual_object_id"], label=annotation_row.get("text"), content_sha256=sha256_json(annotation_row.get("text") or annotation_row["attributes"]), page_geometry=page_geometry, attributes=dict(annotation_row["attributes"]), uncertainty={"level": "candidate", "geometry_confirmed": False, "numeric_values_verified": False}, parser_receipt=parent["parser_receipt"], backend_receipt=parent["backend_receipt"], model_receipt=parent["model_receipt"], config_receipt=parent["config_receipt"])
             created.append(annotation)
             relation_type = "labels" if annotation_row["subtype"] == "label" else "supports"
@@ -2127,6 +2401,47 @@ def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None 
         "candidate_only": True,
         "whole_book_completeness_claimed": False,
     }
+
+
+def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None = None,
+        pdftoppm: Path | None = None, render_receipts: Mapping[int, Mapping[str, Any]] | None = None,
+        confirmed_locators: Sequence[Mapping[str, Any]] | None = None,
+        parser_receipt: Mapping[str, Any] | None = None, backend_receipt: Mapping[str, Any] | None = None,
+        model_receipt: Mapping[str, Any] | None = None, config_receipt: Mapping[str, Any] | None = None,
+        render_dpi: int = 150) -> dict[str, Any]:
+    """Extract per page; a malformed page never erases another page's objects."""
+    from pypdf import PdfReader
+    source = source_path.expanduser().resolve()
+    if not source.is_file():raise VisualSemanticsError("source_missing")
+    reader = PdfReader(str(source))
+    if reader.is_encrypted:raise VisualSemanticsError("unsupported_encrypted_pdf")
+    selected = sorted(set(int(p) for p in (pages or range(1,len(reader.pages)+1))))
+    if any(p<1 or p>len(reader.pages) for p in selected):raise VisualSemanticsError("physical_page_out_of_range")
+    source_hash = sha256_file(source)
+    combined = {"schema_version":VISUAL_PROTOCOL,"source_sha256":source_hash,"pages":selected,
+        "objects":[],"relations":[],"table_grids":[],"conflicts":[],"render_receipts":[],
+        "candidate_only":True,"whole_book_completeness_claimed":False}
+    for page in selected:
+        try:
+            bundle = _extract_visual_page(source,pages=[page],pdftoppm=pdftoppm,
+                render_receipts=render_receipts,confirmed_locators=confirmed_locators,
+                parser_receipt=parser_receipt,backend_receipt=backend_receipt,model_receipt=model_receipt,
+                config_receipt=config_receipt,render_dpi=render_dpi,_reader=reader,_source_hash=source_hash)
+        except VisualSemanticsError as error:
+            if str(error).startswith("visual_render_receipt_required"):
+                raise
+            combined["conflicts"].append(build_visual_conflict(source_sha256=source_hash,
+                physical_page=page,conflict_type="parser",details={"code":str(error).split(":",1)[0],
+                "stage":"page-visual-extraction","message":str(error),"page":page}))
+            if render_receipts and page in render_receipts:
+                combined["render_receipts"].append(dict(render_receipts[page]))
+            continue
+        for key in ("objects","relations","table_grids","conflicts","render_receipts"):
+            combined[key].extend(bundle[key])
+    objects,relations,grids,conflicts=deduplicate_visual_candidates(combined["objects"],combined["relations"],combined["table_grids"],combined["conflicts"])
+    combined.update(objects=objects,relations=relations,table_grids=grids,conflicts=conflicts,
+                    table_continuations=build_table_continuation_candidates(objects,grids))
+    return combined
 
 
 def _grid_cells(page_boxes: Sequence[Mapping[str, Any]], table_bbox: Sequence[float], source_sha256: str, table_id: str, *, page_width: float | None = None, page_height: float | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:

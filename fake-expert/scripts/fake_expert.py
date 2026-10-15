@@ -15,12 +15,17 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import sys
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 SCRIPT_ROOT = Path(__file__).resolve().parent
-PROJECT_ROOT = SCRIPT_ROOT.parents[2]
+SKILL_ROOT = SCRIPT_ROOT.parent
+# Both source layouts are supported: skills/fake-expert and fake-expert.
+PROJECT_ROOT = SKILL_ROOT.parent
+if PROJECT_ROOT.name == "skills":
+    PROJECT_ROOT = PROJECT_ROOT.parent
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
@@ -49,6 +54,8 @@ AUTHORITATIVE_RUNTIME_BACKENDS = {
     "paddleocr-ppstructure-v3",
 }
 JOB_FILE_NAME = "fake-expert-job.json"
+EXTRACTION_DIRECTORY = "extraction"
+FIGURE_PACKAGING = ("none", "index", "index+images")
 JOB_FILE_SUFFIX = ".fake-expert-job.json"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -59,7 +66,6 @@ FORBIDDEN_SUBMISSION_KEYS = {
     "chart2table", "docling", "gold", "hidden_answer",
 }
 
-SKILL_ROOT = SCRIPT_ROOT.parent
 SKILL_FILE = SKILL_ROOT / "SKILL.md"
 COMMON_READING = (
     "references/quickstart.md",
@@ -71,6 +77,7 @@ PROFILE_READING: dict[str, tuple[str, ...]] = {
         "references/pdf-intermediate-representation.md",
         "references/compilation-workflow.md",
         "references/expert-skill-contract.md",
+        "references/authoring-and-figures.md",
     ),
     "scan-text": (
         "references/scanned-pdf-ocr.md",
@@ -114,6 +121,9 @@ DOCUMENTED_ERROR_CODES = (
     "runtime_qualification_required",
     "runtime_qualification_unverified",
     "semantic_authoring_required",
+    "extraction_failed",
+    "extraction_workpack_mismatch",
+    "numeric_review_required",
     "structure_review_required",
     "visual_review_required",
     "gold_review_required",
@@ -433,9 +443,13 @@ def _validate_job_shape(job: Any) -> None:
     _validate_file_record(inputs["workpack"], allow_none=True)
 
     package = job.get("package")
-    if not isinstance(package, dict) or set(package) != {
+    if not isinstance(package, dict) or not {
         "name", "display_name", "domain", "version"
-    }:
+    } <= set(package) <= {"name", "display_name", "domain", "version", "figures", "structure_selections"}:
+        raise FakeExpertError("job_package_invalid")
+    if "structure_selections" in package:
+        _validate_file_record(package["structure_selections"], allow_none=False)
+    if "figures" in package and package["figures"] not in FIGURE_PACKAGING[1:]:
         raise FakeExpertError("job_package_invalid")
     if (
         not isinstance(package["name"], str)
@@ -598,6 +612,11 @@ def _validate_job_bindings(path: Path, job: Mapping[str, Any]) -> list[str]:
             drift.append("runtime_receipt_missing")
         elif _sha256_file(candidate) != runtime_record["sha256"]:
             drift.append("runtime_receipt_hash_mismatch")
+    selection = job["package"].get("structure_selections")
+    if selection is not None:
+        path = _safe_path(selection["path"], "structure_selections_path_invalid")
+        if not path.is_file() or _sha256_file(path) != selection["sha256"]:
+            drift.append("structure_selections_hash_mismatch")
     for record in job["required_reading"]:
         relative = str(record["path"])
         try:
@@ -662,6 +681,11 @@ def _build_job(args: argparse.Namespace, workspace: Path, job_path: Path) -> dic
         raise FakeExpertError("package_name_or_domain_invalid")
     display_name = str(args.display_name)
     version = str(args.version)
+    figures = str(getattr(args, "figures", None) or ("index+images" if args.profile == "native-text" else "none"))
+    if figures not in FIGURE_PACKAGING:
+        raise FakeExpertError("figure_packaging_invalid")
+    if figures != "none" and args.profile != "native-text":
+        raise FakeExpertError("figure_packaging_requires_native_text")
     if not display_name.strip() or not VERSION_RE.fullmatch(version):
         raise FakeExpertError("package_metadata_invalid")
     workpack_record = None
@@ -685,6 +709,14 @@ def _build_job(args: argparse.Namespace, workspace: Path, job_path: Path) -> dic
         if not runtime_receipt.is_file() or runtime_receipt.is_symlink():
             raise FakeExpertError("runtime_receipt_missing")
         runtime_record = _file_record(runtime_receipt)
+    selection_record = None
+    if getattr(args, "structure_selections", None) is not None:
+        if args.profile != "native-text" or args.workpack is not None:
+            raise FakeExpertError("structure_selections_require_unbound_native_text")
+        selection_path = _safe_path(args.structure_selections, "structure_selections_path_invalid")
+        if not selection_path.is_file():
+            raise FakeExpertError("structure_selections_missing")
+        selection_record = _file_record(selection_path)
     skill = (workspace / f"fake-{name}").resolve()
     if not _within(skill, workspace):
         raise FakeExpertError("skill_outside_workspace")
@@ -715,6 +747,8 @@ def _build_job(args: argparse.Namespace, workspace: Path, job_path: Path) -> dic
             "display_name": display_name,
             "domain": domain,
             "version": version,
+            **({"figures": figures} if figures != "none" else {}),
+            **({"structure_selections": selection_record} if selection_record else {}),
         },
         "workspace": str(workspace),
         "gold": {"mode": args.gold_mode, "revision": gold_record},
@@ -1051,8 +1085,23 @@ def _evaluate_job(job_path: Path, job: Mapping[str, Any]) -> dict[str, Any]:
         )
     runtime_gate = _runtime_qualification_gate(job)
     if profile == "native-text":
+        extraction = None
         if workpack is None:
-            return _paused("semantic_authoring_required", "A complete semantic proposal workpack must be supplied; the compiler cannot author missing semantics.", ["semantic_authoring_required", "independent_review_required"])
+            extraction = _extraction_state(job)
+            if extraction["state"] == "mismatch":
+                return {
+                    "status": "rejected",
+                    "code": "extraction_workpack_mismatch",
+                    "job_id": job["job_id"],
+                    "extraction": extraction,
+                    "next_action": _action("replan_fresh_workspace", "The workspace extraction belongs to a different source; preserve it and plan into a fresh workspace."),
+                    "required_gates": [],
+                }
+            if extraction["state"] != "complete":
+                paused = _paused("semantic_authoring_required", _authoring_meaning(job, extraction), ["semantic_authoring_required", "independent_review_required"])
+                paused["extraction"] = extraction
+                return paused
+            workpack = Path(extraction["workpack"])
         summary = _workpack_summary(workpack)
         if summary["kind"] != "semantic":
             return _paused("workpack_format_unrecognized", "The supplied workpack is not a recognized semantic workpack.", ["workpack_format_unrecognized"])
@@ -1073,7 +1122,10 @@ def _evaluate_job(job_path: Path, job: Mapping[str, Any]) -> dict[str, Any]:
                     "required_gates": ["direct_reference_validation_required"],
                 }
             return {"status": "completed", "code": "draft_output_present", "job_id": job["job_id"], "next_action": _action("validate_draft", "The existing direct Reference Draft passed its authoritative validator; independent Review is still required for any higher lifecycle stage."), "required_gates": []}
-        return {"status": "ready-to-compile", "code": "direct_reference_build_ready", "job_id": job["job_id"], "next_action": _action("build_direct_reference_draft", "Run the existing deterministic direct-reference builder; it remains draft-only."), "required_gates": ["independent_review_required"], "planned_commands": ["direct_reference_skill.py build"]}
+        ready = {"status": "ready-to-compile", "code": "direct_reference_build_ready", "job_id": job["job_id"], "workpack": str(workpack), "next_action": _action("build_direct_reference_draft", "Run the existing deterministic direct-reference builder; it remains draft-only."), "required_gates": ["independent_review_required"], "planned_commands": ["direct_reference_skill.py build"]}
+        if extraction is not None:
+            ready["extraction"] = extraction
+        return ready
     if runtime_gate:
         return runtime_gate
     if profile in {"scan-text", "scan-structure"}:
@@ -1104,9 +1156,91 @@ def _emit_progress(job: Mapping[str, Any], result: Mapping[str, Any], *, event: 
     print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=sys.stderr)
 
 
+def _extraction_paths(job: Mapping[str, Any]) -> dict[str, Path]:
+    root = _safe_path(str(job["workspace"]), "workspace_invalid") / EXTRACTION_DIRECTORY
+    return {"root": root, "ir": root / "ir", "workpack": root / "workpack", "authoring": root / "workpack" / "authoring"}
+
+
+def _extraction_state(job: Mapping[str, Any]) -> dict[str, Any]:
+    """Read-only view of the workspace extraction used when no workpack is bound."""
+
+    paths = _extraction_paths(job)
+    state: dict[str, Any] = {key: str(value) for key, value in paths.items()}
+    manifest_path = paths["workpack"] / "workpack.json"
+    if paths["root"].is_symlink() or paths["workpack"].is_symlink():
+        state.update({"state":"mismatch", "issues":["extraction_symlink_forbidden"]})
+        return state
+    if not manifest_path.is_file():
+        state["state"] = "mismatch" if (paths["root"] / "extraction-receipt.json").exists() else "pending"
+        return state
+    import native_extraction
+    import shutil
+    selection = job["package"].get("structure_selections")
+    expected = native_extraction.bindings(Path(job["inputs"]["source"]["path"]), SCRIPT_ROOT,
+        shutil.which("pdftoppm"), Path(selection["path"]) if selection else None)
+    errors = native_extraction.validate_checkpoint(paths["root"], expected)
+    if errors:
+        state.update({"state":"mismatch", "issues":errors})
+        if errors == ["extraction_receipt_missing"] and not any(paths["workpack"].glob("drafts/*.json")):
+            state["state"] = "pending"
+        return state
+    summary = _workpack_summary(paths["workpack"])
+    if summary.get("manifest_source_sha256") != job["inputs"]["source"]["sha256"]:
+        state["state"] = "mismatch"
+        return state
+    drafts = paths["workpack"] / "drafts"
+    manifest = _read_json(manifest_path, "workpack_manifest_invalid")
+    expected_units = [row["unit_id"] for row in manifest["units"]]
+    draft_count = sum((drafts / f"{unit_id}.json").is_file() for unit_id in expected_units)
+    unit_count = len(expected_units)
+    state.update({
+        "state": "complete" if unit_count and draft_count >= unit_count else "awaiting-drafts",
+        "unit_count": unit_count,
+        "draft_count": draft_count,
+    })
+    return state
+
+
+def _authoring_meaning(job: Mapping[str, Any], extraction: Mapping[str, Any]) -> str:
+    if extraction["state"] == "pending":
+        return (
+            "Run compile without --dry-run to extract text, structure, figures, crops and per-unit "
+            "authoring packets into the workspace; the compiler still writes no semantic answers."
+        )
+    return (
+        f"Author drafts for {extraction.get('unit_count', 0) - extraction.get('draft_count', 0)} unit(s): "
+        f"{shlex.join([sys.executable, str(SCRIPT_ROOT / 'semantic_authoring.py'), 'run', '--workpack', str(extraction['workpack'])])} "
+        "--command '<your model CLI that reads the prompt on stdin>' --proposer-instance <id> "
+        f"--source {shlex.quote(job['inputs']['source']['path'])} (or write drafts by hand from "
+        f"{extraction['authoring']}/packets), then run compile again."
+    )
+
+
+def _run_extraction(job: Mapping[str, Any]) -> dict[str, Any]:
+    """Delegate transactional native extraction; the CLI owns only routing."""
+    import native_extraction
+    selection = job["package"].get("structure_selections")
+    return native_extraction.extract(Path(job["inputs"]["source"]["path"]), Path(job["workspace"]),
+        SCRIPT_ROOT, NATIVE_TEXT_MINIMUM_CHARACTERS, Path(selection["path"]) if selection else None)
+
+
 def _run_job(args: argparse.Namespace, *, resume: bool) -> dict[str, Any]:
     job_path, job = _load_job(args.job)
     result = _evaluate_job(job_path, job)
+    if (
+        not args.dry_run
+        and result.get("code") == "semantic_authoring_required"
+        and (result.get("extraction") or {}).get("state") == "pending"
+    ):
+        import native_extraction
+        try:
+            extracted = _run_extraction(job)
+            result = _evaluate_job(job_path, job)
+            result["extraction_run"] = extracted
+        except native_extraction.ExtractionError as error:
+            meaning = "Inspect the retained IR. Supply a source-hash-bound native structure selections JSON with plan --structure-selections in a fresh workspace, or bind a validated external --workpack; no headings are invented." if error.code == "structure_review_required" else "Inspect the retained extraction failure, repair the prerequisite and resume; previous drafts are preserved."
+            result = _paused(error.code, meaning, [error.code])
+            result.update({"detail":str(error), "retained_extraction":error.retained})
     result.update({
         "job": str(job_path),
         "job_sha256": job["job_sha256"],
@@ -1119,14 +1253,17 @@ def _run_job(args: argparse.Namespace, *, resume: bool) -> dict[str, Any]:
         result["would_write"] = []
         if result.get("code") == "direct_reference_build_ready":
             result["would_write"] = [str(_safe_path(job["outputs"]["skill"], "skill_output_path_invalid"))]
+        elif (result.get("extraction") or {}).get("state") == "pending":
+            result["would_write"] = [result["extraction"][key] for key in ("ir", "workpack", "authoring")]
         return result
     if result.get("status") == "ready-to-compile" and result.get("code") == "direct_reference_build_ready":
         try:
             import direct_reference_skill
 
+            figures = str(job["package"].get("figures", "none"))
             direct_result = direct_reference_skill.build_direct_reference(
                 _safe_path(job["inputs"]["source"]["path"]),
-                _safe_path(job["inputs"]["workpack"]["path"]),
+                _safe_path(str(result["workpack"]), "workpack_path_invalid"),
                 _safe_path(job["outputs"]["skill"]),
                 name=str(job["package"]["name"]),
                 display_name=str(job["package"]["display_name"]),
@@ -1139,7 +1276,18 @@ def _run_job(args: argparse.Namespace, *, resume: bool) -> dict[str, Any]:
                     if job["gold"]["revision"] is not None
                     else None
                 ),
+                figure_index=figures != "none",
+                figure_images=figures == "index+images",
             )
+        except direct_reference_skill.DirectReferenceError as error:
+            if str(error).startswith("numeric_review_required"):
+                workpack_path = result["workpack"]
+                result = _paused("numeric_review_required", "Keep the proposed figure values in the workpack; complete independent semantic and visual Review, then resume.", ["independent_review_required", "numeric_review_required"])
+                result["detail"] = str(error)
+                result["workpack"] = workpack_path
+                _update_job(job_path, job, result)
+                return result
+            raise FakeExpertError(f"direct_reference_build_rejected:{error}") from error
         except Exception as error:
             raise FakeExpertError(f"direct_reference_build_rejected:{error}") from error
         result["status"] = "completed"
@@ -1149,6 +1297,7 @@ def _run_job(args: argparse.Namespace, *, resume: bool) -> dict[str, Any]:
             "artifact_stage": direct_result.get("artifact_stage"),
             "object_count": direct_result.get("object_count"),
             "anchor_count": direct_result.get("anchor_count"),
+            "figure_count": direct_result.get("figure_count"),
         }
         result["next_action"] = _action("validate_draft", "Validate the direct Reference Draft; independent Review is still required for any higher lifecycle stage.")
     elif result.get("status") in {"paused", "ready-to-compile"}:
@@ -1663,6 +1812,13 @@ def build_parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--domain", default="technical-reference")
     plan_parser.add_argument("--version", default="0.1.0")
     plan_parser.add_argument("--created-at", default=_now())
+    plan_parser.add_argument("--structure-selections", type=Path, help="Explicit source-hash-bound native text boundaries for documents without detected headings.")
+    plan_parser.add_argument(
+        "--figures",
+        choices=FIGURE_PACKAGING,
+        default=None,
+        help="Native-text defaults to index+images for private Drafts; use none for source-free output or index for labels only. Other profiles retain their existing gates.",
+    )
     _add_json_flag(plan_parser)
 
     for name, help_text in (("compile", "Evaluate and compile a job"), ("resume", "Re-evaluate a paused job")):
@@ -1702,6 +1858,11 @@ def _status_job(path: Path) -> dict[str, Any]:
         return {"status": "rejected", "job": str(path.resolve()), "code": str(error)}
     drift = _validate_job_bindings(job_path, job)
     source_profile_gate = None if drift else _source_profile_gate(job)
+    if not drift and source_profile_gate is None and job["profile"] == "native-text" and job["inputs"]["workpack"] is None:
+        extraction = _extraction_state(job)
+        if extraction["state"] == "mismatch":
+            source_profile_gate = {"status":"rejected", "code":"extraction_workpack_mismatch",
+                "next_action":_action("replan_fresh_workspace", "The extraction checkpoint changed; preserve it and replan into a fresh workspace.")}
     return {
         "status": "rejected" if drift else (source_profile_gate["status"] if source_profile_gate else job["state"]["status"]),
         "code": "job_drift" if drift else (source_profile_gate["code"] if source_profile_gate else job["state"].get("code", "status_ok")),

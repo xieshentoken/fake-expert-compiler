@@ -1,0 +1,33 @@
+{
+  "applicability": {
+    "excluded_conclusions": [],
+    "physical_pages": [
+      2,
+      2
+    ]
+  },
+  "assumptions": [],
+  "confidence": {
+    "extraction": 0.0,
+    "interpretation": 0.0
+  },
+  "evidence_ids": [
+    "ev-9d4781dd9419efeb8e27"
+  ],
+  "fails_when": [],
+  "formula": null,
+  "id": "ko-2a154c0483d562e07371",
+  "origin": "source-paraphrase",
+  "schema_version": "tkc.expert-skill/v0.1",
+  "source_ids": [
+    "src-0ebede49c4f3b7ad2edc"
+  ],
+  "statement": "Copper thermal conductivity peaks at about 52 W/(m K) near 18 K (read from Figure 1.1).",
+  "status": "unreviewed-candidate",
+  "title": "Copper conductivity peak",
+  "type": "Claim",
+  "valid_when": [],
+  "visual_task_ids": [
+    "vis-a917d1a35fdc6e8e19a0"
+  ]
+}

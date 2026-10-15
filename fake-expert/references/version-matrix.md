@@ -111,7 +111,12 @@ introduced only when the emitted artifact shape changes.
 
 | Constant | Value | Stamped where |
 |----------|-------|---------------|
-| `DIRECT_REFERENCE_COMPILER_VERSION` | `1.1.0-direct-reference` | New source-free, queryable `fake-*` Reference Draft manifests and control sidecars; never a promotion identity |
+| `DIRECT_REFERENCE_COMPILER_VERSION` | `1.4.0-direct-reference` | New `fake-*` Reference Draft manifests: `reference-search` runtime, `tkc.runtime-catalog/v0.3` with fact text, optional figure index/images and embeddings; never a promotion identity |
+| `LEGACY_DIRECT_REFERENCE_COMPILER_VERSION` | `1.1.0-direct-reference` | Earlier Drafts; still validated against the unchanged `DIRECT_REFERENCE_RUNTIME_SHA256` / `PORTABLE_REFERENCE_RUNTIME_SHA256` pins. `extend` upgrades them to the current generation |
+| `REFERENCE_SEARCH_RUNTIME_VERSION` | `reference-search-bm25-v0.3` | BM25 + CJK n-gram + stemming runtime copied into packages as `scripts/query_reference.py`; responses `tkc.runtime-response/v0.3` |
+| `REFERENCE_SEARCH_RUNTIME_SHA256` | pinned in `compiler_version.py` | SHA-256 of `scripts/reference_search.py`; mirrored as a standalone constant in `verify_skill_release.py` |
+| `FIGURE_INDEX_SCHEMA` | `tkc.figure-index/v0.1` | Opt-in, source-derived figure/table index (`--figure-index`); such packages are private and refused by release packaging |
+| `SEMANTIC_AUTHORING_PROTOCOL` | `semantic-authoring-v0.1` | Packets, explicit-command runs, and quote-to-span ingest of model proposals; candidate-only |
 | `DIRECT_REFERENCE_PROTOCOL` | `direct-reference-draft-v0.1` | Deterministic build/extend/hash-only-Gold lifecycle with Review deferred and decision/execution disabled |
 | `DIRECT_REFERENCE_SCHEMA` | `tkc.direct-reference/v0.1` | Closed candidate assurance, workpack/source binding, additive update, and optional Gold sidecar contract |
 | `PHASE3_COMPILER_VERSION` | `0.3.0-phase3` | Reference-tier package `build.compiler_version` (`reference_tier.py`), accepted by `expert_skill_contract.py` |
@@ -334,3 +339,16 @@ prose must not carry a release version at all; the protocol identity and the
    accept it, and document the migration in the phase report.
 3. Re-run the full test suite and the release verifier
    (`verify_fake_expert_release.py`) before distributing.
+
+
+Native evidence repair is source candidate `1.2.1-native-evidence-repair`; `RELEASE_VERSION=1.2.0` and all formal packages stay unchanged. New numeric gates use `numeric-evidence-v0.1`, crops use `figure-crop-mediabox-v0.2`, extraction uses `native-extraction-checkpoint-v0.1`, explicit text boundary input uses `tkc.native-structure-selections/v0.1`, and retrieval aliases use `tkc.reference-term-aliases/v0.1`. Opus 1.3.0 retains its original frozen search implementation and pin for read-only compatibility. Replan jobs after source/reference/tool changes; rebuild artifacts in fresh directories.
+
+### Chapter geometry / native formula repair candidate
+
+Source candidate `1.2.2-native-formula-geometry-repair` adds `native-text-geometry-v0.1`, role-aware `numeric-evidence-v0.2`, and optional `native-formula-numeric-v0.1` receipts. Canonical NFKC text and existing Draft schema/runtime identities are unchanged; receipts are optional additive formula metadata, never reviewed or executable authority. Historical packages remain immutable. Rebuild new jobs and Drafts in fresh directories.
+
+The same source candidate adds `native-horizontal-table-rules-v0.1` for bounded native open-sided table crops; these and all figure captions/placements remain unreviewed candidates.
+
+### Private image default candidate
+
+`1.2.3-private-images-default` changes only new native-text plan jobs and new direct-build CLI defaults to `index+images`. Existing job selections, direct Python API defaults, extend behavior, old packages and formal releases stay unchanged. The existing pinned search runtime already returns relevant figure image paths; generated Skill instructions now require inspection and inline image display. Image-bearing Drafts remain private source-derived candidates, outside source-free release eligibility.

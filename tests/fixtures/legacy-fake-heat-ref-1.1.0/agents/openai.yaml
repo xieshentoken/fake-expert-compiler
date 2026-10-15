@@ -1,0 +1,4 @@
+interface:
+  display_name: "Heat Reference"
+  short_description: "Traceable unreviewed technical reference candidate"
+  default_prompt: "Use $fake-heat-ref; preserve assurance warnings and cite object/evidence IDs."

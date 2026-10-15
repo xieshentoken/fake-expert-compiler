@@ -1,0 +1,109 @@
+{
+  "build": {
+    "compiler": "fake-expert",
+    "compiler_version": "1.1.0-direct-reference",
+    "created_at": "2026-10-14T19:00:00+00:00",
+    "input_fingerprint": "0e1d70b8011e951352596672904bf5dbafb53fb612c31033dd6323af465ee1d9",
+    "model_ids": [],
+    "prompt_versions": [
+      "semantic-proposal-v0.1",
+      "direct-reference-draft-v0.1",
+      "runtime-reference-v0.1"
+    ],
+    "schema_version": "tkc.expert-skill/v0.1"
+  },
+  "capabilities": {
+    "decision_support": false,
+    "executable": false,
+    "reference": true
+  },
+  "distribution": {
+    "source_mode": "source-required",
+    "verification": "external-source-required"
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "files": {
+      "RECEIVER.md": "6d3b83c2ece9f0038c90650a37fe04c3cd105cb9f037acddb0c055b6fb48c6f7",
+      "SKILL.md": "e4d83866b82eb1a24210f3d2fc2d1a646e3836e8434d42b757b82cf0c513eb28",
+      "agents/openai.yaml": "f3e7e4242e84843a445ef70cb393a5398ca57a338bf2ab41bc086fd1a4f877f5",
+      "references/competency-tests.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "references/conflicts.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "references/decisions/index.json": "6d3184dc84bc0fa967b5ce1b177119c0ccf4da13f31484d91b79d5337d05706d",
+      "references/evidence/anchors.jsonl": "749c92cd397831976256fd51555d1375421579d287582970dc5b48b6421a0e2d",
+      "references/evidence/source-manifest.json": "67add0cf3dbf0564322070fbb2d86c26d91e87e9282615516aabcacee6fe4e2b",
+      "references/knowledge-gaps.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "references/knowledge/index.json": "977af4f231fc75ca964ff140fae8eb4d128ad95a6fb9ab9fafcc9f082137e071",
+      "references/knowledge/objects/ko-08bdc3e42e1f5bc9d2e3.json": "e9fff54700945f2c8764a1a5879e410dfa282a34fa96b43fe3e9c6787135bc7d",
+      "references/knowledge/objects/ko-2a154c0483d562e07371.json": "f650f9aa55275490112f4c66a7191f92a417c8d0ce22230ec591cdc9ea432bc9",
+      "references/knowledge/objects/ko-43839e2870d944c5a086.json": "751f7b337ce0cf4a118ea75dcc4c062a64096d2ff30009ceba467b7c1e2144c6",
+      "references/knowledge/objects/ko-6f886b2f809cbdbcbf8d.json": "27776e347641ccfad5c25524a6758ad489b5c4e5018f90a457e27dacee39ba5f",
+      "references/knowledge/objects/ko-95d9c642cfd084569b74.json": "fa4cb7df0b3ea71376eb08e7fe6dca2ff3c913e1fae5be687532984afd745ece",
+      "references/knowledge/objects/ko-aee6bc24fe5b6abb8bc3.json": "bcee33abd30e5d16ef952d5f9e23726ece53daa94ed853f3db14c35576360b46",
+      "references/knowledge/objects/ko-bc9d5929f59b800209e0.json": "ffbe3fb5e2a401a4ba8002b6ae09e96b0ca49921c7b953781a6b4c7751a69c74",
+      "references/knowledge/objects/ko-f371d39ce822441a6a64.json": "f4df697bfd27e8ba57ae36db7c01ab88aec2f96c3a35e2f881ac466f2ebe3513",
+      "references/knowledge/objects/ko-f6637d8cbb0558cf8562.json": "9913fd87c802942e1dfc12a1af107eaa3c811e89b7cd5f1c73f0dd921dc48886",
+      "references/knowledge/relations.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "references/procedures/index.json": "e828057e6790ec01dc4d8586b26a9655ab38c1650be30d8e23d43134d4d8983d",
+      "references/runtime/catalog.json": "156d58b8e803a55f936bd554017e3810b3baae223177ed4df952ac25e81630b8",
+      "references/runtime/direct-reference.json": "e86774bc5ac107bc13d87529f1d151910dc65a9072d6fdc29e849e5f3edc99ad",
+      "references/runtime/reference-map.md": "ef799a0213a85046db41d412fdc9beea95ca7d0b36d66514be3e8fd02825e81f",
+      "references/runtime/response.schema.json": "caf96a09ade27086c88c56a27bea9940e66a8b5aff355f71b6ec053ada46aa4e",
+      "references/runtime/self-check.json": "e717e155e713057ef3c19eeea4e3bee38dad398801eaa0f6dd2cd635f4aafadb",
+      "scripts/portable_reference_runtime.py": "50de12e92c840806121d898d1f44d36c57d80e81ad13ef82e08b4417c6ba5581",
+      "scripts/query_reference.py": "4373790b353306851ca92debab4dc3e1b5a2c8c64178ade857b79cd99f34f19b"
+    },
+    "sealed_at": "2026-10-14T19:00:00+00:00"
+  },
+  "modules": [
+    {
+      "dependencies": [],
+      "exports": [
+        "ko-08bdc3e42e1f5bc9d2e3",
+        "ko-2a154c0483d562e07371",
+        "ko-43839e2870d944c5a086",
+        "ko-6f886b2f809cbdbcbf8d",
+        "ko-95d9c642cfd084569b74",
+        "ko-aee6bc24fe5b6abb8bc3",
+        "ko-bc9d5929f59b800209e0",
+        "ko-f371d39ce822441a6a64",
+        "ko-f6637d8cbb0558cf8562"
+      ],
+      "knowledge_index": "references/knowledge/index.json",
+      "module_id": "fake-heat-ref-core",
+      "version": "0.1.0"
+    }
+  ],
+  "package": {
+    "domain": "heat-transfer",
+    "id": "fake-heat-ref",
+    "name": "Heat Reference",
+    "status": "draft",
+    "version": "0.1.0"
+  },
+  "schema_version": "tkc.expert-skill/v0.1",
+  "sources": [
+    {
+      "included_path": null,
+      "media_type": "application/pdf",
+      "original_filename": "heat-book.pdf",
+      "scope": {
+        "physical_pages": [
+          1,
+          5
+        ],
+        "printed_page_labels": [
+          "1",
+          "2",
+          "401",
+          "4",
+          "5"
+        ]
+      },
+      "sha256": "0ebede49c4f3b7ad2edc2bb0f9686d1728ff8c000084f015ac8d7e1d0cc62c62",
+      "size_bytes": 4312733,
+      "source_id": "src-0ebede49c4f3b7ad2edc",
+      "title": "heat-book"
+    }
+  ]
+}

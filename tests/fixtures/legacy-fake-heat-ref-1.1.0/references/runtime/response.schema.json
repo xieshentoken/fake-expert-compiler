@@ -1,0 +1,97 @@
+{
+  "$id": "tkc.direct-reference-runtime-response/v0.1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "assurance": {
+      "type": "object"
+    },
+    "behavior": {
+      "enum": [
+        "answer",
+        "abstain"
+      ]
+    },
+    "conflict_ids": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "evidence_ids": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "gap_ids": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "matched_object_ids": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "module_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "package_id": {
+      "pattern": "^fake-",
+      "type": "string"
+    },
+    "reason_codes": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "runtime_version": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "tkc.runtime-response/v0.1"
+    },
+    "warnings": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 5,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "runtime_version",
+    "behavior",
+    "reason_codes",
+    "matched_object_ids",
+    "evidence_ids",
+    "conflict_ids",
+    "gap_ids",
+    "package_id",
+    "module_id",
+    "assurance",
+    "warnings"
+  ],
+  "title": "fake-expert direct Reference response",
+  "type": "object"
+}

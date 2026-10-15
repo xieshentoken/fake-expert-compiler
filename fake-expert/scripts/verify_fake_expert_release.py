@@ -17,6 +17,7 @@ from typing import Any
 try:
     from compiler_version import (
         RELEASE_VERSION as VERSION,
+        REPAIR_SOURCE_CANDIDATE_VERSION,
         UX_SOURCE_CANDIDATE_VERSION,
         SCIENCE_LIFECYCLE_COMPILER_VERSION,
         DIRECT_REFERENCE_COMPILER_VERSION,
@@ -26,10 +27,11 @@ try:
         SCAN_MVP_CONTRACT_HARDENING_COMPILER_VERSION as HARDENING_VERSION,
     )
 except ModuleNotFoundError:
+    REPAIR_SOURCE_CANDIDATE_VERSION = "1.2.3-private-images-default"  # standalone-release fallback
     VERSION = "1.2.0"  # standalone-release fallback; package time cross-checks this literal
     UX_SOURCE_CANDIDATE_VERSION = "1.2.0-ux"  # standalone-release fallback
     SCIENCE_LIFECYCLE_COMPILER_VERSION = "1.2.0-science-m4"  # standalone-release fallback
-    DIRECT_REFERENCE_COMPILER_VERSION = "1.1.0-direct-reference"  # standalone-release fallback
+    DIRECT_REFERENCE_COMPILER_VERSION = "1.4.0-direct-reference"  # standalone-release fallback
     DIRECT_REFERENCE_PROTOCOL = "direct-reference-draft-v0.1"  # standalone-release fallback
     DIRECT_REFERENCE_SCHEMA = "tkc.direct-reference/v0.1"  # standalone-release fallback
     READONLY_COMPATIBLE_SOURCE_CANDIDATE_VERSIONS = ("0.14.1",)
@@ -38,7 +40,7 @@ except ModuleNotFoundError:
 
 RELEASE_SCHEMA = "tkc.fake-expert-release/v0.4"
 LEGACY_RELEASE_SCHEMA = "tkc.fake-expert-release/v0.1"
-CANDIDATE_VERSIONS = {VERSION, HARDENING_VERSION, UX_SOURCE_CANDIDATE_VERSION, SCIENCE_LIFECYCLE_COMPILER_VERSION}
+CANDIDATE_VERSIONS = {REPAIR_SOURCE_CANDIDATE_VERSION, VERSION, HARDENING_VERSION, UX_SOURCE_CANDIDATE_VERSION, SCIENCE_LIFECYCLE_COMPILER_VERSION}
 LEGACY_COMPATIBLE_VERSIONS = {VERSION, *READONLY_COMPATIBLE_SOURCE_CANDIDATE_VERSIONS}
 ARTIFACT_STAGES = {"candidate-verified", "release-verified"}
 MVP_ACCEPTANCE_SCHEMA = "fake-expert-mvp-1.2-product-scope-v1"

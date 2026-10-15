@@ -1,0 +1,265 @@
+{
+  "capabilities": {
+    "decision_support": false,
+    "executable": false,
+    "reference": true
+  },
+  "conflicts": [],
+  "gaps": [],
+  "module_id": "fake-heat-ref-core",
+  "objects": [
+    {
+      "evidence_ids": [
+        "ev-13486cc3183f00ffcf9a"
+      ],
+      "id": "ko-08bdc3e42e1f5bc9d2e3",
+      "path": "references/knowledge/objects/ko-08bdc3e42e1f5bc9d2e3.json",
+      "source_ids": [
+        "src-0ebede49c4f3b7ad2edc"
+      ],
+      "title": "Fin efficiency drops with mL",
+      "type": "Claim",
+      "weighted_terms": {
+        "about": 6,
+        "drops": 12,
+        "efficiency": 12,
+        "fin": 12,
+        "half": 6,
+        "larger": 6,
+        "ml": 12,
+        "once": 6,
+        "one": 6,
+        "rectangular": 6,
+        "straight": 6,
+        "than": 6,
+        "under": 6
+      }
+    },
+    {
+      "evidence_ids": [
+        "ev-9d4781dd9419efeb8e27"
+      ],
+      "id": "ko-2a154c0483d562e07371",
+      "path": "references/knowledge/objects/ko-2a154c0483d562e07371.json",
+      "source_ids": [
+        "src-0ebede49c4f3b7ad2edc"
+      ],
+      "title": "Copper conductivity peak",
+      "type": "Claim",
+      "weighted_terms": {
+        "18": 6,
+        "52": 6,
+        "about": 6,
+        "conductivity": 12,
+        "copper": 12,
+        "figure": 6,
+        "near": 6,
+        "peak": 12,
+        "peaks": 6,
+        "read": 6,
+        "thermal": 6
+      }
+    },
+    {
+      "evidence_ids": [
+        "ev-74d6f95d8047eab661ea"
+      ],
+      "id": "ko-43839e2870d944c5a086",
+      "path": "references/knowledge/objects/ko-43839e2870d944c5a086.json",
+      "source_ids": [
+        "src-0ebede49c4f3b7ad2edc"
+      ],
+      "title": "对流换热系数",
+      "type": "Definition",
+      "weighted_terms": {
+        "与流速": 6,
+        "对流换热系数": 12,
+        "物性和几何有关": 6,
+        "表示流体和固体表面间的换热强弱": 6
+      }
+    },
+    {
+      "evidence_ids": [
+        "ev-e19599b32ee02b766a0f"
+      ],
+      "id": "ko-6f886b2f809cbdbcbf8d",
+      "path": "references/knowledge/objects/ko-6f886b2f809cbdbcbf8d.json",
+      "source_ids": [
+        "src-0ebede49c4f3b7ad2edc"
+      ],
+      "title": "Plane wall conductive thermal resistance",
+      "type": "Claim",
+      "weighted_terms": {
+        "conductive": 12,
+        "plane": 12,
+        "resistance": 12,
+        "thermal": 12,
+        "wall": 12
+      }
+    },
+    {
+      "evidence_ids": [
+        "ev-8f5e5c9cf31ce33908b1"
+      ],
+      "id": "ko-95d9c642cfd084569b74",
+      "path": "references/knowledge/objects/ko-95d9c642cfd084569b74.json",
+      "source_ids": [
+        "src-0ebede49c4f3b7ad2edc"
+      ],
+      "title": "Thermal conductivity",
+      "type": "Definition",
+      "weighted_terms": {
+        "conductive": 6,
+        "conductivity": 12,
+        "flux": 6,
+        "gradient": 6,
+        "heat": 6,
+        "linking": 6,
+        "local": 6,
+        "material": 6,
+        "property": 6,
+        "temperature": 6,
+        "thermal": 12
+      }
+    },
+    {
+      "evidence_ids": [
+        "ev-f82962ce0bc29b37df19"
+      ],
+      "id": "ko-aee6bc24fe5b6abb8bc3",
+      "path": "references/knowledge/objects/ko-aee6bc24fe5b6abb8bc3.json",
+      "source_ids": [
+        "src-0ebede49c4f3b7ad2edc"
+      ],
+      "title": "Series resistance of composite wall",
+      "type": "Claim",
+      "weighted_terms": {
+        "composite": 12,
+        "layer": 6,
+        "layered": 6,
+        "resistance": 12,
+        "resistances": 6,
+        "series": 12,
+        "sum": 6,
+        "total": 6,
+        "wall": 12
+      }
+    },
+    {
+      "evidence_ids": [
+        "ev-e6854cde66bf3d92ab92"
+      ],
+      "id": "ko-bc9d5929f59b800209e0",
+      "path": "references/knowledge/objects/ko-bc9d5929f59b800209e0.json",
+      "source_ids": [
+        "src-0ebede49c4f3b7ad2edc"
+      ],
+      "title": "Umklapp scattering above the conductivity peak",
+      "type": "Claim",
+      "weighted_terms": {
+        "above": 12,
+        "conductivity": 12,
+        "lowers": 6,
+        "peak": 12,
+        "phonon": 6,
+        "rises": 6,
+        "scattering": 12,
+        "temperature": 6,
+        "umklapp": 12
+      }
+    },
+    {
+      "evidence_ids": [
+        "ev-1915347a6d4e3734865e"
+      ],
+      "id": "ko-f371d39ce822441a6a64",
+      "path": "references/knowledge/objects/ko-f371d39ce822441a6a64.json",
+      "source_ids": [
+        "src-0ebede49c4f3b7ad2edc"
+      ],
+      "title": "Copper conductivity at 300 K",
+      "type": "Claim",
+      "weighted_terms": {
+        "300": 12,
+        "401": 6,
+        "conductivity": 12,
+        "copper": 12,
+        "has": 6,
+        "thermal": 6
+      }
+    },
+    {
+      "evidence_ids": [
+        "ev-9c06edad06351bcdbb04"
+      ],
+      "id": "ko-f6637d8cbb0558cf8562",
+      "path": "references/knowledge/objects/ko-f6637d8cbb0558cf8562.json",
+      "source_ids": [
+        "src-0ebede49c4f3b7ad2edc"
+      ],
+      "title": "Fourier's law of heat conduction",
+      "type": "Equation",
+      "weighted_terms": {
+        "below": 4,
+        "conduction": 12,
+        "conductivity": 6,
+        "dt": 8,
+        "dx": 8,
+        "equals": 6,
+        "flux": 6,
+        "fourier": 12,
+        "gases": 4,
+        "gradient": 6,
+        "heat": 12,
+        "homogeneous": 3,
+        "identical": 8,
+        "isotropic": 3,
+        "law": 12,
+        "media": 3,
+        "minus": 6,
+        "phonon": 4,
+        "rarefied": 4,
+        "relaxation": 4,
+        "scales": 4,
+        "state": 3,
+        "steady": 3,
+        "temperature": 6,
+        "time": 4,
+        "times": 6
+      }
+    }
+  ],
+  "package_id": "fake-heat-ref",
+  "policy": {
+    "assurance": {
+      "gold_state": "not-requested",
+      "knowledge_state": "candidate",
+      "knowledge_verified": false,
+      "package_version": "0.1.0",
+      "queryable": true,
+      "review_state": "deferred",
+      "warnings": [
+        "unreviewed-candidate",
+        "not-ready",
+        "not-decision-capable",
+        "not-executable",
+        "external-source-required-for-full-verification"
+      ]
+    },
+    "decision_guard_terms": [
+      "approve",
+      "certify",
+      "decision",
+      "design",
+      "execute",
+      "recommend",
+      "safe",
+      "safety"
+    ],
+    "out_of_scope_terms": [
+      "unrelated"
+    ]
+  },
+  "runtime_version": "deterministic-token-retrieval-v0.1",
+  "schema_version": "tkc.runtime-catalog/v0.1"
+}

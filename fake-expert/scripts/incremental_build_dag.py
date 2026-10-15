@@ -1128,7 +1128,7 @@ def _inventory_package(package: Path) -> tuple[dict[str, Any], list[dict[str, An
                 object_rows.append(object_row)
     for row in object_rows:
         record = dict(row)
-        record["kind"] = "semantic_assertion" if row.get("type") in {"Claim", "Equation", "Definition", "Concept", "Assumption", "Exception", "Method", "Procedure", "DecisionRule"} else "artifact"
+        record["kind"] = "semantic_assertion" if row.get("type") in {"Claim", "Equation", "Definition", "Concept", "Assumption", "Exception", "Method", "Procedure", "DecisionRule", "Figure", "Table", "DataPoint"} else "artifact"
         nodes.append(record)
         for evidence_id in row.get("evidence_ids", []) if isinstance(row.get("evidence_ids", []), list) else []:
             edges.append({"type": "supports", "from": evidence_id, "to": row.get("id")})

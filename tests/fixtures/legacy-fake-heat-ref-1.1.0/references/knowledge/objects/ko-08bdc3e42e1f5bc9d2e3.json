@@ -1,0 +1,30 @@
+{
+  "applicability": {
+    "excluded_conclusions": [],
+    "physical_pages": [
+      4,
+      4
+    ]
+  },
+  "assumptions": [],
+  "confidence": {
+    "extraction": 0.0,
+    "interpretation": 0.0
+  },
+  "evidence_ids": [
+    "ev-13486cc3183f00ffcf9a"
+  ],
+  "fails_when": [],
+  "formula": null,
+  "id": "ko-08bdc3e42e1f5bc9d2e3",
+  "origin": "source-paraphrase",
+  "schema_version": "tkc.expert-skill/v0.1",
+  "source_ids": [
+    "src-0ebede49c4f3b7ad2edc"
+  ],
+  "statement": "Straight rectangular fin efficiency drops under one half once mL is larger than about 2.",
+  "status": "unreviewed-candidate",
+  "title": "Fin efficiency drops with mL",
+  "type": "Claim",
+  "valid_when": []
+}

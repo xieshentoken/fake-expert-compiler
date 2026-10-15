@@ -32,16 +32,65 @@ HEADING_OVERRIDE_SCHEMA = "tkc.heading-override/v0.1"
 MATH_FONT_PATTERN = re.compile(
     r"(?:CMMI|CMSY|CMEX|MTSY|MTEX|RMTMI|ITALSYMB|SYMBOL|MSAM|MSBM)", re.IGNORECASE
 )
-EQUATION_LABEL_PATTERN = re.compile(r"\(\s*\d+(?:\.\d+)+\s*\)")
-FIGURE_PATTERN = re.compile(r"\b(?:Figure|Fig\.)\s*\d+(?:\.\d+)+", re.IGNORECASE)
-TABLE_PATTERN = re.compile(r"\bTable\s*\d+(?:\.\d+)+", re.IGNORECASE)
+# Label numbers: ``3``, ``1.2``, ``2-3`` (books and papers).  Undotted numbers
+# are accepted only with a capitalized English label or a CJK label, so prose
+# such as "a figure 5 times higher" does not route a page.
+_LABEL_NUMBER = r"\d+(?:[.\-–－]\d+)*"
+_DOTTED_LABEL_NUMBER = r"\d+(?:[.\-–－]\d+)+"
+EQUATION_LABEL_PATTERN = re.compile(r"[(（]\s*(\d+(?:[.\-–－]\d+)+)\s*[)）]")
+EQUATION_LINE_LABEL_PATTERN = re.compile(r"=.*[(（]\s*(\d{1,3})\s*[)）]\s*$")
+FIGURE_PATTERN = re.compile(
+    rf"(?<![A-Za-z])(?:Figures?|FIGURES?|Figs?\.|FIGS?\.)\s*(?P<a>{_LABEL_NUMBER})"
+    rf"|(?<![A-Za-z])(?i:figures?|figs?\.)\s*(?P<b>{_DOTTED_LABEL_NUMBER})"
+    rf"|(?<![地试企意构绘])图\s*(?P<c>{_LABEL_NUMBER})"
+)
+TABLE_PATTERN = re.compile(
+    rf"(?<![A-Za-z])(?:Tables?|TABLES?|Tab\.|TAB\.)\s*(?P<a>{_LABEL_NUMBER})"
+    rf"|(?<![A-Za-z])(?i:tables?|tab\.)\s*(?P<b>{_DOTTED_LABEL_NUMBER})"
+    rf"|(?<![代列图报发外仪电年时课量])表\s*(?P<c>{_LABEL_NUMBER})"
+)
 GLYPH_NAME_PATTERN = re.compile(
     r"/(?:Lambda|Delta|Gamma|Omega|Theta|Phi|Psi|Sigma|alpha|beta|gamma|delta|lambda|omega)"
 )
 HEADING_PATTERN = re.compile(
     r"^(?P<number>\d+(?:\.\d+)*)\s+(?P<title>[A-Za-z][^\n]{2,})$"
 )
+# CJK numbered headings: ``1.5 对流换热``, ``1.5对流换热`` (dotted only), and
+# ``第三章 传热基础`` / ``第2节 导热``.  Short titles without sentence
+# punctuation only; body sentences that start with a number stay body text.
+CJK_HEADING_PATTERN = re.compile(
+    r"^(?P<number>\d{1,2}(?:\.\d+)+|\d{1,2}(?=\s))\s*(?P<title>[㐀-䶿一-鿿][^\n]{0,39})$"
+)
+CJK_CHAPTER_PATTERN = re.compile(
+    r"^(?P<number>第[一二三四五六七八九十百零〇两\d]{1,4}(?P<kind>[章节篇部]))\s*(?P<title>[^\n]{1,40})$"
+)
+CJK_HEADING_FORBIDDEN = re.compile(r"[。,;!?，；！？:：]")
 TRAILING_PAGE_NUMBER = re.compile(r"\s+(\d{1,4})$")
+PATH_PAINT_OPERATORS = {b"S", b"s", b"f", b"F", b"f*", b"B", b"B*", b"b", b"b*"}
+VECTOR_GRAPHICS_MIN_PAINT_OPS = 12
+
+
+def figure_labels(text: str) -> list[str]:
+    """Return figure label numbers (``1.2``) mentioned in ``text``."""
+
+    return [next(value for value in match.groups() if value) for match in FIGURE_PATTERN.finditer(text)]
+
+
+def table_labels(text: str) -> list[str]:
+    """Return table label numbers mentioned in ``text``."""
+
+    return [next(value for value in match.groups() if value) for match in TABLE_PATTERN.finditer(text)]
+
+
+def equation_labels(normalized: str, raw_text: str = "") -> list[str]:
+    """Return sorted ``(n.m)`` equation labels, plus ``(n)`` ending an equation line."""
+
+    labels = {f"({match.group(1)})" for match in EQUATION_LABEL_PATTERN.finditer(normalized)}
+    for line in raw_text.splitlines():
+        match = EQUATION_LINE_LABEL_PATTERN.search(unicodedata.normalize("NFKC", line).strip())
+        if match:
+            labels.add(f"({match.group(1)})")
+    return sorted(labels)
 
 
 class PdfPipelineError(RuntimeError):
@@ -115,14 +164,64 @@ def page_fonts(page: Any) -> list[dict[str, Any]]:
 
 
 def page_image_count(page: Any) -> int:
-    resources = dereference(page.get("/Resources") or {})
-    xobjects = dereference(resources.get("/XObject") or {}) if hasattr(resources, "get") else {}
-    count = 0
-    for reference in xobjects.values():
-        obj = dereference(reference)
-        if hasattr(obj, "get") and str(obj.get("/Subtype", "")) == "/Image":
-            count += 1
-    return count
+    return page_graphics_summary(page)["raster_image_count"]
+
+
+def page_graphics_summary(page: Any, *, max_depth: int = 8) -> dict[str, Any]:
+    """Count raster images (incl. nested in Form XObjects and inline) and vector paint ops.
+
+    LaTeX ``\\includegraphics`` of a PDF figure arrives as a Form XObject and
+    plots are often pure vector paths, so top-level ``/Image`` XObjects alone
+    miss most technical figures.  Counts are routing hints, never evidence.
+    """
+
+    summary: dict[str, Any] = {
+        "raster_image_count": 0,
+        "inline_image_count": 0,
+        "form_xobject_count": 0,
+        "vector_paint_op_count": 0,
+        "scan_status": "complete",
+    }
+    seen_images: set[Any] = set()
+    seen_forms: set[Any] = set()
+
+    def identity(reference: Any, obj: Any) -> Any:
+        indirect = getattr(reference, "idnum", None)
+        return ("ref", indirect, getattr(reference, "generation", 0)) if indirect is not None else ("obj", id(obj))
+
+    def visit(resources: Any, content: Any, depth: int) -> None:
+        resources = dereference(resources or {})
+        xobjects = dereference(resources.get("/XObject") or {}) if hasattr(resources, "get") else {}
+        for reference in xobjects.values():
+            obj = dereference(reference)
+            if not hasattr(obj, "get"):
+                continue
+            subtype = str(obj.get("/Subtype", ""))
+            key = identity(reference, obj)
+            if subtype == "/Image" and key not in seen_images:
+                seen_images.add(key)
+                summary["raster_image_count"] += 1
+            elif subtype == "/Form" and key not in seen_forms and depth < max_depth:
+                seen_forms.add(key)
+                summary["form_xobject_count"] += 1
+                visit(obj.get("/Resources"), obj, depth + 1)
+        if content is None:
+            return
+        from pypdf.generic import ContentStream
+
+        stream = ContentStream(content, getattr(page, "pdf", None))
+        for _operands, operator in stream.operations:
+            if operator == b"INLINE IMAGE":
+                summary["inline_image_count"] += 1
+            elif operator in PATH_PAINT_OPERATORS:
+                summary["vector_paint_op_count"] += 1
+
+    try:
+        visit(page.get("/Resources"), page.get_contents(), 0)
+    except Exception:
+        summary["scan_status"] = "partial"
+    summary["raster_image_count"] += summary["inline_image_count"]
+    return summary
 
 
 def page_dimensions(page: Any) -> dict[str, float]:
@@ -194,8 +293,9 @@ def inspect_page(
     fonts_without_unicode = sorted(
         {font["base_font"] for font in fonts if not font["has_to_unicode"]}
     )
-    image_count = page_image_count(page)
-    equation_labels = sorted(set(EQUATION_LABEL_PATTERN.findall(normalized)))
+    graphics = page_graphics_summary(page)
+    image_count = graphics["raster_image_count"]
+    page_equation_labels = equation_labels(normalized, raw_text)
 
     ocr_reasons: list[str] = []
     if native_status == "missing":
@@ -208,7 +308,7 @@ def inspect_page(
         visual_reasons.append("native_text_not_usable")
     if math_fonts:
         visual_reasons.append("math_font_present")
-    if equation_labels:
+    if page_equation_labels:
         visual_reasons.append("equation_label_present")
     if GLYPH_NAME_PATTERN.search(raw_text) or "\ufffd" in raw_text or _private_use_present(raw_text):
         visual_reasons.append("suspicious_glyph_decoding")
@@ -218,6 +318,8 @@ def inspect_page(
         visual_reasons.append("table_reference_present")
     if image_count:
         visual_reasons.append("raster_image_present")
+    if graphics["form_xobject_count"] or graphics["vector_paint_op_count"] >= VECTOR_GRAPHICS_MIN_PAINT_OPS:
+        visual_reasons.append("vector_graphics_present")
 
     printed_label = detect_printed_page_label(raw_text)
     if native_status == "usable":
@@ -250,9 +352,10 @@ def inspect_page(
             "fonts_without_to_unicode": fonts_without_unicode,
         },
         "raster_image_count": image_count,
+        "graphics_summary": graphics,
         "page_role": page_role,
         "page_disposition": page_disposition,
-        "equation_labels": equation_labels,
+        "equation_labels": page_equation_labels,
         "ocr_reasons": ocr_reasons,
         "visual_verification_reasons": visual_reasons,
     }
@@ -294,6 +397,30 @@ def flatten_outline(reader: Any) -> list[OutlineNode]:
     return nodes
 
 
+def _heading_line(line: str) -> tuple[str, str, int] | None:
+    """Return ``(number, title, depth)`` for a numbered heading line, else None."""
+
+    match = HEADING_PATTERN.match(line)
+    if match:
+        number = match.group("number")
+        title = re.sub(r"\s+\d{1,3}$", "", match.group("title")).strip()
+        return number, title, number.count(".")
+    match = CJK_CHAPTER_PATTERN.match(line)
+    if match:
+        title = re.sub(r"\s+\d{1,3}$", "", match.group("title")).strip()
+        if not title or CJK_HEADING_FORBIDDEN.search(title):
+            return None
+        return match.group("number"), title, 1 if match.group("kind") == "节" else 0
+    match = CJK_HEADING_PATTERN.match(line)
+    if match:
+        title = re.sub(r"\s+\d{1,3}$", "", match.group("title")).strip()
+        if not title or CJK_HEADING_FORBIDDEN.search(title):
+            return None
+        number = match.group("number")
+        return number, title, number.count(".")
+    return None
+
+
 def heading_fallback(page_texts: dict[int, str]) -> list[OutlineNode]:
     nodes: list[OutlineNode] = []
     seen: set[str] = set()
@@ -301,17 +428,15 @@ def heading_fallback(page_texts: dict[int, str]) -> list[OutlineNode]:
     for physical_page, text in page_texts.items():
         for line in text.splitlines()[:24]:
             line = normalize_text(line)
-            match = HEADING_PATTERN.match(line)
-            if not match:
+            heading = _heading_line(line)
+            if heading is None:
                 continue
-            number = match.group("number")
-            title = re.sub(r"\s+\d{1,3}$", "", match.group("title")).strip()
+            number, title, depth = heading
             normalized_title = f"{number} {title}"
             key = normalized_title.casefold()
             if key in seen:
                 continue
             seen.add(key)
-            depth = number.count(".")
             parent_index = last_at_depth.get(depth - 1) if depth else None
             nodes.append(
                 OutlineNode(
@@ -777,6 +902,7 @@ def compile_pdf_intermediate_representation(
     docling_allow_network: bool = False,
     heading_overrides: Path | None = None,
     heading_locator_overrides: Path | None = None,
+    structure_selections: Path | None = None,
 ) -> dict[str, Any]:
     try:
         from pypdf import PdfReader, __version__ as pypdf_version
@@ -871,6 +997,15 @@ def compile_pdf_intermediate_representation(
         page_texts,
         raw_page_texts,
     )
+    if structure_selections is not None:
+        from native_structure_selection import selected_segments
+        try:
+            segments = selected_segments(structure_selections, source_hash, source_id, page_texts,
+                                         (start_page, actual_end), page_records)
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            raise PdfPipelineError(f"structure_selections_invalid:{error}") from error
+        structure_source = "operator-selected-source-text-boundaries"
+        ancestors, heading_resolutions = [], []
     overrides = load_heading_overrides(heading_overrides)
     apply_heading_overrides(
         segments,
@@ -924,6 +1059,14 @@ def compile_pdf_intermediate_representation(
         )
     except HeadingLocatorError as error:
         raise PdfPipelineError(str(error)) from error
+    if structure_selections is not None:
+        selection_rows = json.loads(structure_selections.read_text(encoding="utf-8"))["boundaries"]
+        by_id = {row["candidate_id"]: row for row in heading_candidates}
+        for segment, selected in zip(segments, selection_rows):
+            resolved = next((row for row in heading_resolution_records if row["segment_id"] == segment["id"]), {})
+            candidate = by_id.get(resolved.get("selected_candidate_id"), {})
+            if candidate.get("physical_page") != selected["page"] or candidate.get("char_span") != [selected["start"], selected["end"]]:
+                raise PdfPipelineError("structure_selection_locator_mismatch")
     resolution_by_segment = {
         row["segment_id"]: row
         for row in heading_resolution_records

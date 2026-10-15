@@ -1,0 +1,30 @@
+{
+  "applicability": {
+    "excluded_conclusions": [],
+    "physical_pages": [
+      1,
+      1
+    ]
+  },
+  "assumptions": [],
+  "confidence": {
+    "extraction": 0.0,
+    "interpretation": 0.0
+  },
+  "evidence_ids": [
+    "ev-e19599b32ee02b766a0f"
+  ],
+  "fails_when": [],
+  "formula": null,
+  "id": "ko-6f886b2f809cbdbcbf8d",
+  "origin": "source-paraphrase",
+  "schema_version": "tkc.expert-skill/v0.1",
+  "source_ids": [
+    "src-0ebede49c4f3b7ad2edc"
+  ],
+  "statement": "For a plane wall the conductive resistance is R = L/(k A).",
+  "status": "unreviewed-candidate",
+  "title": "Plane wall conductive thermal resistance",
+  "type": "Claim",
+  "valid_when": []
+}

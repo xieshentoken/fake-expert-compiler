@@ -69,7 +69,7 @@
       ],
       "properties": {
         "local_id": {"type": "string", "minLength": 1},
-        "type": {"enum": ["Definition", "Concept", "Claim", "Equation", "Assumption", "Exception", "Method", "Procedure", "DecisionRule"]},
+        "type": {"enum": ["Definition", "Concept", "Claim", "Equation", "Assumption", "Exception", "Method", "Procedure", "DecisionRule", "Figure", "Table", "DataPoint"]},
         "origin": {"enum": ["source-explicit", "source-paraphrase", "compiler-derived"]},
         "title": {"type": "string", "minLength": 1},
         "statement": {"type": "string", "minLength": 1},
@@ -87,6 +87,7 @@
           }
         },
         "visual_task_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "figure_object_ids": {"type": "array", "items": {"type": "string", "pattern": "^vo-[0-9a-f]{20}$"}, "uniqueItems": true},
         "formula": {"type": ["object", "null"]}
       }
     },

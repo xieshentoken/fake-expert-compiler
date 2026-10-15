@@ -1,0 +1,30 @@
+# Local environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+.coverage
+htmlcov/
+.pytest_cache/
+# Private inputs, outputs, receipts and backups
+/output/
+/runs/
+/tmp/
+/backups/
+.backups/
+*-evidence/
+publication-audit/
+/extraction/
+/workpack/
+.env
+.env.*
+!.env.example
+credentials.json
+secrets.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.pdf
+!tests/fixtures/heat-book.pdf

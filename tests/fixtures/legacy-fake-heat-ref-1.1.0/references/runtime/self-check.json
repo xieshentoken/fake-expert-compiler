@@ -1,0 +1,74 @@
+{
+  "attestation_level": "deterministic-recomputed-not-human",
+  "base_runtime_sha256": "50de12e92c840806121d898d1f44d36c57d80e81ad13ef82e08b4417c6ba5581",
+  "catalog_sha256": "70fb59602775eb18eccc5fe1014e37295b31ce044bb1816b65348dadd4370749",
+  "checks": [
+    {
+      "code": "title_retrieves_object",
+      "object_id": "ko-08bdc3e42e1f5bc9d2e3",
+      "passed": true,
+      "response_sha256": "067da66069c46085bf82c942f0de853e6678a1fde5c2bfa4f06c3a61171634c2"
+    },
+    {
+      "code": "title_retrieves_object",
+      "object_id": "ko-2a154c0483d562e07371",
+      "passed": true,
+      "response_sha256": "a2d1dbe477821b4018aa1ca40ec2ee614bdbccdbe89c14cbee312de5c6298881"
+    },
+    {
+      "code": "title_retrieves_object",
+      "object_id": "ko-43839e2870d944c5a086",
+      "passed": true,
+      "response_sha256": "3988edd8d4925dbe835cce22949560e09b10731c47b90cea1434e25a24210b67"
+    },
+    {
+      "code": "title_retrieves_object",
+      "object_id": "ko-6f886b2f809cbdbcbf8d",
+      "passed": true,
+      "response_sha256": "0aa7ad0e8228ad732989becec44f2c5f85c14824a0171b43f457755b75347f8c"
+    },
+    {
+      "code": "title_retrieves_object",
+      "object_id": "ko-95d9c642cfd084569b74",
+      "passed": true,
+      "response_sha256": "541a0db3b923eef96636b5689da9478876bc2ce5b371dfc9f99282994576a8cf"
+    },
+    {
+      "code": "title_retrieves_object",
+      "object_id": "ko-aee6bc24fe5b6abb8bc3",
+      "passed": true,
+      "response_sha256": "05e7c28ba5eb2b11b5839d56d951bb91a097781bd705a9c2c3224cf8b7604501"
+    },
+    {
+      "code": "title_retrieves_object",
+      "object_id": "ko-bc9d5929f59b800209e0",
+      "passed": true,
+      "response_sha256": "c166deee559b74586588d241e62177d6d00a40fe92e7d1ad948c604a51c77ebf"
+    },
+    {
+      "code": "title_retrieves_object",
+      "object_id": "ko-f371d39ce822441a6a64",
+      "passed": true,
+      "response_sha256": "9d89837a1ef823dde1425848ac7864674c8c5ad288045e745d82e1185b9690ce"
+    },
+    {
+      "code": "title_retrieves_object",
+      "object_id": "ko-f6637d8cbb0558cf8562",
+      "passed": true,
+      "response_sha256": "7b1f658277e201a611b9bee652b6d8628b6188b29de476bcd723b61fdcff89a5"
+    },
+    {
+      "code": "decision_request_abstains",
+      "passed": true,
+      "response_sha256": "5404c8a342499bc19a91c3168e294ed02c0068f1a6e5ff645e57dd2cd42de592"
+    },
+    {
+      "code": "chinese_decision_request_abstains",
+      "passed": true,
+      "response_sha256": "5404c8a342499bc19a91c3168e294ed02c0068f1a6e5ff645e57dd2cd42de592"
+    }
+  ],
+  "passed": true,
+  "runtime_sha256": "4373790b353306851ca92debab4dc3e1b5a2c8c64178ade857b79cd99f34f19b",
+  "schema_version": "tkc.direct-reference-self-check/v0.1"
+}

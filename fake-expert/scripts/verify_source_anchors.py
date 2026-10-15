@@ -1207,6 +1207,29 @@ def main() -> int:
             result["error"] = "anchor_hash_mismatch"
         results.append(result)
 
+    # Formula bindings establish source notation only, never semantic truth or execution.
+    from formula_numeric_evidence import verify_native_binding
+    formula_results = []
+    anchor_by_id = {row["id"]: row for row in anchor_rows}
+    for object_path in sorted((package / "references/knowledge/objects").glob("*.json")):
+        obj = load_json(object_path)
+        if not isinstance(obj.get("formula"), dict) or not obj["formula"].get("native_numeric_evidence"):
+            continue
+        spans = [{k:s[k] for k in ("page", "start", "end", "span_sha256")}
+                 for identifier in obj["evidence_ids"] for s in anchor_by_id[identifier]["text_spans"]]
+        saved = obj["formula"]["native_numeric_evidence"]
+        result = {"id":obj["id"], "kind":"native-formula-numeric", "passed":False}
+        try:
+            # Anchor grouping may reorder spans; the receipt retains the committed order.
+            if sorted(spans, key=lambda x:(x["page"],x["start"],x["end"])) != sorted(saved["evidence_spans"], key=lambda x:(x["page"],x["start"],x["end"])):
+                raise ValueError("formula_anchor_spans_mismatch")
+            verify_native_binding(source, {**obj, "evidence_spans":saved["evidence_spans"]})
+            result["passed"] = True
+        except (ValueError, KeyError, TypeError, OSError) as error:
+            result["error"] = str(error)
+        formula_results.append(result)
+    results.extend(formula_results)
+
     gap_rows: list[object] = []
     gaps_path = package / "references/knowledge-gaps.jsonl"
     if gaps_path.is_file():
@@ -1294,6 +1317,7 @@ def main() -> int:
         "extractor_runtime": f"pypdf-{pypdf_version}",
         "anchor_count": len(anchor_rows),
         "knowledge_gap_count": len(gap_rows),
+        "native_formula_binding_count": len(formula_results),
         "verified_item_count": len(results),
         "anchors": results,
     }

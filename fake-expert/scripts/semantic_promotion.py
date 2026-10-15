@@ -12,11 +12,15 @@ import shutil
 import subprocess
 import unicodedata
 import zlib
+
+from numeric_evidence import checked_untraced_numbers, NumericEvidenceError
+from figure_crop_geometry import PROTOCOL as FIGURE_CROP_PROTOCOL, pixel_bounds
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from expert_skill_contract import (
+    FIGURE_KNOWLEDGE_TYPES,
     KNOWLEDGE_TYPES,
     SCHEMA_ID,
     SHA256_RE,
@@ -26,7 +30,13 @@ from expert_skill_contract import (
     sha256_file,
 )
 from formula_execution import FORMULA_AST_SCHEMA, FormulaContractError, sha256_json as formula_sha256_json, validate_formula_ast
-from pdf_structure import detect_printed_page_label, normalize_text, stable_id
+from pdf_structure import (
+    detect_printed_page_label,
+    figure_labels,
+    normalize_text,
+    stable_id,
+    table_labels,
+)
 from heading_locator import locator_bundle_sha256
 from compiler_version import (
     SCAN_PDF_COMPILER_VERSION,
@@ -56,7 +66,11 @@ from visual_semantics import (
     VISUAL_OBJECT_SCHEMA,
     VISUAL_PROTOCOL,
     VISUAL_REVIEW_PROTOCOL,
+    VisualSemanticsError,
     extract_visual_candidates,
+    ocr_figure_crop,
+    render_crop_png,
+    sha256_bytes,
     sha256_file as visual_sha256_file,
     validate_visual_bundle,
     validate_visual_review_attestations,
@@ -122,8 +136,6 @@ PROHIBITED_DRAFT_KEYS = {
     "verified",
     "human_reviewed",
 }
-FIGURE_PATTERN = re.compile(r"\b(?:Figure|Fig\.)\s*(\d+(?:\.\d+)+)", re.IGNORECASE)
-TABLE_PATTERN = re.compile(r"\bTable\s*(\d+(?:\.\d+)+)", re.IGNORECASE)
 NUMBER_PATTERN = re.compile(r"(?<![A-Za-z_])[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 ISSUE_CODE_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
@@ -1319,14 +1331,16 @@ def _visual_tasks(
             if isinstance(label, str):
                 add(page, "equation", label.strip("() "), reasons)
         text = page_texts.get(page, "")
-        for label in FIGURE_PATTERN.findall(text):
+        for label in figure_labels(text):
             add(page, "figure-check", label, reasons + ["figure_presence_requires_review"])
-        for label in TABLE_PATTERN.findall(text):
+        for label in table_labels(text):
             add(page, "table-check", label, reasons + ["table_layout_requires_review"])
         if "suspicious_glyph_decoding" in reasons:
             add(page, "glyph-check", "page-glyphs", reasons)
         if "math_font_present" in reasons:
             add(page, "math-page-check", "unlabelled-math", reasons)
+        if "vector_graphics_present" in reasons:
+            add(page, "figure-check", "unlabelled-graphics", reasons)
         if "raster_image_present" in reasons:
             add(page, "image-check", "page-images", reasons)
         if not any(task["page"] == page for task in tasks):
@@ -1369,12 +1383,8 @@ def _render_visual_pages(
     pdftoppm: Path,
     dpi: int,
 ) -> dict[str, Any]:
-    pdftoppm = pdftoppm.expanduser().resolve()
-    if not pdftoppm.is_file():
-        resolved = shutil.which(str(pdftoppm))
-        if not resolved:
-            raise SemanticPromotionError(f"pdftoppm_missing: {pdftoppm}")
-        pdftoppm = Path(resolved)
+    # A bare name such as ``pdftoppm`` is looked up on PATH before resolving.
+    pdftoppm = _resolve_pdftoppm(pdftoppm)
     try:
         version = subprocess.run(
             [str(pdftoppm), "-v"],
@@ -1429,6 +1439,98 @@ def _render_visual_pages(
         "dpi": dpi,
         "format": "png",
     }
+
+
+FIGURE_CROP_TYPES = {"figure", "plot", "diagram", "table"}
+FIGURE_OCR_DPI = 300
+FIGURE_OCR_SCHEMA = "tkc.figure-ocr-candidate/v0.1"
+
+
+def _resolve_pdftoppm(pdftoppm: Path) -> Path:
+    candidate = pdftoppm.expanduser()
+    if candidate.is_file():
+        return candidate.resolve()
+    resolved = shutil.which(str(pdftoppm))
+    if not resolved:
+        raise SemanticPromotionError(f"pdftoppm_missing: {pdftoppm}")
+    return Path(resolved)
+
+
+def _figure_crop_rows(visual_bundle: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        row
+        for row in visual_bundle.get("objects", [])
+        if isinstance(row, dict) and row.get("type") in FIGURE_CROP_TYPES and not row.get("parent")
+    ]
+
+
+def _write_figure_crops(output: Path, visual_bundle: dict[str, Any], source: Path, pdftoppm: Path, dpi: int) -> dict[str, dict[str, str]]:
+    """Write private PNG crops of figure/table candidates for authors and reviewers.
+
+    Crops are source content: they stay inside the ephemeral workpack and only
+    enter a Skill through the explicit ``--figure-crops`` packaging option.
+    """
+
+    crops: dict[str, dict[str, str]] = {}
+    for row in _figure_crop_rows(visual_bundle):
+        try:
+            data = render_crop_png(source, row, pdftoppm, dpi=dpi)
+        except VisualSemanticsError as error:
+            raise SemanticPromotionError(f"figure_crop_failed: {row.get('visual_object_id')}: {error}") from error
+        (output / "crops").mkdir(parents=True, exist_ok=True)
+        os.chmod(output / "crops", 0o700)
+        relative = f"crops/{row['visual_object_id']}.png"
+        _write_bytes_secure(output / relative, data)
+        crops[str(row["visual_object_id"])] = {"path": relative, "sha256": sha256_bytes(data), "dpi": str(dpi),
+            "protocol": FIGURE_CROP_PROTOCOL, "pixel_bounds": list(pixel_bounds(row, dpi)),
+            "source_sha256": row["source_sha256"], "page_geometry_sha256": sha256_json(row["page_geometry"])}
+    return dict(sorted(crops.items()))
+
+
+def _write_figure_ocr(output: Path, visual_bundle: dict[str, Any], source: Path, pdftoppm: Path, config: Mapping[str, Any]) -> dict[str, Any]:
+    """Explicit, candidate-only OCR of figure crops into ``figure-ocr.jsonl``.
+
+    Kept outside visual objects so an optional engine never changes visual
+    object hashes.  Figures whose native text already covers their labels are
+    skipped (vector artwork); raster artwork is always read.
+    """
+
+    rows: list[dict[str, Any]] = []
+    for row in _figure_crop_rows(visual_bundle):
+        attributes = row.get("attributes") if isinstance(row.get("attributes"), dict) else {}
+        geometry = attributes.get("geometry_provenance") if isinstance(attributes.get("geometry_provenance"), dict) else {}
+        if row.get("type") == "table" or (
+            attributes.get("figure_text_candidates") and geometry.get("geometry_evidence") != "pdf-xobject-image-do-v0.1"
+        ):
+            continue
+        try:
+            crop = render_crop_png(source, row, pdftoppm, dpi=FIGURE_OCR_DPI)
+        except VisualSemanticsError as error:
+            result: dict[str, Any] = {"status": "failed", "code": str(error), "lines": []}
+        else:
+            result = ocr_figure_crop(crop, config)
+        rows.append({
+            "schema_version": FIGURE_OCR_SCHEMA,
+            "visual_object_id": row["visual_object_id"],
+            "physical_page": row["physical_page"],
+            "crop_dpi": FIGURE_OCR_DPI,
+            **result,
+        })
+    _write_jsonl(output / "figure-ocr.jsonl", rows)
+    return {
+        "path": "figure-ocr.jsonl",
+        "schema_version": FIGURE_OCR_SCHEMA,
+        "engine": config["engine"],
+        "engine_version": config["version"],
+        "lang": config["lang"],
+        "row_count": len(rows),
+        "candidate_only": True,
+    }
+
+def _write_bytes_secure(path: Path, value: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(value)
+    os.chmod(path, 0o600)
 
 
 def _visual_bundle_for_workpack(
@@ -1513,36 +1615,16 @@ def _visual_bundle_for_workpack(
         }
         for page in pages
     }
-    try:
-        return extract_visual_candidates(
-            source_path,
-            pages=pages,
-            render_receipts=render_receipts,
-            render_dpi=int((render_profile or {}).get("dpi", 150)),
-            parser_receipt={"id": "pypdf-native-baseline", "version": "pypdf-6.10.0", "candidate_only": True},
-            backend_receipt={"id": "reviewer-locator-confirmed-bbox", "version": "v0.1", "candidate_only": True},
-            model_receipt={"id": "none", "available": False, "download": False},
-            config_receipt={"id": "workpack-native-visual-baseline-v0.1", "candidate_only": True},
-        )
-    except Exception as error:
-        # Missing or malformed candidate geometry must remain an explicit conflict;
-        # never silently fall back to a page-level visual fact.
-        conflicts = []
-        for page in pages:
-            detail = {"code": str(error).split(":", 1)[0], "message": str(error), "page": page}
-            base = {
-                "schema_version": "tkc.visual-conflict/v0.1",
-                "visual_conflict_id": stable_id("vc", source_sha256, page, "missing", detail["code"]),
-                "source_sha256": source_sha256,
-                "physical_page": page,
-                "conflict_type": "missing",
-                "object_ids": [],
-                "details": detail,
-                "status": "candidate",
-            }
-            base["conflict_sha256"] = sha256_json(base)
-            conflicts.append(base)
-        return {"schema_version": VISUAL_PROTOCOL, "source_sha256": source_sha256, "pages": pages, "objects": [], "relations": [], "table_grids": [], "conflicts": conflicts, "render_receipts": list(render_receipts.values()), "candidate_only": True, "whole_book_completeness_claimed": False, "unavailable": True}
+    return extract_visual_candidates(
+        source_path,
+        pages=pages,
+        render_receipts=render_receipts,
+        render_dpi=int((render_profile or {}).get("dpi", 150)),
+        parser_receipt={"id": "pypdf-native-baseline", "version": "pypdf-6.10.0", "candidate_only": True},
+        backend_receipt={"id": "reviewer-locator-confirmed-bbox", "version": "v0.1", "candidate_only": True},
+        model_receipt={"id": "none", "available": False, "download": False},
+        config_receipt={"id": "workpack-native-visual-baseline-v0.1", "candidate_only": True},
+    )
 
 
 def _attach_visual_ids_to_tasks(tasks: list[dict[str, Any]], bundle: Mapping[str, Any]) -> None:
@@ -1561,6 +1643,15 @@ def _attach_visual_ids_to_tasks(tasks: list[dict[str, Any]], bundle: Mapping[str
             matches = [row for row in matches if row.get("type") == "equation_display"]
         elif kind.startswith("page"):
             matches = []
+        # Labels/annotations and nested panels belong to the same frozen review.
+        matched_ids = {row["visual_object_id"] for row in matches}
+        while True:
+            children = [row for row in objects if row.get("physical_page") == page
+                        and row.get("parent") in matched_ids and row["visual_object_id"] not in matched_ids]
+            if not children:
+                break
+            matches.extend(children)
+            matched_ids.update(row["visual_object_id"] for row in children)
         task["visual_object_ids"] = sorted(str(row["visual_object_id"]) for row in matches if isinstance(row.get("visual_object_id"), str))
         # ``table_cell_ids`` are grid cell IDs, not visual-object IDs.  This
         # keeps a numeric/table claim bound to the exact row/column cell while
@@ -1610,6 +1701,7 @@ def build_semantic_workpack(
     render_dpi: int = 150,
     allow_scan_candidates: bool = False,
     semantic_assurance: bool = True,
+    figure_ocr: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     if context_characters < 0 or max_focus_characters < 1:
         raise SemanticPromotionError("invalid_workpack_limits")
@@ -1699,6 +1791,15 @@ def build_semantic_workpack(
         render_profile=render_profile,
     )
     _attach_visual_ids_to_tasks(tasks, visual_bundle)
+    figure_crops: dict[str, dict[str, str]] = {}
+    figure_ocr_summary: dict[str, Any] | None = None
+    if render_profile and pdftoppm is not None:
+        renderer = _resolve_pdftoppm(pdftoppm)
+        figure_crops = _write_figure_crops(output, visual_bundle, source_path.expanduser().resolve(), renderer, int(render_profile.get("dpi", render_dpi)))
+        if figure_ocr is not None:
+            figure_ocr_summary = _write_figure_ocr(output, visual_bundle, source_path.expanduser().resolve(), renderer, figure_ocr)
+    elif figure_ocr is not None:
+        raise SemanticPromotionError("figure_ocr_requires_pdftoppm")
 
     parent_by_id = {segment["id"]: segment.get("parent_id") for segment in segments}
     title_by_id = {segment["id"]: segment["title"] for segment in segments}
@@ -2004,6 +2105,8 @@ def build_semantic_workpack(
                 if isinstance(row, dict)
             ],
             "unavailable": bool(visual_bundle.get("unavailable", False)),
+            "figure_crops": figure_crops,
+            **({"figure_ocr": figure_ocr_summary} if figure_ocr_summary is not None else {}),
         },
         "units": units,
         "drafts_directory": "drafts",
@@ -2491,6 +2594,28 @@ def validate_semantic_workpack(
                     object_path,
                     f"Visual tasks must be on an evidence-span page: {mismatched_tasks}",
                 )
+            figure_ids = obj.get("figure_object_ids", [])
+            task_visual_ids = {
+                str(identifier)
+                for task_id in task_ids
+                for identifier in task_by_id[task_id].get("visual_object_ids", [])
+            }
+            if not isinstance(figure_ids, list) or any(not isinstance(value, str) for value in figure_ids):
+                _add_issue(issues, "error", "figure_object_ids_invalid", object_path, "figure_object_ids must be an array of visual-object IDs.")
+                figure_ids = []
+            allowed_figures = {row["visual_object_id"] for row in visual_bundle.get("objects", [])
+                               if row.get("type") in {"figure", "plot", "diagram", "table"}}
+            unresolved_figures = sorted(set(figure_ids) - (task_visual_ids & allowed_figures))
+            if unresolved_figures:
+                _add_issue(
+                    issues,
+                    "error",
+                    "figure_object_unresolved",
+                    object_path,
+                    f"figure_object_ids must belong to this object's visual tasks: {unresolved_figures}",
+                )
+            if obj.get("type") in FIGURE_KNOWLEDGE_TYPES and not figure_ids:
+                _add_issue(issues, "error", "figure_fact_object_missing", object_path, "Figure/Table/DataPoint facts must name the figure or table visual objects they were read from.")
             formula = obj.get("formula")
             if obj.get("type") == "Equation":
                 if not isinstance(formula, dict):
@@ -2521,16 +2646,24 @@ def validate_semantic_workpack(
                     _add_issue(issues, "error", "formula_visual_receipt_missing", object_path, "Equation must link a formula visual task.")
             elif formula is not None and not isinstance(formula, dict):
                 _add_issue(issues, "error", "formula_contract_invalid", object_path, "formula must be an object or null.")
-            if isinstance(obj.get("statement"), str) and obj.get("origin") != "compiler-derived":
-                statement_numbers = set(NUMBER_PATTERN.findall(obj["statement"]))
-                if statement_numbers and evidence:
-                    evidence_numbers: set[str] = set()
-                    for span in evidence:
-                        if isinstance(span, dict) and isinstance(span.get("page"), int) and isinstance(span.get("start"), int) and isinstance(span.get("end"), int):
-                            evidence_numbers.update(NUMBER_PATTERN.findall(page_texts[span["page"]][span["start"]:span["end"]]))
-                    untraced = statement_numbers - evidence_numbers
-                    if untraced:
-                        _add_issue(issues, "warning", "numeric_token_untraced", object_path, f"Numbers absent from evidence spans: {sorted(untraced)}")
+            if isinstance(obj.get("statement"), str) and evidence:
+                evidence_text = " ".join(
+                    page_texts[span["page"]][span["start"]:span["end"]]
+                    for span in evidence if isinstance(span, dict)
+                    and isinstance(span.get("page"), int) and span["page"] in page_texts
+                    and isinstance(span.get("start"), int) and isinstance(span.get("end"), int)
+                )
+                try:
+                    untraced = checked_untraced_numbers(obj, evidence_text, source_path)
+                except NumericEvidenceError as error:
+                    _add_issue(issues, "error", "formula_numeric_binding_invalid", object_path, str(error))
+                    untraced = []
+                if untraced and figure_ids and not unresolved_figures:
+                    _add_issue(issues, "warning", "numeric_review_required", object_path,
+                               f"Figure values await independent semantic and visual review: {untraced}")
+                elif untraced:
+                    _add_issue(issues, "error", "numeric_token_untraced", object_path,
+                               f"Numbers absent from evidence; origin labels are not derivations: {untraced}")
 
         for field in ("relations", "conflicts", "gaps"):
             if not isinstance(draft.get(field), list):
@@ -2772,7 +2905,7 @@ def _review_material(
         visual_object_ids = sorted({str(identifier) for task in page_tasks for identifier in task.get("visual_object_ids", []) if isinstance(identifier, str)})
         table_cell_ids = sorted({str(identifier) for task in page_tasks for identifier in task.get("table_cell_ids", []) if isinstance(identifier, str)})
         series_ids = sorted({str(identifier) for task in page_tasks for identifier in task.get("series_ids", []) if isinstance(identifier, str)})
-        high_risk_visual = bool(table_cell_ids or series_ids or any(str(task.get("kind", "")).startswith(("equation", "table", "scan-table", "plot")) for task in page_tasks))
+        high_risk_visual = bool(any(objects[ref].get("figure_object_ids") for ref in proposal_refs) or table_cell_ids or series_ids or any(str(task.get("kind", "")).startswith(("equation", "table", "scan-table", "plot")) for task in page_tasks))
         visual_input = {
             "source_sha256": source_hash,
             "workpack_id": manifest.get("workpack_id"),

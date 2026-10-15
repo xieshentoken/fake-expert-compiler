@@ -1,0 +1,30 @@
+{
+  "applicability": {
+    "excluded_conclusions": [],
+    "physical_pages": [
+      5,
+      5
+    ]
+  },
+  "assumptions": [],
+  "confidence": {
+    "extraction": 0.0,
+    "interpretation": 0.0
+  },
+  "evidence_ids": [
+    "ev-74d6f95d8047eab661ea"
+  ],
+  "fails_when": [],
+  "formula": null,
+  "id": "ko-43839e2870d944c5a086",
+  "origin": "source-paraphrase",
+  "schema_version": "tkc.expert-skill/v0.1",
+  "source_ids": [
+    "src-0ebede49c4f3b7ad2edc"
+  ],
+  "statement": "对流换热系数h表示流体和固体表面间的换热强弱，与流速、物性和几何有关。",
+  "status": "unreviewed-candidate",
+  "title": "对流换热系数",
+  "type": "Definition",
+  "valid_when": []
+}

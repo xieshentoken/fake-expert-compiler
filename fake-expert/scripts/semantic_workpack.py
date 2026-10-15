@@ -17,6 +17,7 @@ from semantic_promotion import (
     validate_reviewed_workpack,
     validate_semantic_workpack,
 )
+from visual_semantics import VisualSemanticsError, figure_ocr_config
 
 
 SCHEMA_ROOT = Path(__file__).resolve().parents[1] / "assets" / "schemas"
@@ -175,6 +176,13 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Compatibility-only: build the v0.4 single-record review workpack. It cannot claim v0.5 semantic assurance.",
     )
+    build.add_argument(
+        "--figure-ocr",
+        choices=("tesseract",),
+        help="Explicitly OCR raster/text-less figure crops with a local engine (candidate-only; fails closed when absent).",
+    )
+    build.add_argument("--tesseract", help="Path to the local tesseract binary (default: from PATH).")
+    build.add_argument("--figure-ocr-lang", default="eng", help="Tesseract language(s), e.g. eng or eng+chi_sim.")
     build.add_argument("--json", action="store_true", dest="json_output")
 
     validate = subparsers.add_parser("validate", help="Recompute source spans and validate drafts.")
@@ -255,6 +263,12 @@ def main() -> int:
 
     if args.command == "build":
         try:
+            figure_ocr = None
+            if args.figure_ocr:
+                try:
+                    figure_ocr = figure_ocr_config(args.figure_ocr, binary=args.tesseract, lang=args.figure_ocr_lang)
+                except VisualSemanticsError as error:
+                    raise SemanticPromotionError(str(error)) from error
             manifest = build_semantic_workpack(
                 args.source,
                 args.ir,
@@ -265,6 +279,7 @@ def main() -> int:
                 render_dpi=args.render_dpi,
                 allow_scan_candidates=args.allow_scan_candidates,
                 semantic_assurance=not args.legacy_semantic_review,
+                figure_ocr=figure_ocr,
             )
         except SemanticPromotionError as error:
             print(f"error: {error}", file=sys.stderr)

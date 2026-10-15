@@ -20,6 +20,12 @@ DIRECT_REFERENCE_PROTOCOL = "direct-reference-draft-v0.1"
 DIRECT_REFERENCE_COMPILER_VERSION = "1.1.0-direct-reference"
 DIRECT_REFERENCE_RUNTIME_SHA256 = "4373790b353306851ca92debab4dc3e1b5a2c8c64178ade857b79cd99f34f19b"
 PORTABLE_REFERENCE_RUNTIME_SHA256 = "50de12e92c840806121d898d1f44d36c57d80e81ad13ef82e08b4417c6ba5581"
+# Current direct-reference generation (standalone copy of compiler_version pins).
+SEARCH_DIRECT_REFERENCE_COMPILER_VERSION = "1.4.0-direct-reference"
+OPUS_DIRECT_REFERENCE_COMPILER_VERSION = "1.3.0-direct-reference"
+REFERENCE_SEARCH_RUNTIME_SHA256 = "90a264aed1503bef1c8b80c41ec3069c4be32d3f9c207d4bf583eae7aff0573a"
+OPUS_REFERENCE_SEARCH_RUNTIME_SHA256 = "0c466de12c91d013c71f70e5ea512cbf0aa9c300738532b841eecbcd0b45c4ab"
+REFERENCE_SEARCH_RUNTIME_VERSION = "reference-search-bm25-v0.3"
 FORBIDDEN_SUFFIXES = {
     ".avif",
     ".bmp",
@@ -748,25 +754,34 @@ def verify_release(release_dir: Path, *, extract: Path | None = None) -> dict[st
                 "references/runtime/reference-map.md",
                 "references/runtime/response.schema.json",
                 "references/runtime/self-check.json",
-                "scripts/portable_reference_runtime.py",
                 "scripts/query_reference.py",
             }
+            candidate_compiler = package_manifest.get("build", {}).get("compiler_version")
+            legacy_candidate = candidate_compiler == DIRECT_REFERENCE_COMPILER_VERSION
+            search_hash = OPUS_REFERENCE_SEARCH_RUNTIME_SHA256 if candidate_compiler == OPUS_DIRECT_REFERENCE_COMPILER_VERSION else REFERENCE_SEARCH_RUNTIME_SHA256
+            search_version = "reference-search-bm25-v0.2" if candidate_compiler == OPUS_DIRECT_REFERENCE_COMPILER_VERSION else REFERENCE_SEARCH_RUNTIME_VERSION
+            if legacy_candidate:
+                required_candidate_paths.add("scripts/portable_reference_runtime.py")
+            # Figure indexes/images are source-derived and stay private.
+            if package_manifest.get("distribution", {}).get("source_derived_content"):
+                raise ReleaseVerificationError("candidate_source_derived_content_not_distributable")
             if (
                 not str(package_record.get("id", "")).startswith("fake-")
                 or package_manifest.get("build", {}).get("compiler") != "fake-expert"
-                or package_manifest.get("build", {}).get("compiler_version")
-                != DIRECT_REFERENCE_COMPILER_VERSION
+                or candidate_compiler
+                not in {DIRECT_REFERENCE_COMPILER_VERSION, SEARCH_DIRECT_REFERENCE_COMPILER_VERSION, OPUS_DIRECT_REFERENCE_COMPILER_VERSION}
                 or "references/runtime/direct-reference.json" not in members
                 or "references/evidence/promotion-report.json" in members
                 or not required_candidate_paths.issubset(members)
                 or adapter.get("response_schema_path")
                 != "references/runtime/response.schema.json"
                 or sha256_bytes(archive.read(members["scripts/query_reference.py"]))
-                != DIRECT_REFERENCE_RUNTIME_SHA256
-                or sha256_bytes(
-                    archive.read(members["scripts/portable_reference_runtime.py"])
+                != (DIRECT_REFERENCE_RUNTIME_SHA256 if legacy_candidate else search_hash)
+                or (
+                    legacy_candidate
+                    and sha256_bytes(archive.read(members["scripts/portable_reference_runtime.py"]))
+                    != PORTABLE_REFERENCE_RUNTIME_SHA256
                 )
-                != PORTABLE_REFERENCE_RUNTIME_SHA256
             ):
                 raise ReleaseVerificationError("candidate_contract_invalid")
             try:
@@ -880,10 +895,20 @@ def verify_release(release_dir: Path, *, extract: Path | None = None) -> dict[st
                     "warnings": expected_warnings,
                 }
                 or not isinstance(self_check, dict)
-                or self_check.get("runtime_sha256")
-                != DIRECT_REFERENCE_RUNTIME_SHA256
-                or self_check.get("base_runtime_sha256")
-                != PORTABLE_REFERENCE_RUNTIME_SHA256
+                or (
+                    legacy_candidate
+                    and (
+                        self_check.get("runtime_sha256") != DIRECT_REFERENCE_RUNTIME_SHA256
+                        or self_check.get("base_runtime_sha256") != PORTABLE_REFERENCE_RUNTIME_SHA256
+                    )
+                )
+                or (
+                    not legacy_candidate
+                    and (
+                        self_check.get("runtime_sha256") != search_hash
+                        or self_check.get("runtime_version") != search_version
+                    )
+                )
                 or self_check.get("catalog_sha256") != sha256_json(catalog)
                 or self_check.get("passed") is not True
                 or not isinstance(self_check.get("checks"), list)
@@ -894,7 +919,11 @@ def verify_release(release_dir: Path, *, extract: Path | None = None) -> dict[st
                 )
                 or not isinstance(response_schema, dict)
                 or response_schema.get("$id")
-                != "tkc.direct-reference-runtime-response/v0.1"
+                != (
+                    "tkc.direct-reference-runtime-response/v0.1"
+                    if legacy_candidate
+                    else "tkc.direct-reference-runtime-response/v0.2"
+                )
                 or response_schema.get("additionalProperties") is not False
             ):
                 raise ReleaseVerificationError("candidate_assurance_invalid")
@@ -1135,6 +1164,9 @@ def verify_release(release_dir: Path, *, extract: Path | None = None) -> dict[st
                 *required_candidate_paths,
                 *object_paths,
             }
+            # Optional hybrid-retrieval vectors (current generation only).
+            if not legacy_candidate and "references/runtime/embeddings.json" in members:
+                expected_candidate_files.add("references/runtime/embeddings.json")
             if set(members) != expected_candidate_files:
                 raise ReleaseVerificationError("candidate_inventory_invalid")
         else:
