@@ -117,11 +117,33 @@ or comparing parser/render receipts.
 
 Treat OCR and visual verification as separate decisions:
 
-- Route missing or very low native text to `pages_needing_ocr`. The current compiler
+- Route missing or very low native text without a confirmed-blank proof to `pages_needing_ocr`. The current compiler
   must stop when this list is non-empty.
 - `page_role=image-only-or-scanned` and `page_disposition=ocr-required` identify
   pages that a future OCR adapter may reprocess. `blank-or-unusable` pages are
   routed to manual review; they are not silently discarded.
+- `confirmed-blank` / `preserve-blank` retains the original physical page in
+  `confirmed_blank_pages` and the source scope, without OCR/visual tasks, body spans
+  or anchor pages. An entirely blank scope stays ineligible. A blank-only scoped
+  bookmark segment remains in `document-map.json`, but produces no semantic unit
+  and needs no body-title locator; segments with any content keep the locator gate.
+  Whole-book plans list blank pages as `non-knowledge` without downgrading chapters
+  that contain native body text. Mixed scan quality routes also forbid blank anchors.
+- The shared `native-blank-page-v0.1` rule requires empty normalized native text,
+  only an explicit non-painting operator allowlist, no annotations/unsupported page
+  features, and a strict-white full MediaBox render at 150 DPI using local
+  `pdftoppm`. Unused shared image resources are allowed; any actual image/Form
+  invocation, path painting (including white or tiny marks), shading, text showing,
+  unknown operations, render warning/failure, or non-white pixel prevents exemption.
+  No fuzzy image threshold, OCR, model or network is used. Without a usable renderer
+  the ordinary OCR/manual gate remains.
+- Each `blank_page_proof` binds source SHA-256, physical page, content-stream hash,
+  pypdf version, full MediaBox/rotation/pixel bounds, and renderer version/binary
+  SHA-256 plus full RGB PPM render SHA-256. Temporary render payloads are removed.
+  These proofs are part of the preflight hash and native extraction bindings;
+  `verify_pdf_ir.py` replays them from the source even if component hashes were
+  recomputed. Semantic workpacks preserve proofs in `page-index.jsonl` and replay
+  them on validation; duplicated/misplaced/changed/missing proofs fail closed.
 - Route equations, math fonts, suspicious decoded glyph names, figures, tables, and
   raster images to `pages_needing_visual_verification`, even when native text is
   otherwise usable.

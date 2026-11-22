@@ -685,6 +685,7 @@ class FakeExpertUxTests(unittest.TestCase):
         source_checked = subprocess.run(
             [
                 sys.executable, str(PREFLIGHT), "--source", str(self.source),
+                "--pdftoppm", str(self.tmp / "missing-renderer"),
                 "--profile", "native-text", "--json",
             ],
             cwd=ROOT,

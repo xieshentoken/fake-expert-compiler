@@ -18,6 +18,9 @@
 | `source_missing` | source 路径不存在或不是普通文件 | 提供已有 PDF；不自动获取 |
 | `source_hash_mismatch` | PDF 内容与计划指纹不同 | 重新 plan，保留旧 job 作为审计记录 |
 | `source_profile_mismatch` | native profile 的 source 不是可解析未加密 PDF，或存在 native-text 不足的页面 | 选择显式 scan profile 并重新 plan；matching workpack 不能绕过此门禁 |
+| `source_contains_no_native_text` | 全部页均确认空白，没有可提取的正文 | 选择包含可用 native 正文的原物理页范围；不为白纸启用 OCR |
+| `blank_page_proof_invalid` / `blank_page_proof_mismatch` | 空页证明缺失、错页、重复、漂移，或被附加到有正文的页 | 保留旧 workpack/IR，检查原件、renderer 和页号后重新抽取；不手工修 hash |
+| `non_contiguous_source_scope_requires_separate_package` | 同源 `extend` 跳过了原物理页，包括已确认空页 | 重新提取包含空页的连续范围，或维持分包；失败目标不会留下可验证的旧包 |
 | `pypdf_pin_mismatch` | canonical native-text runtime 不是 `6.10.0` | 在已有环境中使用固定 pin；不自动安装 |
 | `renderer_missing` | `pdftoppm` 不可用 | 指定已有 Poppler 可执行文件 |
 | `optional_backend_unavailable` | 可选适配器不可导入 | 只在显式选择且另有 qualification 时使用；不下载 |

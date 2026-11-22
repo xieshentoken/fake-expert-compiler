@@ -30,11 +30,20 @@ PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/fake_expert.py comp
 ```
 
 Native `plan` and `compile` both enforce the canonical source/profile gate. The PDF
-must be parseable, unencrypted, and have enough native text on every page. A non-PDF,
+must be parseable, unencrypted, and have enough native text on every content page.
+Both whole-book checks and scoped extraction exempt only pages with a replayable
+non-painting-content plus exact-white full-page local `pdftoppm` proof. Confirmed
+blank pages keep their original physical numbers/range and supply no semantic
+units, body spans or evidence anchors. Zero text or white pixels alone never
+qualify; image-only, short-text, annotation and uncertain pages keep their gates.
+An entirely blank source reports `source_contains_no_native_text`. A non-PDF,
 encrypted, parse-error, or any `pages_needing_ocr` result pauses as
 `source_profile_mismatch` with next action `select_explicit_scan_profile`, even when
 a matching semantic workpack is present. The job keeps only source/hash bindings;
 `compile` reruns the check and revalidates the pinned pypdf/Python and tool hashes.
+New jobs and extraction checkpoints also bind `native_blank_pages.py`. Older v0.2
+jobs remain readable but a missing binding reports `tool_hash_mismatch:native_blank`;
+preserve them and replan, without editing their hashes.
 `doctor` 和 `plan` 输出当前路径的 `required_reading`；开始下一步前应读取列出的文档。
 该有序清单及每个 SHA-256 写入 v0.2 job，文档变化后旧 job 会以
 `required_reference_hash_mismatch` 停止，必须重新阅读并创建新 plan。旧 v0.1 job
@@ -125,6 +134,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/direct_reference_sk
 ```
 
 旧目录不覆盖，未 Review 的 Draft 不进入 reviewed-draft composer。
+确认空白页仍属于原物理页范围：范围 `[1,3]` 与 `[4,6]` 可以连接，`[1,2]` 与 `[4,6]`
+即使第 3 页已确认空白也继续报 `non_contiguous_source_scope_requires_separate_package`。
+先按原范围重新抽取，再扩展；不要手改 scope。新版本在同级临时目录完整构建并验证后原子发布，
+连续性或写入失败不会在目标留下旧包或半包。不存在或已存在的空目录均可作目标；非空目录和
+symlink 保持拒绝，原底包不变。
 
 ## 5. Ready / Executable
 

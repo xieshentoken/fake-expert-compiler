@@ -123,6 +123,8 @@ def _page_planning_status(
     text: str,
     first_structured_page: int | None,
 ) -> tuple[str, str]:
+    if page.get("page_role") == "confirmed-blank" and page.get("blank_page_proof"):
+        return "non-knowledge", "Confirmed blank paper is retained at its physical page number and supplies no knowledge evidence."
     if page.get("ocr_reasons"):
         return "ocr-candidate", "Native text is missing or below the configured threshold; OCR is a candidate route only."
     if page.get("page_disposition") == "manual-review-required":
@@ -144,6 +146,8 @@ def _segment_planning_status(
     resolutions_by_segment: dict[str, dict[str, Any]],
 ) -> tuple[str, str]:
     pages = [int(page) for page in segment.get("physical_pages", [])]
+    if pages and all(page_by_number.get(page, {}).get("page_role") == "confirmed-blank" for page in pages):
+        return "non-knowledge", "The segment contains only confirmed blank physical pages."
     if any(page_by_number.get(page, {}).get("ocr_reasons") for page in pages):
         return "ocr-candidate", "At least one segment page is an OCR candidate; no OCR invocation is performed."
     resolution = resolutions_by_segment.get(str(segment.get("id")))
@@ -314,6 +318,9 @@ def _finalize_module_rows(
         statuses: list[str] = []
         for segment_id in segment_ids:
             segment = segment_by_id[segment_id]
+            segment_pages = segment.get("physical_pages", [])
+            if segment_pages and all(page_by_number.get(page, {}).get("page_role") == "confirmed-blank" for page in segment_pages):
+                continue
             status, _ = _segment_planning_status(segment, page_by_number, resolution_by_segment)
             statuses.append(status)
         page_statuses = []
@@ -327,6 +334,8 @@ def _finalize_module_rows(
                 page_statuses.append("visual-review")
         all_statuses = statuses + page_statuses
         planning_status = "compile"
+        if pages and all(page_by_number.get(page, {}).get("page_role") == "confirmed-blank" for page in pages):
+            planning_status = "non-knowledge"
         for candidate in ("ocr-candidate", "quarantined", "gap", "visual-review", "non-knowledge", "context-only"):
             if candidate in all_statuses:
                 planning_status = candidate

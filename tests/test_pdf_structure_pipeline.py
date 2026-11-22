@@ -470,10 +470,12 @@ class PdfStructurePipelineTests(unittest.TestCase):
     def test_blank_pdf_is_routed_out_of_current_compiler(self) -> None:
         blank = self.root / "blank.pdf"
         create_blank_pdf(blank)
-        result = compile_pdf_intermediate_representation(blank, 1, 1)
+        with patch("native_blank_pages.shutil.which", return_value=None):
+            result = compile_pdf_intermediate_representation(blank, 1, 1)
         self.assertEqual(result["preflight"]["scope_classification"], "image-based-or-unusable")
         self.assertFalse(result["preflight"]["eligible_for_current_compiler"])
         self.assertEqual(result["preflight"]["pages_needing_ocr"], [1])
+        self.assertEqual(result["preflight"]["confirmed_blank_pages"], [])
 
     def test_native_text_heading_fallback_reconstructs_parent(self) -> None:
         no_outline = self.root / "no-outline.pdf"
@@ -522,9 +524,11 @@ class PdfStructurePipelineTests(unittest.TestCase):
 
         blank = self.root / "blank-routed.pdf"
         create_blank_pdf(blank)
-        blank_result = compile_pdf_intermediate_representation(blank, 1, 1)
+        with patch("native_blank_pages.shutil.which", return_value=None):
+            blank_result = compile_pdf_intermediate_representation(blank, 1, 1)
         self.assertEqual(blank_result["preflight"]["pages"][0]["page_role"], "blank-or-unusable")
         self.assertEqual(blank_result["preflight"]["page_routing"]["manual_review_pages"], [1])
+        self.assertEqual(blank_result["preflight"]["page_routing"]["confirmed_blank_pages"], [])
 
     def test_pdf_ir_receipts_lock_every_ir_file(self) -> None:
         result = compile_pdf_intermediate_representation(self.source, 1, 3)

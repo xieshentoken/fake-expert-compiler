@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import unicodedata
 import zlib
+from native_blank_pages import confirm_blank_page
 
 from numeric_evidence import checked_untraced_numbers, NumericEvidenceError
 from figure_crop_geometry import PROTOCOL as FIGURE_CROP_PROTOCOL, pixel_bounds
@@ -1010,10 +1011,11 @@ def _locate_headings_from_resolutions(
         for row in heading_resolutions
         if isinstance(row, dict) and isinstance(row.get("segment_id"), str)
     }
+    segment_ids = {segment.get("id") for segment in segments}
     unresolved = [
         row
         for row in heading_resolutions
-        if isinstance(row, dict) and row.get("status") != "resolved"
+        if isinstance(row, dict) and row.get("segment_id") in segment_ids and row.get("status") != "resolved"
     ]
     if unresolved:
         return [], [], unresolved
@@ -1721,11 +1723,34 @@ def build_semantic_workpack(
         if isinstance(scan_candidate_for_pages, dict)
         else []
     )
-    if any(not text for page, text in page_texts.items() if page not in manual_scan_pages):
+    blank_proofs: dict[int, dict[str, Any]] = {}
+    for record in ir["preflight"].get("pages", []):
+        if record.get("page_role") != "confirmed-blank":
+            continue
+        page = record.get("physical_page")
+        if not isinstance(page, int) or page not in page_texts or page in blank_proofs:
+            raise SemanticPromotionError("blank_page_proof_invalid")
+        proof = confirm_blank_page(reader.pages[page - 1], reader.pages[page - 1].extract_text() or "",
+                                   source_path, source_hash, page, pdftoppm)
+        if proof is None or proof != record.get("blank_page_proof"):
+            raise SemanticPromotionError(f"blank_page_proof_mismatch:page={page}")
+        blank_proofs[page] = proof
+    if ir["preflight"].get("confirmed_blank_pages", []) != sorted(blank_proofs):
+        raise SemanticPromotionError("blank_page_routing_mismatch")
+    if any(not text for page, text in page_texts.items() if page not in manual_scan_pages and page not in blank_proofs):
         raise SemanticPromotionError("empty_native_text_in_eligible_scope")
 
     segments = ir["document_map"].get("segments")
     if not isinstance(segments, list) or not segments:
+        raise SemanticPromotionError("ir_segments_missing")
+    # Keep the original IR structure and physical scope, while omitting a
+    # separator whose entire scoped envelope has replayed blank proofs. A
+    # segment containing even one unconfirmed/content page keeps its locator gate.
+    segments = [
+        segment for segment in segments
+        if not (segment.get("physical_pages") and all(page in blank_proofs for page in segment["physical_pages"]))
+    ]
+    if not segments:
         raise SemanticPromotionError("ir_segments_missing")
     structure_status = "legacy-string-locator"
     structure_resolution_sha256 = None
@@ -1950,6 +1975,7 @@ def build_semantic_workpack(
                 "page_text_sha256": sha256_text(text),
                 "character_count": len(text),
                 "pdf_page_label": str(reader.page_labels[page - 1]),
+                **({"blank_page_proof": blank_proofs[page]} if page in blank_proofs else {}),
             }
             for page, text in page_texts.items()
         ],
@@ -2210,6 +2236,38 @@ def _load_workpack_drafts(root: Path, manifest: dict[str, Any]) -> tuple[dict[st
     return drafts, paths
 
 
+def _validate_native_blank_index(
+    reader: Any, source: Path, source_hash: str, root: Path,
+    manifest: dict[str, Any], page_texts: dict[int, str],
+) -> None:
+    index_path = _resolve_workpack_path(root, manifest.get("page_index", "page-index.jsonl"))
+    empty_pages = {page for page, text in page_texts.items() if not text}
+    # Preserve the old text-only workpack contract when no page index exists.
+    if not index_path.is_file() and not empty_pages:
+        return
+    rows = load_jsonl(index_path)
+    indexed: dict[int, dict[str, Any]] = {}
+    for index, row in enumerate(rows, start=1):
+        if not isinstance(row, dict):
+            raise SemanticPromotionError(f"blank_page_index_row_invalid:row={index}")
+        page = row.get("page")
+        if type(page) is not int or page not in page_texts:
+            raise SemanticPromotionError(f"blank_page_index_page_invalid:row={index}")
+        if page in indexed:
+            raise SemanticPromotionError(f"blank_page_index_duplicate:page={page}")
+        indexed[page] = row
+        if "blank_page_proof" in row and page not in empty_pages:
+            raise SemanticPromotionError(f"blank_page_proof_on_nonempty_page:page={page}")
+    if set(indexed) != set(page_texts):
+        raise SemanticPromotionError("blank_page_index_coverage_mismatch")
+    for page in sorted(empty_pages):
+        expected = indexed[page].get("blank_page_proof")
+        actual = confirm_blank_page(reader.pages[page - 1], reader.pages[page - 1].extract_text() or "",
+                                    source, source_hash, page)
+        if actual is None or actual != expected:
+            raise SemanticPromotionError(f"blank_page_proof_mismatch:page={page}")
+
+
 def validate_semantic_workpack(
     source_path: Path,
     workpack_root: Path,
@@ -2249,12 +2307,14 @@ def validate_semantic_workpack(
         page_texts = _page_texts_for_workpack(
             reader, root, manifest, scope_start, scope_end
         )
+        if not manifest.get("scan_candidate"):
+            _validate_native_blank_index(reader, source_path, source_hash, root, manifest, page_texts)
     except (SemanticPromotionError, OSError, ValueError) as error:
         _add_issue(
             issues,
             "error",
-            "scan_candidate_texts_invalid",
-            "workpack.scan_candidate",
+            "scan_candidate_texts_invalid" if manifest.get("scan_candidate") else "blank_page_proof_invalid",
+            "workpack.scan_candidate" if manifest.get("scan_candidate") else "workpack.page_index",
             str(error),
         )
         page_texts = {

@@ -17,6 +17,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -163,6 +164,14 @@ def _reject_directory_overlap(output: Path, *inputs: Path) -> None:
         source = value.expanduser().resolve()
         if target == source or target.is_relative_to(source) or source.is_relative_to(target):
             raise DirectReferenceError("input_output_overlap")
+
+
+def _extension_output(path: Path) -> Path:
+    """Check the final target without creating a package or following a symlink."""
+    path = path.expanduser().absolute()
+    if path.is_symlink() or (path.exists() and (not path.is_dir() or any(path.iterdir()))):
+        raise DirectReferenceError(f"output_not_empty: {path}")
+    return path.resolve()
 
 
 def _gold_source_hashes(value: Any, *, key: str = "") -> set[str]:
@@ -1581,34 +1590,46 @@ def extend_direct_reference(
         if figure_index or base_figures is not None
         else None
     )
-    output = _ensure_empty_output(output)
-    shutil.copytree(base, output, dirs_exist_ok=True)
-    return _write_package(
-        output,
-        figures=figures,
-        figure_images=figure_images,
-        embedding_command=embedding_command,
-        name=manifest["package"]["id"],
-        display_name=manifest["package"]["name"],
-        domain=manifest["package"]["domain"],
-        version=version,
-        created_at=created_at,
-        sources=_merge_sources(manifest["sources"], [material["source"]]),
-        objects=objects,
-        anchors=anchors,
-        relations=relations,
-        conflicts=conflicts,
-        gaps=gaps,
-        bindings=bindings,
-        gold=gold,
-        update={
-            "mode": "additive",
-            "base_manifest_sha256": sha256_file(base / "manifest.json"),
-            "added_object_ids": added,
-            "unchanged_object_ids": unchanged,
-            "removed_object_ids": [],
-        },
-    )
+    # All merge checks run before the old package is copied. The final path is
+    # published only after the complete new package passes its own validator.
+    sources = _merge_sources(manifest["sources"], [material["source"]])
+    output = _extension_output(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=f".{output.name}-extend-", dir=output.parent) as temporary:
+        stage = Path(temporary) / "package"
+        shutil.copytree(base, stage)
+        result = _write_package(
+            stage,
+            figures=figures,
+            figure_images=figure_images,
+            embedding_command=embedding_command,
+            name=manifest["package"]["id"],
+            display_name=manifest["package"]["name"],
+            domain=manifest["package"]["domain"],
+            version=version,
+            created_at=created_at,
+            sources=sources,
+            objects=objects,
+            anchors=anchors,
+            relations=relations,
+            conflicts=conflicts,
+            gaps=gaps,
+            bindings=bindings,
+            gold=gold,
+            update={
+                "mode": "additive",
+                "base_manifest_sha256": sha256_file(base / "manifest.json"),
+                "added_object_ids": added,
+                "unchanged_object_ids": unchanged,
+                "removed_object_ids": [],
+            },
+        )
+        _extension_output(output)
+        # A directory rename refuses a concurrently created nonempty target;
+        # it can replace the explicitly supported pre-existing empty target.
+        stage.rename(output)
+    result["package"] = str(output)
+    return result
 
 
 def bind_gold(

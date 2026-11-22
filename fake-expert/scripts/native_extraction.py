@@ -11,7 +11,7 @@ import uuid
 
 PROTOCOL = "native-extraction-checkpoint-v0.1"
 RECEIPT = "extraction-receipt.json"
-TOOLS = ("native_extraction.py","native_text_geometry.py","native_table_geometry.py","native_structure_selection.py","pdf_structure.py","heading_locator.py",
+TOOLS = ("native_extraction.py","native_blank_pages.py","native_text_geometry.py","native_table_geometry.py","native_structure_selection.py","pdf_structure.py","heading_locator.py",
          "semantic_promotion.py","semantic_authoring.py","visual_semantics.py","figure_crop_geometry.py","numeric_evidence.py","formula_numeric_evidence.py","unlabelled_graphics.py","compiler_version.py")
 
 

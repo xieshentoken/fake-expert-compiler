@@ -2488,6 +2488,7 @@ def build_quality_routing(
         raise ScanOcrError("confidence_threshold_invalid")
     routed = set(preflight.get("page_routing", {}).get("ocr_required_pages", []))
     manual = set(preflight.get("page_routing", {}).get("manual_review_pages", []))
+    blank = set(preflight.get("confirmed_blank_pages", []))
     scope = preflight.get("scope", {})
     start, end = scope.get("start_page"), scope.get("end_page")
     by_page: dict[int, list[dict[str, Any]]] = {}
@@ -2500,7 +2501,10 @@ def build_quality_routing(
     for page in range(start, end + 1):
         rows = by_page.get(page, [])
         reasons: list[str] = []
-        if page in manual:
+        if page in blank:
+            route = "confirmed-blank"
+            reasons.append("confirmed-blank-no-knowledge-evidence")
+        elif page in manual:
             route = "manual-review-required"
             reasons.append("blank-or-unusable-native-page")
         elif page in routed:
@@ -2531,7 +2535,7 @@ def build_quality_routing(
                 "transcript_span_ids": sorted(row["transcript_span_id"] for row in rows),
                 "confidence_threshold": confidence_threshold,
                 "candidate_only": page in routed,
-                "canonical_anchor_allowed": False if page in routed else True,
+                "canonical_anchor_allowed": page not in routed and page not in blank,
                 "executable": False,
                 "visual_review_required": page in routed or bool(reasons and route == "manual-review-required"),
                 "formula_executable": False,
@@ -4915,6 +4919,7 @@ def build_scanned_pdf_ir(
             page
             for page in range(scope["start_page"], scope["end_page"] + 1)
             if page not in ocr_pages and page not in manual_pages
+            and page not in preflight.get("confirmed_blank_pages", [])
         ],
         "manual_review_pages": manual_pages,
         "render": {

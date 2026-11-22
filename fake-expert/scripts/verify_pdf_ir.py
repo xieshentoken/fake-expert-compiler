@@ -24,6 +24,7 @@ from heading_locator import (
     load_locator_overrides,
 )
 from scanned_pdf_ocr import ScanOcrError, verify_scanned_pdf_ir
+from native_blank_pages import confirm_blank_page
 
 
 def _load_json(path: Path) -> Any:
@@ -125,6 +126,35 @@ def verify_pdf_ir(
         raise PdfPipelineError(str(error)) from error
 
     failures: list[str] = []
+    blank_pages: list[int] = []
+    for record in preflight.get("pages", []):
+        if record.get("page_role") != "confirmed-blank" and "blank_page_proof" not in record:
+            continue
+        page = record.get("physical_page")
+        if not isinstance(page, int) or not start_page <= page <= end_page or page in blank_pages:
+            failures.append("blank_page_scope_invalid")
+            continue
+        blank_pages.append(page)
+        proof = confirm_blank_page(reader.pages[page - 1], reader.pages[page - 1].extract_text() or "",
+                                   source_path, source_hash, page, pdftoppm)
+        if (proof is None or proof != record.get("blank_page_proof")
+                or record.get("page_role") != "confirmed-blank"
+                or record.get("page_disposition") != "preserve-blank"
+                or record.get("ocr_reasons") or record.get("visual_verification_reasons")):
+            failures.append(f"blank_page_proof_mismatch:page={page}")
+    if sorted(blank_pages) != preflight.get("confirmed_blank_pages", []):
+        failures.append("blank_page_routing_mismatch")
+    if "confirmed_blank_pages" in preflight:
+        # New receipts must not hide a blank exemption by dropping its proof
+        # and then recomputing source.json's component hashes.
+        for page in range(start_page, end_page + 1):
+            if page in blank_pages:
+                continue
+            raw = reader.pages[page - 1].extract_text() or ""
+            if normalize_text(raw):
+                continue
+            if confirm_blank_page(reader.pages[page - 1], raw, source_path, source_hash, page, pdftoppm) is not None:
+                failures.append(f"blank_page_proof_missing:page={page}")
     _check(source.get("sha256"), source_hash, "source_sha256", failures)
     _check(receipt, expected_receipt, "parser_receipt", failures)
     _check(candidates, expected_candidates, "layout_candidates", failures)

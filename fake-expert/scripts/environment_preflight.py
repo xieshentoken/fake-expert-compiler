@@ -198,7 +198,7 @@ def _check_optional_module(
         }
 
 
-def _check_source(path_value: str, minimum_native_characters: int) -> dict[str, Any]:
+def _check_source(path_value: str, minimum_native_characters: int, renderer: Path | str | None = None) -> dict[str, Any]:
     path = Path(path_value).expanduser().resolve()
     result: dict[str, Any] = {
         "path": str(path),
@@ -207,6 +207,8 @@ def _check_source(path_value: str, minimum_native_characters: int) -> dict[str, 
         "sha256": None,
         "page_count": None,
         "native_text_pages": None,
+        "confirmed_blank_pages": [],
+        "blank_page_proofs": [],
         "pages_needing_ocr": [],
         "scan_candidate_route": "native-text-first",
         "manual_review_pages": [],
@@ -239,23 +241,36 @@ def _check_source(path_value: str, minimum_native_characters: int) -> dict[str, 
             return result
         native_pages = 0
         pages_needing_ocr: list[int] = []
+        from pdf_structure import inspect_page, normalize_text
+
+        if minimum_native_characters < 1:
+            raise ValueError("minimum_native_characters must be positive")
+
+        labels = reader.page_labels
         for page_number, page in enumerate(reader.pages, start=1):
-            text = page.extract_text() or ""
-            normalized = _normalize(text)
-            alphanumeric = sum(character.isalnum() for character in normalized)
-            if alphanumeric >= minimum_native_characters:
+            # Ordinary text pages need no resource/Form traversal in whole-book
+            # preflight. Only insufficient text enters the shared page routing.
+            normalized = normalize_text(page.extract_text() or "")
+            if sum(character.isalnum() for character in normalized) >= minimum_native_characters:
+                native_pages += 1
+                continue
+            record, _text, _raw = inspect_page(
+                page, page_number, labels[page_number - 1], minimum_native_characters,
+                source_path=path, source_sha256=result["sha256"], renderer=renderer,
+            )
+            if record["page_role"] == "confirmed-blank":
+                result["confirmed_blank_pages"].append(page_number)
+                result["blank_page_proofs"].append(record["blank_page_proof"])
+            elif record["native_text"]["status"] == "usable":
                 native_pages += 1
             else:
                 pages_needing_ocr.append(page_number)
+            if record["page_disposition"] == "manual-review-required":
+                result["manual_review_pages"].append(page_number)
         result["page_count"] = len(reader.pages)
         result["native_text_pages"] = native_pages
         result["pages_needing_ocr"] = pages_needing_ocr
-        result["manual_review_pages"] = [
-            page_number
-            for page_number, page in enumerate(reader.pages, start=1)
-            if not (page.extract_text() or "").strip() and not page.get("/Resources")
-        ]
-        result["passed"] = not pages_needing_ocr
+        result["passed"] = not pages_needing_ocr and native_pages > 0
         if pages_needing_ocr:
             result["code"] = "source_requires_ocr"
             result["meaning"] = "One or more pages lack enough native text for the native-text route."
@@ -263,9 +278,13 @@ def _check_source(path_value: str, minimum_native_characters: int) -> dict[str, 
             result["remediation"] = [
                 "Route image-only or low-text pages through the planned OCR adapter; current native-text compilation remains fail-closed."
             ]
+        elif not native_pages:
+            result["code"] = "source_contains_no_native_text"
+            result["meaning"] = "Confirmed blank pages alone cannot produce a knowledge package."
+            result["next_action"] = "select_scope_containing_native_text"
         else:
             result["code"] = "source_native_text_ok"
-            result["meaning"] = "All pages satisfy the configured native-text threshold."
+            result["meaning"] = "Every page has sufficient native text or a replayable confirmed-blank proof."
             result["next_action"] = "continue"
     except Exception as error:  # pragma: no cover - pypdf host errors vary
         result["code"] = "source_preflight_error"
@@ -328,7 +347,7 @@ def build_report(
             recommendation="Use the existing local Tesseract route only when explicitly selected and separately bound.",
         ),
     ]
-    source_report = _check_source(source, minimum_native_characters) if source else None
+    source_report = _check_source(source, minimum_native_characters, renderer) if source else None
     required_names = set(PROFILE_REQUIREMENTS[profile]["required_checks"])
     backend_check_names = BACKEND_REQUIREMENTS.get(selected_backend, ()) if backend_selection_valid and selected_backend is not None else ()
     required_names.update(backend_check_names)

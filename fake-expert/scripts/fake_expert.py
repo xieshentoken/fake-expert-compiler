@@ -511,9 +511,10 @@ def _validate_job_shape(job: Any) -> None:
         raise FakeExpertError("job_outputs_invalid")
 
     tools = job.get("tool_bindings")
-    if not isinstance(tools, dict) or set(tools) != {
-        "cli", "preflight", "direct_reference", "pipeline"
-    }:
+    if not isinstance(tools, dict) or set(tools) not in (
+        {"cli", "preflight", "direct_reference", "pipeline"},
+        {"cli", "preflight", "direct_reference", "pipeline", "native_blank"},
+    ):
         raise FakeExpertError("job_tool_bindings_invalid")
     for record in tools.values():
         _validate_file_record(record, allow_none=False)
@@ -633,6 +634,7 @@ def _validate_job_bindings(path: Path, job: Mapping[str, Any]) -> list[str]:
         "preflight": _tool_record("environment_preflight.py"),
         "direct_reference": _tool_record("direct_reference_skill.py"),
         "pipeline": _tool_record("pipeline_orchestrator.py"),
+        "native_blank": _tool_record("native_blank_pages.py"),
     }
     for name, record in current_tools.items():
         if job["tool_bindings"].get(name) != record:
@@ -766,6 +768,7 @@ def _build_job(args: argparse.Namespace, workspace: Path, job_path: Path) -> dic
             "preflight": _tool_record("environment_preflight.py"),
             "direct_reference": _tool_record("direct_reference_skill.py"),
             "pipeline": _tool_record("pipeline_orchestrator.py"),
+            "native_blank": _tool_record("native_blank_pages.py"),
         },
         "runtime": {
             "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
@@ -886,6 +889,12 @@ def _source_profile_gate(job: Mapping[str, Any]) -> dict[str, Any] | None:
                 return None
     except Exception:
         reason = "source_preflight_error"
+    if reason == "source_contains_no_native_text":
+        return _paused(
+            "source_profile_mismatch",
+            "Confirmed blank pages alone cannot produce a knowledge package. Select a scope containing usable native text.",
+            ["source_profile_mismatch", "select_nonempty_native_scope"],
+        )
     return _paused(
         "source_profile_mismatch",
         "The native-text profile requires a valid, parseable PDF with sufficient native text; "

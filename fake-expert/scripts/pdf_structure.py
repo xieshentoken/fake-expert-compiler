@@ -19,6 +19,7 @@ from pdf_parser_adapters import (
     sha256_json,
 )
 from compiler_version import PDF_IR_SCHEMA_VERSION
+from native_blank_pages import confirm_blank_page
 from heading_locator import (
     HEADING_LOCATOR_OVERRIDE_SCHEMA,
     HeadingLocatorError,
@@ -276,6 +277,10 @@ def inspect_page(
     physical_page: int,
     pdf_page_label: str,
     minimum_native_characters: int,
+    *,
+    source_path: Path | None = None,
+    source_sha256: str | None = None,
+    renderer: Path | str | None = None,
 ) -> tuple[dict[str, Any], str, str]:
     raw_text = page.extract_text() or ""
     normalized = normalize_text(raw_text)
@@ -359,6 +364,13 @@ def inspect_page(
         "ocr_reasons": ocr_reasons,
         "visual_verification_reasons": visual_reasons,
     }
+    if native_status == "missing" and source_path is not None and source_sha256 is not None:
+        proof = confirm_blank_page(page, raw_text, source_path, source_sha256, physical_page, renderer)
+        if proof is not None:
+            page_record.update(
+                page_role="confirmed-blank", page_disposition="preserve-blank",
+                blank_page_proof=proof, ocr_reasons=[], visual_verification_reasons=[],
+            )
     return page_record, normalized, raw_text
 
 
@@ -722,7 +734,11 @@ def build_anchor_candidates(
 
     candidates: list[dict[str, Any]] = []
     for segment in selected:
-        pages = segment["physical_pages"]
+        # Page scopes retain blank physical pages, but blank paper supports no
+        # semantic assertion and must never become a text evidence anchor.
+        pages = [page for page in segment["physical_pages"] if page_records[page]["page_role"] != "confirmed-blank"]
+        if not pages:
+            continue
         joined_text = "\f".join(page_texts[page] for page in pages)
         visual_pages = [
             page
@@ -732,6 +748,8 @@ def build_anchor_candidates(
         first_page, last_page = pages[0], pages[-1]
         page_word = "page" if first_page == last_page else "pages"
         page_range = str(first_page) if first_page == last_page else f"{first_page}-{last_page}"
+        if pages != list(range(first_page, last_page + 1)):
+            page_range = ",".join(str(page) for page in pages)
         candidate_id = stable_id("evc", source_id, segment["id"], joined_text)
         candidates.append(
             {
@@ -740,7 +758,7 @@ def build_anchor_candidates(
                 "candidate_status": "needs-semantic-review",
                 "source_id": source_id,
                 "pages": pages,
-                "printed_page_labels": segment["printed_page_label_candidates"],
+                "printed_page_labels": [page_records[page]["printed_page_label_candidate"] for page in pages],
                 "segment_id": segment["id"],
                 "locator": {
                     "title": segment["title"],
@@ -955,6 +973,9 @@ def compile_pdf_intermediate_representation(
             physical_page,
             str(labels[physical_page - 1]),
             minimum_native_characters,
+            source_path=source_path,
+            source_sha256=source_hash,
+            renderer=pdftoppm,
         )
         page_records[physical_page] = record
         page_texts[physical_page] = text
@@ -963,7 +984,10 @@ def compile_pdf_intermediate_representation(
 
     page_values = list(page_records.values())
     usable_count = sum(page["native_text"]["status"] == "usable" for page in page_values)
-    if usable_count == len(page_values):
+    blank_count = sum(page["page_role"] == "confirmed-blank" for page in page_values)
+    if blank_count == len(page_values):
+        classification = "blank"
+    elif usable_count + blank_count == len(page_values):
         classification = "text-based"
     elif usable_count == 0:
         classification = "image-based-or-unusable"
@@ -1095,12 +1119,14 @@ def compile_pdf_intermediate_representation(
         "layout_parser": parser_receipt["layout_parser"],
         "minimum_native_characters": minimum_native_characters,
         "scope_classification": classification,
-        "eligible_for_current_compiler": not pages_needing_ocr,
+        "eligible_for_current_compiler": not pages_needing_ocr and usable_count > 0,
+        "confirmed_blank_pages": [page["physical_page"] for page in page_values if page["page_role"] == "confirmed-blank"],
         "pages_needing_ocr": pages_needing_ocr,
         "pages_needing_visual_verification": pages_needing_visual,
         "pages_with_pdf_vs_printed_label_mismatch": label_mismatches,
         "page_role_counts": page_role_counts,
         "page_routing": {
+            "confirmed_blank_pages": [page["physical_page"] for page in page_values if page["page_role"] == "confirmed-blank"],
             "compile_pages": [page["physical_page"] for page in page_values if page["page_disposition"] == "compile"],
             "ocr_required_pages": [page["physical_page"] for page in page_values if page["page_disposition"] == "ocr-required"],
             "manual_review_pages": [page["physical_page"] for page in page_values if page["page_disposition"] == "manual-review-required"],

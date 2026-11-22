@@ -286,6 +286,9 @@
         },
         "pipeline": {
           "$ref": "#/$defs/tool"
+        },
+        "native_blank": {
+          "$ref": "#/$defs/tool"
         }
       }
     },

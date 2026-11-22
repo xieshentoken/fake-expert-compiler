@@ -55,7 +55,10 @@ Draft。`plan --figures index|index+images` 可选打包来源派生的图表索
 `references/authoring-and-figures.md`。
 
 `native-text` 还有不可绕过的 source/profile gate：source 必须是可解析、未加密的
-PDF，且每一页都达到 native-text 阈值；非 PDF、加密、解析失败或存在
+PDF，且每个内容页都达到 native-text 阈值；仅有经过共同判空规则确认的空白页可豁免。
+整书与分章均要求“无绘制内容 + 本地 `pdftoppm` 全页严格空白渲染”双重证明，绑定原件
+SHA-256、原物理页和完整渲染 hash。零文字、白色图片或视觉近似空白不能单独豁免。
+空页保留物理范围，不生成正文 span、语义 unit 或证据；全空来源不可生成知识包。非 PDF、加密、解析失败或存在
 `pages_needing_ocr` 时，`plan` 写入 hash-bound 的 `source_profile_mismatch` 暂停
 job，`compile`/`status` 会用当前 pinned `pypdf` 重新检查，不能被 matching workpack
 覆盖。job 不保存 preflight payload；当前 pypdf/Python 与工具文件 hash 漂移也会
@@ -71,7 +74,7 @@ fail closed。应重新选择显式 scan profile，而不是把 doctor 结果当
 
 | 目的 | profile/入口 | 关键边界 |
 |---|---|---|
-| 原生文本 Reference Draft | `native-text` + semantic workpack（或自动抽取 + `semantic_authoring.py`） | 可解析 PDF 且每页达到 native-text 阈值；`pypdf==6.10.0`；可查询但 `draft`、Review deferred |
+| 原生文本 Reference Draft | `native-text` + semantic workpack（或自动抽取 + `semantic_authoring.py`） | 可解析 PDF；内容页达到阈值，确认空页保留；`pypdf==6.10.0`；可查询但 `draft`、Review deferred |
 | 图表事实 | `Figure`/`Table`/`DataPoint` + `figure_object_ids` | 数值必须有文本证据；图读数值保留为待审阅提案，构建时暂停 `numeric_review_required`，须经既有独立语义及视觉 Review 才能入包；来源标签不豁免检查 |
 | 扫描文本候选 | `scan-text` | backend、模型、runtime、worker 必须显式绑定；不自动 OCR/fallback |
 | 扫描结构 | `scan-structure` | 外部 reviewer 确认标题、物理页、顺序和 BBox 后才能形成 locator |
@@ -139,6 +142,8 @@ workpack 还需已接受的 structure-anchor Review。输出是 queryable 的
 未 Review 的 direct Draft 不进入 legacy reviewed-draft composer；用 `extend` 产生新的
 candidate package，或完成既有 independent Review → promotion → competency → seal 流程。
 非连续的同源页范围保持为不同 package，不能伪造连续范围。
+确认的空页也计入原物理范围；`extend` 仍拒绝任何已跳过的页。扩展先在同级临时目录构建并验证，
+成功后原子发布；失败不留下旧包或半包，既有非空目标保持拒绝，既有空目录可使用。
 
 ## 旧入口与按需参考
 
