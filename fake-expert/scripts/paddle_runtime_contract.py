@@ -790,6 +790,20 @@ def _required_model_status(
     }
 
 
+def inspect_local_model_status(backend_id: str, model_root: Path, configuration: Mapping[str, Any]) -> dict[str, Any]:
+    """Read required profile directories/weights without importing a model."""
+    status = _required_model_status(backend_id, model_root.expanduser().resolve(), configuration)
+    if status.get("available"):
+        weight_suffixes = {".pdmodel", ".pdiparams", ".pdparams", ".safetensors", ".onnx"}
+        missing = [key for key, component in status.get("required_model_files", {}).items()
+                   if not any(Path(row["relative_path"]).suffix.casefold() in weight_suffixes
+                              for row in component.get("files", []))]
+        if missing:
+            status = {**status, "available": False, "status": "not-run-missing-models",
+                      "missing_weight_components": missing, "code": "model_weight_files_missing"}
+    return status
+
+
 def freeze_external_runtime_contract(
     spec: Mapping[str, Any],
     *,

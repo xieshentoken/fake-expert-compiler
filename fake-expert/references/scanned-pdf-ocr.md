@@ -5,6 +5,73 @@ It extends the existing
 native-text PDF IR; it does not replace `pypdf==6.10.0`, native evidence offsets, or
 the existing semantic-promotion and publication gates.
 
+## Automatic local intake and availability
+
+Use `fake_expert.py intake inspect --source PDF --json`, then normal `plan` without
+a profile. This route emits a versioned physical-page ledger before choosing any
+execution route. It never guesses an OCR model from the title. A native cover's
+first line is untrusted advisory text; a scanned cover with no native title stays
+unknown. Only pages classified `needs_ocr` determine the OCR request budget;
+uncertain separators remain `review_required` with their physical numbers.
+
+Explicit `--ocr-config` takes precedence over the existing JSON pointed to by
+`FAKE_EXPERT_OCR_CONFIG`. No directory search, installation or download occurs.
+The `tkc.ocr-local-config/v0.1` contract is closed:
+
+```json
+{
+  "schema_version": "tkc.ocr-local-config/v0.1",
+  "backend": "paddleocr-ppocrv6",
+  "python": "/absolute/path/to/ocr-venv/bin/python",
+  "runtime_root": "/absolute/path/to/existing/private-runtime",
+  "model_root": "/absolute/path/to/existing/models",
+  "worker": "/absolute/path/to/current/fake-expert/scripts/ocr_backend_worker.py",
+  "qualification_plan": "/absolute/path/to/qualification-plan.json",
+  "qualification_receipt": "/absolute/path/to/qualification-receipt.json"
+}
+```
+
+`paddleocr-ppstructure-v3` is the other supported explicit backend and uses its
+existing technical-table profile. Optional `backend_config` points to exactly
+the qualification plan's engine configuration (or its complete generated execution
+configuration); optional `expected_distributions` pins observed metadata versions.
+Paths are absolute after `~` expansion. Directory aliases are normalized while the
+venv launcher remains intact instead of executing its resolved base Python.
+
+Availability executes only `pdftoppm -v` and a bounded `python -I` metadata probe.
+It distinguishes interpreter missing/unusable, dependency missing/drift, required
+profile model directories/weight files missing, renderer missing/unusable, and
+qualification missing/stale/unusable. A compiler venv without Paddle does not
+disqualify a configured external runtime. Model presence alone is insufficient:
+the existing qualification-plan, runtime-contract, worker/model and qualification
+receipt validators must all accept the exact configuration before `runnable=true`.
+Stale tool/worker/model receipts are reported, never regenerated or silently fixed.
+
+Intake inspection, status and dry-run never execute OCR. A configured model can
+run only with source/config/backend-bound user execution authorization and the
+exclusive-heavy-model flag. The actual configured backend/runtime/worker is used;
+there is no GLM/PaddleVL, cloud or unqualified fallback adapter.
+
+Each run/resume processes one continuous original physical chunk containing at
+most 5 true OCR pages (20 when the source has more than 20 OCR pages), including
+intervening native/blank/manual pages. The chunk scopes concatenate to the original
+whole-source range without rewriting the PDF. Preprocessing is limited to the
+current chunk. Source/model/config/tool/renderer bindings and immutable file
+inventories reuse completed verified chunks; failed/incomplete chunks resume only
+their complete region receipts under the original checkpoint validator. Startup,
+per-request and total timeouts come from the qualification plan. A budget pause
+retains the verifier's `scan_checkpoint_paused` result instead of claiming pass;
+no other verifier failure is accepted. Real worker errors or zero progress require
+repair and explicit resume, not automatic retry loops.
+
+The top workflow always retains its complete original page ledger. Native-only
+degradation is an explicit persisted choice that creates separate source-bound
+children for continuous native+confirmed-blank ranges and reports omitted pages.
+Inspection-only creates no knowledge package; all-blank input reports no_content.
+OCR completion still stops at independent structure Review, then semantic/support/
+coverage gates. No Review, Gold, accuracy, whole-book completeness or executable
+authority is created by this route.
+
 ## Phase 7D.3 visual policy and body-OCR separation
 
 Visual selection is a separate policy from the scanned-PDF text route. New visual

@@ -24,7 +24,7 @@ import native_extraction
 from environment_preflight import _check_source
 from environment_preflight import build_report
 from book_planner import build_book_plan
-from native_blank_pages import confirm_blank_page
+from native_blank_pages import confirm_blank_page, diagnose_blank_page
 from pdf_structure import compile_pdf_intermediate_representation, sha256_file, write_intermediate_representation
 from semantic_promotion import DRAFT_SCHEMA, build_semantic_workpack, validate_semantic_workpack
 from verify_pdf_ir import verify_pdf_ir
@@ -102,6 +102,8 @@ class NativeBlankPageTests(unittest.TestCase):
         workpack, ir = self.workpack(1, 6, "whole")
         self.assertTrue(report["passed"])
         self.assertEqual(report["confirmed_blank_pages"], [1, 3, 4, 6])
+        self.assertEqual(report["page_summary"], ir["preflight"]["page_summary"])
+        self.assertEqual(json.loads((workpack / "workpack.json").read_text())["pdf_ir"]["page_summary"], report["page_summary"])
         self.assertEqual(ir["preflight"]["confirmed_blank_pages"], [1, 3, 4, 6])
         self.assertEqual(report["blank_page_proofs"], [row["blank_page_proof"] for row in ir["preflight"]["pages"] if "blank_page_proof" in row])
         self.assertEqual(ir["preflight"]["scope"], {"start_page": 1, "end_page": 6})
@@ -170,6 +172,8 @@ class NativeBlankPageTests(unittest.TestCase):
             ("no-content", b"", False, False),
             ("state-only", b"q 1 0 0 1 0 0 cm BT ET Q", False, False),
             ("unused-image", b"q Q", True, False),
+            ("white-vector", b"1 g 1 1 10 10 re f", False, False),
+            ("white-vector-16", b"1 g " + b"1 1 10 10 re f " * 16, False, False),
         ):
             with self.subTest(name=name):
                 source = self.special_source(name, content, image=image, annotation=annotation)
@@ -178,7 +182,10 @@ class NativeBlankPageTests(unittest.TestCase):
                 self.assertEqual(report["confirmed_blank_pages"], [2])
         for name, content, image, annotation in (
             ("thin-vector", b"0.001 w 1 1 m 2 2 l S", False, False),
-            ("white-vector", b"1 g 1 1 10 10 re f", False, False),
+            ("near-white-vector", b"0.99999 g 1 1 10 10 re f", False, False),
+            ("restore-default-black", b"q 1 g Q 1 1 10 10 re f", False, False),
+            ("black-covered-white", b"0 g 1 1 10 10 re f 1 g 0 0 300 400 re f", False, False),
+            ("unknown-opacity", b"/GS0 gs 1 g 0 0 300 400 re f", False, False),
             ("white-scan", b"q 300 0 0 400 0 0 cm /Im0 Do Q", True, False),
             ("unknown", b"unknownOperator", False, False),
             ("annotation", b"", False, True),
@@ -194,11 +201,16 @@ class NativeBlankPageTests(unittest.TestCase):
                 self.assertEqual(report["confirmed_blank_pages"], [])
                 self.assertEqual(report["pages_needing_ocr"], [2])
                 self.assertEqual(ir["preflight"]["pages_needing_ocr"], [2])
+                self.assertIn(report["page_diagnostics"][1]["classification"], {"needs_ocr", "review_required"})
+                self.assertTrue(report["page_diagnostics"][1]["reason_codes"])
 
     def test_renderer_failure_and_source_drift_never_confirm_blank(self) -> None:
         reader = PdfReader(self.source)
         page = reader.pages[0]
         self.assertIsNone(confirm_blank_page(page, "", self.source, sha256_file(self.source), 1, self.root / "missing-renderer"))
+        diagnostic = diagnose_blank_page(page, "", self.source, sha256_file(self.source), 1, self.root / "missing-renderer")
+        self.assertEqual(diagnostic["classification"], "review_required")
+        self.assertEqual(diagnostic["reason_codes"], ["renderer_missing"])
         self.assertIsNone(confirm_blank_page(page, "", self.source, "0" * 64, 1))
         with patch("native_blank_pages.subprocess.run", side_effect=subprocess.TimeoutExpired("pdftoppm", 30)):
             self.assertIsNone(confirm_blank_page(page, "", self.source, sha256_file(self.source), 1))

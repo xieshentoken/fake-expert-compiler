@@ -36,6 +36,11 @@ from compiler_version import (  # noqa: E402
     RELEASE_VERSION,
     UX_CLI_PROTOCOL,
     UX_COMPILER_VERSION,
+    INTAKE_COMPILER_VERSION,
+    INTAKE_REPORT_SCHEMA,
+    INTAKE_WORKFLOW_SCHEMA,
+    INTAKE_WORKFLOW_PROTOCOL,
+    OCR_LOCAL_CONFIG_SCHEMA,
 )
 
 
@@ -116,6 +121,12 @@ DOCUMENTED_ERROR_CODES = (
     "required_reference_missing",
     "required_reference_hash_mismatch",
     "source_profile_mismatch",
+    "automatic_intake_option_requires_explicit_profile",
+    "intake_binding_drift_replan",
+    "ocr_environment_unavailable",
+    "ocr_execution_authorization_required",
+    "ocr_checkpoint_incomplete",
+    "ocr_worker_repair_required",
     "backend_required_for_profile",
     "backend_invalid_for_profile",
     "runtime_qualification_required",
@@ -265,7 +276,8 @@ def _document_contract_report() -> dict[str, Any]:
         version_matrix = version_matrix_path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         version_matrix = ""
-    for token in (RELEASE_VERSION, UX_COMPILER_VERSION, UX_CLI_PROTOCOL, FAKE_EXPERT_JOB_SCHEMA, FAKE_EXPERT_JOB_PROTOCOL):
+    for token in (RELEASE_VERSION, UX_COMPILER_VERSION, UX_CLI_PROTOCOL, FAKE_EXPERT_JOB_SCHEMA, FAKE_EXPERT_JOB_PROTOCOL,
+                  INTAKE_COMPILER_VERSION, INTAKE_REPORT_SCHEMA, INTAKE_WORKFLOW_SCHEMA, INTAKE_WORKFLOW_PROTOCOL, OCR_LOCAL_CONFIG_SCHEMA):
         if f"`{token}`" not in version_matrix:
             issues.append(f"version_matrix_missing:{token}")
     if f"fake-expert v{RELEASE_VERSION}" not in skill_text:
@@ -1335,8 +1347,14 @@ def _update_job(path: Path, job: Mapping[str, Any], result: Mapping[str, Any]) -
     return updated
 
 
+def check_document_contract() -> dict[str, Any]:
+    """Shared planning gate; no workflow may infer authority from stale docs."""
+    return _document_contract_report()
+
+
 def doctor(args: argparse.Namespace) -> dict[str, Any]:
     import environment_preflight
+    from native_intake import build_identity
 
     report = environment_preflight.build_report(
         renderer=args.pdftoppm,
@@ -1353,6 +1371,11 @@ def doctor(args: argparse.Namespace) -> dict[str, Any]:
         report.setdefault("blocking", []).append("document_contract_invalid")
     report["protocol"] = UX_CLI_PROTOCOL
     report["compiler_version"] = UX_COMPILER_VERSION
+    report["identity"] = build_identity()
+    if getattr(args, "ocr_config", None) is not None:
+        from ocr_availability import inspect_ocr
+        report["ocr_availability"] = inspect_ocr(args.ocr_config, renderer=args.pdftoppm,
+                                                capability=getattr(args, "capability", "text"))
     report["required_reading"] = _required_reading_records(args.profile, "draft", "none")
     report["next_action"] = "continue" if report["passed"] else "repair_required_environment_checks"
     return report
@@ -1803,12 +1826,18 @@ def build_parser() -> argparse.ArgumentParser:
     doctor_parser.add_argument("--backend")
     doctor_parser.add_argument("--pdftoppm", default="pdftoppm")
     doctor_parser.add_argument("--minimum-native-characters", type=int, default=40)
+    doctor_parser.add_argument("--ocr-config", type=Path)
+    doctor_parser.add_argument("--capability", choices=("text", "structure"), default="text")
     _add_json_flag(doctor_parser)
 
     plan_parser = sub.add_parser("plan", help="Create a private hash-bound job")
     plan_parser.add_argument("--source", required=True, type=Path)
     plan_parser.add_argument("--workspace", required=True, type=Path)
-    plan_parser.add_argument("--profile", choices=PROFILES, required=True)
+    plan_parser.add_argument("--profile", choices=PROFILES)
+    plan_parser.add_argument("--ocr-config", type=Path)
+    plan_parser.add_argument("--capability", choices=("text", "structure"), default="text")
+    plan_parser.add_argument("--pdftoppm", default="pdftoppm")
+    plan_parser.add_argument("--minimum-native-characters", type=int, default=40)
     plan_parser.add_argument("--backend", help="Explicit backend identity; required for non-native profiles.")
     plan_parser.add_argument("--runtime-receipt", type=Path, help="Optional existing specialist qualification receipt to hash-bind.")
     plan_parser.add_argument("--target-stage", choices=TARGET_STAGES, default="draft")
@@ -1832,7 +1861,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     for name, help_text in (("compile", "Evaluate and compile a job"), ("resume", "Re-evaluate a paused job")):
         command = sub.add_parser(name, help=help_text)
-        command.add_argument("--job", required=True, type=Path)
+        command.add_argument("--job", "--workflow", dest="job", required=True, type=Path)
+        command.add_argument("--authorize-ocr", action="store_true")
+        command.add_argument("--exclusive-heavy-model", action="store_true")
         command.add_argument("--dry-run", action="store_true")
         command.add_argument("--progress", action="store_true", help="Emit structured JSONL progress on stderr")
         _add_json_flag(command)
@@ -1857,6 +1888,8 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--workbench", required=True, type=Path)
     validate.add_argument("--submission", required=True, type=Path)
     _add_json_flag(validate)
+    from intake_workflow import add_cli
+    add_cli(sub)
     return parser
 
 
@@ -1910,20 +1943,38 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        import intake_workflow
         if args.command == "doctor":
             result = doctor(args)
         elif args.command == "plan":
-            result = plan_job(args)
+            if args.profile is None:
+                if not check_document_contract()["passed"]:
+                    raise FakeExpertError("document_contract_invalid")
+                explicit_only = [name for name in ("workpack", "structure_selections", "backend", "runtime_receipt", "gold_revision", "job") if getattr(args, name, None) is not None]
+                if args.target_stage != "draft" or args.gold_mode != "none":
+                    explicit_only.extend(["target_stage", "gold_mode"])
+                if explicit_only:
+                    raise FakeExpertError("automatic_intake_option_requires_explicit_profile:" + ",".join(explicit_only))
+            elif args.ocr_config is not None or args.capability != "text" or args.pdftoppm != "pdftoppm" or args.minimum_native_characters != 40:
+                raise FakeExpertError("automatic_intake_options_require_automatic_route")
+            result = plan_job(args) if args.profile is not None else intake_workflow.plan(args)
         elif args.command == "compile":
-            result = _run_job(args, resume=False)
+            result = (intake_workflow.run(args.job, authorize_ocr=args.authorize_ocr, exclusive_model=args.exclusive_heavy_model, dry_run=args.dry_run)
+                      if intake_workflow.is_workflow(args.job) else _run_job(args, resume=False))
         elif args.command == "resume":
-            result = _run_job(args, resume=True)
+            result = (intake_workflow.run(args.job, authorize_ocr=args.authorize_ocr, exclusive_model=args.exclusive_heavy_model, dry_run=args.dry_run)
+                      if intake_workflow.is_workflow(args.job) else _run_job(args, resume=True))
+        elif args.command == "intake":
+            if args.intake_command == "plan" and not check_document_contract()["passed"]:
+                raise FakeExpertError("document_contract_invalid")
+            result = intake_workflow.dispatch(args)
         elif args.command == "status":
             if args.workspace is not None and not args.all:
                 raise FakeExpertError("status_workspace_requires_all")
             if args.job is not None and args.all:
                 raise FakeExpertError("status_all_requires_workspace")
-            result = _status_all(args.workspace) if args.workspace is not None else _status_job(args.job)
+            result = (_status_all(args.workspace) if args.workspace is not None else
+                      intake_workflow.status(args.job) if intake_workflow.is_workflow(args.job) else _status_job(args.job))
         elif args.command == "review":
             if args.review_command == "list":
                 result = review_list(args)
@@ -1935,7 +1986,7 @@ def main(argv: list[str] | None = None) -> int:
                 result = review_validate_submission(args)
         else:  # pragma: no cover
             raise FakeExpertError("command_invalid")
-        if getattr(args, "json_output", False) or args.command in {"plan", "compile", "resume", "status", "review"}:
+        if getattr(args, "json_output", False) or args.command in {"plan", "compile", "resume", "status", "review", "intake"}:
             print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         else:
             _human(result)

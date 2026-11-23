@@ -1,0 +1,48 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "backend"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "tkc.ocr-local-config/v0.1"
+    },
+    "backend": {
+      "enum": [
+        "paddleocr-ppocrv6",
+        "paddleocr-ppstructure-v3"
+      ]
+    },
+    "python": {
+      "type": "string"
+    },
+    "model_root": {
+      "type": "string"
+    },
+    "runtime_root": {
+      "type": "string"
+    },
+    "worker": {
+      "type": "string"
+    },
+    "backend_config": {
+      "type": "string"
+    },
+    "qualification_plan": {
+      "type": "string"
+    },
+    "qualification_receipt": {
+      "type": "string"
+    },
+    "expected_distributions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.ocr-local-config/v0.1"
+}

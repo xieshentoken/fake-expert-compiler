@@ -1,0 +1,126 @@
+"""Transactional native children over original physical PDF ranges.
+
+These are versioned intake children, not modified v0.2 unified jobs. They never
+rewrite/crop the source to bypass the old whole-source profile gate.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import tempfile
+import uuid
+from typing import Any
+from compiler_version import SCOPED_NATIVE_CHILD_SCHEMA
+
+from direct_reference_skill import build_direct_reference, validate_direct_reference
+from pdf_structure import compile_pdf_intermediate_representation, write_intermediate_representation
+from semantic_authoring import prepare
+from semantic_promotion import build_semantic_workpack, validate_semantic_workpack
+
+SCHEMA = SCOPED_NATIVE_CHILD_SCHEMA
+
+
+class NativeChildError(ValueError):
+    def __init__(self, detail: str, audit_path: Path):
+        super().__init__(detail)
+        self.audit_path = str(audit_path)
+
+
+def _digest(path: Path) -> str:
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def _write(path: Path, value: dict[str, Any]) -> None:
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n")
+    os.chmod(temporary, 0o600)
+    temporary.replace(path)
+
+
+def run_native_child(source: Path, scope: list[int], root: Path, *, bindings: dict[str, Any],
+                     package: dict[str, Any], renderer: str, minimum_characters: int) -> dict[str, Any]:
+    expected = {"source_sha256": _digest(source), "physical_pages": scope, "workflow_bindings": bindings,
+                "package": package, "minimum_native_characters": minimum_characters}
+    record_path = root / "child.json"
+    if root.is_symlink():
+        raise ValueError("native_child_symlink_forbidden")
+    if not root.exists() or not any(root.iterdir()):
+        root.parent.mkdir(parents=True, exist_ok=True)
+        published = False
+        try:
+            with tempfile.TemporaryDirectory(prefix=f".{root.name}-staging-", dir=root.parent) as temporary:
+                stage = Path(temporary) / "child"
+                stage.mkdir()
+                try:
+                    ir = compile_pdf_intermediate_representation(source, scope[0], scope[1], minimum_characters,
+                                                                 "all", "pypdf", renderer)
+                    if not ir["preflight"]["eligible_for_current_compiler"]:
+                        raise ValueError("native_child_scope_not_eligible")
+                    write_intermediate_representation(stage / "ir", ir)
+                    build_semantic_workpack(source, stage / "ir", stage / "workpack", pdftoppm=Path(renderer))
+                except Exception as error:
+                    audit = root.parent.parent / "audit" / f"{root.name}-failed-{uuid.uuid4().hex[:12]}"
+                    audit.parent.mkdir(parents=True, exist_ok=True)
+                    stage.rename(audit)
+                    os.chmod(audit, 0o700)
+                    detail = str(error).replace(str(stage), str(audit))
+                    _write(audit / "failure.json", {"status": "failed", "physical_pages": scope,
+                                                    "source_sha256": expected["source_sha256"], "detail": detail,
+                                                    "knowledge_package": False})
+                    raise NativeChildError(detail, audit) from error
+                if root.exists() and any(root.iterdir()):
+                    raise ValueError("native_child_output_not_empty")
+                stage.rename(root)
+                published = True
+                prepare(root / "workpack")
+                files = {path.relative_to(root).as_posix(): _digest(path) for path in root.rglob("*") if path.is_file()}
+                _write(record_path, {"schema_version": SCHEMA, "bindings": expected, "files": files,
+                                     "skill_manifest_sha256": None})
+        except Exception:
+            if published and root.exists():
+                shutil.rmtree(root)
+            raise
+    if not record_path.is_file():
+        raise ValueError("native_child_output_not_empty")
+    record = json.loads(record_path.read_text())
+    from intake_contracts import validate_definition
+    validate_definition(record, "native_child_record")
+    if record.get("schema_version") != SCHEMA or record.get("bindings") != expected:
+        raise ValueError("native_child_binding_drift_replan")
+    for name, digest in record.get("files", {}).items():
+        relative = Path(name)
+        path = root / relative
+        if relative.is_absolute() or ".." in relative.parts or path.is_symlink() or not path.is_file() or _digest(path) != digest:
+            raise ValueError(f"native_child_file_drift:{name}")
+    skill = root / "skill"
+    if record.get("skill_manifest_sha256"):
+        if not (skill / "manifest.json").is_file() or _digest(skill / "manifest.json") != record["skill_manifest_sha256"] or validate_direct_reference(skill):
+            raise ValueError("native_child_artifact_drift")
+        return {"status": "draft", "code": "native_child_draft", "child": str(record_path),
+                "physical_pages": scope, "package": str(skill), "whole_book_complete": False}
+    issues, _summary = validate_semantic_workpack(source, root / "workpack")
+    errors = [issue for issue in issues if issue.severity == "error"]
+    if errors:
+        missing = any("draft" in issue.code for issue in errors)
+        return {"status": "paused", "code": "semantic_authoring_required" if missing else errors[0].code,
+                "child": str(record_path), "workpack": str(root / "workpack"), "physical_pages": scope,
+                "issues": [issue.to_dict() for issue in errors[:10]], "whole_book_complete": False}
+    if skill.exists() and any(skill.iterdir()):
+        raise ValueError("native_child_output_not_empty")
+    with tempfile.TemporaryDirectory(prefix=".native-skill-", dir=root) as temporary:
+        stage = Path(temporary) / "skill"
+        figures = package["figures"]
+        result = build_direct_reference(source, root / "workpack", stage, name=package["name"],
+                                        display_name=package["display_name"], domain=package["domain"],
+                                        version=package["version"], created_at=package["created_at"],
+                                        figure_index=figures != "none", figure_images=figures == "index+images")
+        stage.rename(skill)
+    record["skill_manifest_sha256"] = _digest(skill / "manifest.json")
+    _write(record_path, record)
+    result.update(package=str(skill), code="native_child_draft", child=str(record_path),
+                  physical_pages=scope, whole_book_complete=False)
+    return result

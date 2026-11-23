@@ -209,6 +209,7 @@ def _check_source(path_value: str, minimum_native_characters: int, renderer: Pat
         "native_text_pages": None,
         "confirmed_blank_pages": [],
         "blank_page_proofs": [],
+        "page_diagnostics": [],
         "pages_needing_ocr": [],
         "scan_candidate_route": "native-text-first",
         "manual_review_pages": [],
@@ -242,6 +243,7 @@ def _check_source(path_value: str, minimum_native_characters: int, renderer: Pat
         native_pages = 0
         pages_needing_ocr: list[int] = []
         from pdf_structure import inspect_page, normalize_text
+        from native_blank_pages import native_text_diagnostic, summarize_page_diagnostics
 
         if minimum_native_characters < 1:
             raise ValueError("minimum_native_characters must be positive")
@@ -253,6 +255,7 @@ def _check_source(path_value: str, minimum_native_characters: int, renderer: Pat
             normalized = normalize_text(page.extract_text() or "")
             if sum(character.isalnum() for character in normalized) >= minimum_native_characters:
                 native_pages += 1
+                result["page_diagnostics"].append(native_text_diagnostic(result["sha256"], page_number))
                 continue
             record, _text, _raw = inspect_page(
                 page, page_number, labels[page_number - 1], minimum_native_characters,
@@ -267,9 +270,11 @@ def _check_source(path_value: str, minimum_native_characters: int, renderer: Pat
                 pages_needing_ocr.append(page_number)
             if record["page_disposition"] == "manual-review-required":
                 result["manual_review_pages"].append(page_number)
+            result["page_diagnostics"].append(record["page_diagnostic"])
         result["page_count"] = len(reader.pages)
         result["native_text_pages"] = native_pages
         result["pages_needing_ocr"] = pages_needing_ocr
+        result["page_summary"] = summarize_page_diagnostics(result["page_diagnostics"])
         result["passed"] = not pages_needing_ocr and native_pages > 0
         if pages_needing_ocr:
             result["code"] = "source_requires_ocr"
@@ -292,6 +297,11 @@ def _check_source(path_value: str, minimum_native_characters: int, renderer: Pat
         result["next_action"] = "rerun_with_pinned_pypdf"
         result["remediation"] = ["Re-run with the pinned pypdf runtime and inspect the local parser environment."]
     return result
+
+
+def inspect_native_source(path: str, minimum_native_characters: int = 40, renderer: Path | str | None = None) -> dict[str, Any]:
+    """Public read-only source diagnosis shared by the automatic intake route."""
+    return _check_source(path, minimum_native_characters, renderer)
 
 
 def build_report(

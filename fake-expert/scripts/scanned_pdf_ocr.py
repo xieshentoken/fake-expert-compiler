@@ -1478,6 +1478,7 @@ def _runtime_engine_configuration(configuration: Mapping[str, Any]) -> dict[str,
             "phase7d1_workspace",
             "worker_timeout_seconds",
             "worker_request_timeout_seconds",
+            "worker_startup_timeout_seconds",
             "worker_max_requests",
         }
     }
@@ -1492,6 +1493,7 @@ def _runtime_engine_configuration(configuration: Mapping[str, Any]) -> dict[str,
                 "phase7d1_workspace",
                 "worker_timeout_seconds",
                 "worker_request_timeout_seconds",
+                "worker_startup_timeout_seconds",
                 "worker_max_requests",
                 "backend_options",
                 "preprocessing",
@@ -1637,6 +1639,11 @@ def _validate_json_schema_value(value: Any, schema: Mapping[str, Any], root_sche
                 _validate_json_schema_value(item, properties[name], root_schema, f"{path}.{name}")
             elif isinstance(additional, Mapping):
                 _validate_json_schema_value(item, additional, root_schema, f"{path}.{name}")
+
+
+def validate_local_json_schema(value: Any, schema: Mapping[str, Any]) -> None:
+    """Validate the existing bounded local JSON-schema subset, without I/O."""
+    _validate_json_schema_value(value, schema, schema, "$")
 
 
 def validate_scanned_pdf_ir_schema(scan_ir: Mapping[str, Any], *, require_bound_components: bool = False) -> None:
@@ -2955,9 +2962,9 @@ def _run_raster_region_backend(
         raise ScanOcrError("raster_region_input_workspace_overlap")
     workspace_root = workspace_root.expanduser().resolve()
     workspace_root.mkdir(parents=True, exist_ok=True)
-    worker_path = Path(__file__).with_name(WORKER_NAME).resolve()
     try:
         spec = _raster_runtime_spec(backend, configuration, model_root)
+        worker_path = Path(str(spec["worker_path"])).expanduser().resolve()
         engine_configuration = _runtime_engine_configuration(configuration)
         contract = freeze_external_runtime_contract(
             spec,
@@ -3194,6 +3201,11 @@ def _run_raster_region_backend(
         try:
             if pending_contexts:
                 host_options = configuration.get("user_config") if isinstance(configuration.get("user_config"), Mapping) else {}
+                startup_timeout = configuration.get("worker_startup_timeout_seconds", host_options.get("worker_startup_timeout_seconds"))
+                per_request_timeout = configuration.get("worker_request_timeout_seconds", host_options.get("worker_request_timeout_seconds"))
+                if startup_timeout is not None:
+                    for position, context in enumerate(pending_contexts):
+                        context["request"]["request_timeout_seconds"] = float(startup_timeout if position == 0 else per_request_timeout or startup_timeout)
                 batch = run_external_worker_batch(
                     contract,
                     [row["request"] for row in pending_contexts],
@@ -3209,6 +3221,7 @@ def _run_raster_region_backend(
                         else None
                     ),
                     workspace_root=workspace_root,
+                    allow_request_timeout_overrides=startup_timeout is not None,
                 )
             else:
                 batch = {
@@ -4551,11 +4564,7 @@ def build_scanned_pdf_ir(
             raise ScanOcrError("spread_split_raster_region_duplicate_inputs")
         raster_regions = list(split_contract.get("regions", []))
         split_contracts = [dict(split_contract)]
-    if checkpoint is not None and not raster_regions:
-        raise ScanOcrError("scan_checkpoint_requires_raster_regions")
-    if checkpoint is not None and len(selected_backends) != 1:
-        raise ScanOcrError("scan_checkpoint_requires_single_backend")
-    if not raster_regions and ocr_pages and selected_backends == [PADDLE_OCR_BACKEND]:
+    if not raster_regions and ocr_pages and len(selected_backends) == 1 and selected_backends[0] in {PADDLE_OCR_BACKEND, PADDLE_STRUCTURE_V3_BACKEND}:
         raster_regions = _full_page_ocr_regions(
             source_sha256=source_hash,
             pages=ocr_pages,
@@ -4563,6 +4572,10 @@ def build_scanned_pdf_ir(
             render_receipts=render_by_page,
             content_rotation_clockwise=int(primary_configuration.get("preprocessing", {}).get("content_rotation_clockwise", 0)),
         )
+    if checkpoint is not None and not raster_regions:
+        raise ScanOcrError("scan_checkpoint_requires_raster_regions")
+    if checkpoint is not None and len(selected_backends) != 1:
+        raise ScanOcrError("scan_checkpoint_requires_single_backend")
     if raster_regions:
         if not selected_backends:
             raise ScanOcrError("raster_region_backend_required")
@@ -4968,6 +4981,7 @@ def build_scanned_pdf_ir(
         "ocr_quality_routing": quality,
         "ocr_worker_responses": worker_responses,
         "ocr_worker_errors": list((raster_result or {}).get("worker_errors", [])) if raster_result else [],
+        **({"scan_checkpoint": raster_result["checkpoint"]} if raster_result and raster_result.get("checkpoint") is not None else {}),
         "table_grids": (raster_result or {}).get("table_grids", []) if raster_result else [],
         "table_grid_bindings": (raster_result or {}).get("table_grid_bindings", []) if raster_result else [],
         "visual_candidates": (raster_result or {}).get("visual_candidates", []) if raster_result else [],
@@ -5741,6 +5755,20 @@ def write_spread_split_artifacts(
     _write_json(output / "split-manifest.json", manifest)
     os.chmod(output / "split-manifest.json", 0o600)
     return {"contract": str(output / "split-contract.json"), "manifest": str(output / "split-manifest.json"), "region_paths": region_paths}
+
+
+def qualified_backend_configuration(plan: Mapping[str, Any], receipt: Mapping[str, Any]) -> dict[str, Any]:
+    """Materialize the exact engine/runtime configuration of validated receipts.
+
+    Callers must first run the existing qualification validators. This function
+    grants no qualification and performs no inference or model loading.
+    """
+    config = _backend_config_from_qualification(plan, receipt)
+    execution = plan.get("execution", {})
+    config.update(worker_timeout_seconds=execution.get("total_timeout_seconds", 120),
+                  worker_request_timeout_seconds=execution.get("per_request_timeout_seconds", 120),
+                  worker_startup_timeout_seconds=execution.get("startup_timeout_seconds", 420))
+    return config
 
 
 def _backend_config_from_qualification(plan: Mapping[str, Any], receipt: Mapping[str, Any]) -> dict[str, Any]:

@@ -129,14 +129,27 @@ Treat OCR and visual verification as separate decisions:
   and needs no body-title locator; segments with any content keep the locator gate.
   Whole-book plans list blank pages as `non-knowledge` without downgrading chapters
   that contain native body text. Mixed scan quality routes also forbid blank anchors.
+- `page_diagnostic` (`tkc.native-page-diagnostic/v0.1`) always gives a classification,
+  reason codes and proof/null. `page_summary` and `confirmed_blank_pages` are explicit
+  in whole-source, reconstruct and workpack summaries. The old `pages_needing_ocr`
+  remains a native-profile hard-stop superset; automatic OCR budgets use only
+  `classification=needs_ocr`, while uncertain/short-text/vector pages need review.
 - The shared `native-blank-page-v0.1` rule requires empty normalized native text,
-  only an explicit non-painting operator allowlist, no annotations/unsupported page
+  an explicit non-painting operator allowlist, no annotations/unsupported page
   features, and a strict-white full MediaBox render at 150 DPI using local
   `pdftoppm`. Unused shared image resources are allowed; any actual image/Form
-  invocation, path painting (including white or tiny marks), shading, text showing,
+  invocation, stroke, shading, text showing,
   unknown operations, render warning/failure, or non-white pixel prevents exemption.
   No fuzzy image threshold, OCR, model or network is used. Without a usable renderer
   the ordinary OCR/manual gate remains.
+- `native-white-vector-blank-v0.1` additionally accepts finite, bounded rectangles
+  filled with exact DeviceGray/RGB/CMYK white, using restricted graphics state and
+  the same complete strict-white render. q/Q restores fill and matrix, including
+  the default black fill. Every operation must qualify: black content later
+  covered in white, near-white that rasterizes to 255, thin strokes, opacity/gs,
+  clipping, unknown colors and geometry remain content/review. A pure-white raster
+  image is still an invoked image, not an automatic blank proof. No drawing-count
+  or near-white percentage can authorize blankness.
 - Each `blank_page_proof` binds source SHA-256, physical page, content-stream hash,
   pypdf version, full MediaBox/rotation/pixel bounds, and renderer version/binary
   SHA-256 plus full RGB PPM render SHA-256. Temporary render payloads are removed.

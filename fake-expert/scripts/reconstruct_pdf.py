@@ -121,6 +121,9 @@ def main() -> int:
         "classification": result["preflight"]["scope_classification"],
         "eligible_for_current_compiler": result["preflight"]["eligible_for_current_compiler"],
         "pages_needing_ocr": result["preflight"]["pages_needing_ocr"],
+        "page_summary": result["preflight"]["page_summary"],
+        "confirmed_blank_pages": result["preflight"]["confirmed_blank_pages"],
+        "page_diagnostics": [page["page_diagnostic"] for page in result["preflight"]["pages"]],
         "pages_needing_visual_verification": result["preflight"][
             "pages_needing_visual_verification"
         ],

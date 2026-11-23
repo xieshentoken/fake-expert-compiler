@@ -1975,6 +1975,7 @@ def build_semantic_workpack(
                 "page_text_sha256": sha256_text(text),
                 "character_count": len(text),
                 "pdf_page_label": str(reader.page_labels[page - 1]),
+                **({"page_diagnostic": next(row["page_diagnostic"] for row in ir["preflight"]["pages"] if row["physical_page"] == page)} if ir["preflight"].get("page_summary") else {}),
                 **({"blank_page_proof": blank_proofs[page]} if page in blank_proofs else {}),
             }
             for page, text in page_texts.items()
@@ -2065,6 +2066,8 @@ def build_semantic_workpack(
             "scope": {"start_page": scope_start, "end_page": scope_end},
         },
         "pdf_ir": {
+            "confirmed_blank_pages": ir["preflight"].get("confirmed_blank_pages", []),
+            **({"page_summary": ir["preflight"]["page_summary"]} if "page_summary" in ir["preflight"] else {}),
             "schema_version": ir["preflight"].get("schema_version"),
             "file_hashes": ir["file_hashes"],
             **(

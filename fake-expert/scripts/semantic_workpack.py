@@ -290,6 +290,8 @@ def main() -> int:
             "workpack_id": manifest["workpack_id"],
             "source_id": manifest["source"]["source_id"],
             "scope": manifest["source"]["scope"],
+            "confirmed_blank_pages": manifest["pdf_ir"].get("confirmed_blank_pages", []),
+            "page_summary": manifest["pdf_ir"].get("page_summary"),
             "unit_count": len(manifest["units"]),
             "rendered": manifest["render_profile"] is not None,
             "shareable": manifest["policy"]["shareable"],

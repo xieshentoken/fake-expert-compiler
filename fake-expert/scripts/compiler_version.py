@@ -9,6 +9,15 @@ where it is stamped.
 from __future__ import annotations
 
 RELEASE_VERSION = "1.2.0"
+INTAKE_COMPILER_VERSION = "1.2.0-intake-v1"
+INTAKE_REPORT_SCHEMA = "tkc.intake-report/v0.1"
+INTAKE_WORKFLOW_SCHEMA = "tkc.intake-workflow/v0.1"
+INTAKE_WORKFLOW_PROTOCOL = "intake-workflow-v0.1"
+OCR_LOCAL_CONFIG_SCHEMA = "tkc.ocr-local-config/v0.1"
+NATIVE_PAGE_DIAGNOSTIC_SCHEMA = "tkc.native-page-diagnostic/v0.1"
+NATIVE_BLANK_PAGE_PROTOCOL = "native-blank-page-v0.1"
+NATIVE_WHITE_VECTOR_BLANK_PROTOCOL = "native-white-vector-blank-v0.1"
+SCOPED_NATIVE_CHILD_SCHEMA = "tkc.scoped-native-child/v0.1"
 # Additive science proposals; never a release, promotion or execution identity.
 SCIENCE_COMPILER_VERSION = "1.2.0-science-m1"
 SCIENCE_SIDECAR_SCHEMA = "tkc.science-sidecar/v0.1"

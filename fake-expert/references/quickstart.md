@@ -1,13 +1,68 @@
 # fake-expert 快速开始
 
 本页只给出可复制的入口。所有路径均为占位符；请替换为本机已有文件。
-统一入口是标准库脚本，运行在项目根目录时使用：
+以下自动入口例子以当前 Skill 目录为工作目录；旧例中的 `skills/fake-expert/` 前缀也须替换
+为当前 Skill 路径。统一入口是标准库脚本，运行在项目根目录时可使用：
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/fake_expert.py --help
 ```
 
-## 1. 原生文本 Draft
+## 1. 自动 intake 与普通编译
+
+普通调用无需猜 profile。只读检查后，`plan` 自行执行同一预检并冻结新 workflow：
+
+```bash
+python3 scripts/fake_expert.py intake inspect --source /absolute/path/to/book.pdf --json
+python3 scripts/fake_expert.py plan --source /absolute/path/to/book.pdf \
+  --workspace /absolute/path/to/new-workspace --name domain-reference --figures none --json
+python3 scripts/fake_expert.py compile --workflow /absolute/path/to/new-workspace/intake-workflow.json --json
+```
+
+结果包含同序 `page_ledger`、`page_summary`、显式 `confirmed_blank_pages`。`native` 和
+`confirmed_blank` 可组成安全原生范围；真正的 `needs_ocr` 页数决定 OCR 批量建议与实际请求预算。
+`review_required` 保留物理页及原因，不通过改写 PDF 或占位文字绕过。不可信封面首行只是提示，
+扫描封面无法原生读取时为 unknown；印刷页标签 null 合法。
+
+原生任务在 `children/pages-START-END/` 暂停 `semantic_authoring_required`；按返回的 workpack
+路径使用既有 authoring/ingest，完成 drafts 后 `resume --workflow ...` 构建 Draft。结构定位失败
+会把任务和 IR 保存在明确的 `audit/*-failed-*` 私有路径；该目录不是知识包。
+
+需要 OCR 但环境不可用时，返回持久化 choice_request。按其 ID 只询问一次，不循环提问：
+
+```bash
+python3 scripts/fake_expert.py intake choose --workflow /path/to/intake-workflow.json \
+  --choice configure_environment --ocr-config /absolute/path/to/local-ocr.json --json
+# 或用户明确选择可行降级：
+python3 scripts/fake_expert.py intake choose --workflow /path/to/intake-workflow.json \
+  --choice native_ranges --json
+python3 scripts/fake_expert.py intake run --workflow /path/to/intake-workflow.json --json
+```
+
+`native_ranges` 实际建立原件上的连续原生+确认空白子任务；顶层始终保留完整页账本、
+`partial=true` 和 `omitted_pages`。旧 v0.2 的整源 native gate 不会被 workpack 范围绕过。
+全扫描可选 `inspection_only`，不会生成知识包；全空白直接 `no_content`；纯人工待审来源
+只提供 review/checklist，不提示安装 OCR。
+
+显式 `--ocr-config` 优先于 `FAKE_EXPERT_OCR_CONFIG`。后者仅复用指向的已有 JSON，不搜索或
+安装环境。合同与例子见 `scanned-pdf-ocr.md`。配置可用不等于已获模型执行授权：
+
+```bash
+# 仅在用户已授权该 source/config/backend 模型 OCR 后：
+python3 scripts/fake_expert.py intake run --workflow /path/to/intake-workflow.json \
+  --authorize-ocr --exclusive-heavy-model --json
+python3 scripts/fake_expert.py intake resume --workflow /path/to/intake-workflow.json --json
+```
+
+每次 run/resume 只预处理当前连续原物理范围，并有界执行 5 个 OCR 请求（OCR 页数超过 20 时为 20 个），继承资格计划的
+startup/per-request/total timeout，保存既有 checkpoint；只复用完整且绑定匹配的页/区域。
+`ocr_progress` 给出实际 completed/remaining 页号。仅预算耗尽且有进展时可按
+`next_action=resume_next_ocr_batch` 继续；真实 worker 错误或零进展要求修复后显式恢复。
+全部 OCR 完成仍暂停 `structure_review_required`，继续既有独立结构/语义 Review。
+`--dry-run` 在 intake run/resume 或 compile/resume 均不写 workflow/子任务，也不执行 worker，
+即使同时传入授权参数。`doctor --json` 报告 active Skill root、构建 fingerprint 和能力。
+
+## 保留的显式 v0.2 原生路径
 
 先只读检查环境，再创建显式 profile 的私有 job：
 
@@ -32,7 +87,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/fake_expert.py comp
 Native `plan` and `compile` both enforce the canonical source/profile gate. The PDF
 must be parseable, unencrypted, and have enough native text on every content page.
 Both whole-book checks and scoped extraction exempt only pages with a replayable
-non-painting-content plus exact-white full-page local `pdftoppm` proof. Confirmed
+nonpainting-content or restricted opaque-white rectangle proof plus exact-white full-page local `pdftoppm` render. Confirmed
 blank pages keep their original physical numbers/range and supply no semantic
 units, body spans or evidence anchors. Zero text or white pixels alone never
 qualify; image-only, short-text, annotation and uncertain pages keep their gates.

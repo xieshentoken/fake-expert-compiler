@@ -19,7 +19,7 @@ from pdf_parser_adapters import (
     sha256_json,
 )
 from compiler_version import PDF_IR_SCHEMA_VERSION
-from native_blank_pages import confirm_blank_page
+from native_blank_pages import diagnose_blank_page, has_image_invocation, native_text_diagnostic, summarize_page_diagnostics
 from heading_locator import (
     HEADING_LOCATOR_OVERRIDE_SCHEMA,
     HeadingLocatorError,
@@ -364,13 +364,30 @@ def inspect_page(
         "ocr_reasons": ocr_reasons,
         "visual_verification_reasons": visual_reasons,
     }
-    if native_status == "missing" and source_path is not None and source_sha256 is not None:
-        proof = confirm_blank_page(page, raw_text, source_path, source_sha256, physical_page, renderer)
+    if native_status == "usable":
+        diagnostic = native_text_diagnostic(source_sha256 or "", physical_page)
+    elif source_path is not None and source_sha256 is not None:
+        diagnostic = diagnose_blank_page(page, raw_text, source_path, source_sha256, physical_page, renderer)
+        proof = diagnostic["proof"]
         if proof is not None:
             page_record.update(
                 page_role="confirmed-blank", page_disposition="preserve-blank",
                 blank_page_proof=proof, ocr_reasons=[], visual_verification_reasons=[],
             )
+        elif image_count and has_image_invocation(page):
+            diagnostic["classification"] = "needs_ocr"
+            diagnostic["reason_codes"] = ["raster_content_with_insufficient_native_text"]
+            page_record.update(page_role="image-only-or-scanned", page_disposition="ocr-required")
+        else:
+            diagnostic["classification"] = "review_required"
+            page_record.update(page_role="blank-or-unusable", page_disposition="manual-review-required")
+            if native_status == "low":
+                diagnostic["reason_codes"] = ["native_text_below_threshold"]
+    else:
+        diagnostic = {"schema_version": "tkc.native-page-diagnostic/v0.1", "source_sha256": source_sha256,
+                      "physical_page": physical_page, "classification": "review_required",
+                      "reason_codes": ["source_context_missing"], "proof": None}
+    page_record["page_diagnostic"] = diagnostic
     return page_record, normalized, raw_text
 
 
@@ -1125,6 +1142,7 @@ def compile_pdf_intermediate_representation(
         "pages_needing_visual_verification": pages_needing_visual,
         "pages_with_pdf_vs_printed_label_mismatch": label_mismatches,
         "page_role_counts": page_role_counts,
+        "page_summary": summarize_page_diagnostics([page["page_diagnostic"] for page in page_values]),
         "page_routing": {
             "confirmed_blank_pages": [page["physical_page"] for page in page_values if page["page_role"] == "confirmed-blank"],
             "compile_pages": [page["physical_page"] for page in page_values if page["page_disposition"] == "compile"],

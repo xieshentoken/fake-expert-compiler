@@ -4,6 +4,25 @@ Single registry for every version identity used by the fake-expert compiler Skil
 All scripts import these strings from `scripts/compiler_version.py`; no script may
 maintain its own copy. Update this file and `scripts/compiler_version.py` together.
 
+## Automatic intake source candidate
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `INTAKE_COMPILER_VERSION` | `1.2.0-intake-v1` | Local automatic intake/workflow candidate; not a formal release or book certification |
+| `INTAKE_REPORT_SCHEMA` | `tkc.intake-report/v0.1` | Full original physical-page ledger, route counts and bounded OCR advice |
+| `INTAKE_WORKFLOW_SCHEMA` | `tkc.intake-workflow/v0.1` | Closed persistent choices, bound configuration and candidate-only execution state |
+| `INTAKE_WORKFLOW_PROTOCOL` | `intake-workflow-v0.1` | Original-source native children and bounded qualified scan chunks |
+| `OCR_LOCAL_CONFIG_SCHEMA` | `tkc.ocr-local-config/v0.1` | Explicit local backend/interpreter/model/worker/qualification paths; no install or model call |
+| `NATIVE_PAGE_DIAGNOSTIC_SCHEMA` | `tkc.native-page-diagnostic/v0.1` | Native/confirmed-blank/needs-OCR/review-required with stable reasons and proof/null |
+| `NATIVE_BLANK_PAGE_PROTOCOL` | `native-blank-page-v0.1` | Compatibility proof for nonpainting streams plus a full strict-white render |
+| `NATIVE_WHITE_VECTOR_BLANK_PROTOCOL` | `native-white-vector-blank-v0.1` | Restricted opaque Device-white rectangles plus the same full-render proof |
+| `SCOPED_NATIVE_CHILD_SCHEMA` | `tkc.scoped-native-child/v0.1` | New bounded child contract over the unchanged source SHA and original physical pages |
+
+The existing `tkc.fake-expert-job/v0.2` schema and explicit-profile commands are not
+extended with intake fields. Source/tool/document/schema/config/model drift requires
+a fresh plan. Synthetic workers validate software boundaries only; they cannot
+qualify an installed real model or claim OCR, structure or semantic accuracy.
+
 ## Release version
 
 Science M1 adds independent proposal identities; it does not modify the formal

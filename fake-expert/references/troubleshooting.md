@@ -18,6 +18,15 @@
 | `source_missing` | source 路径不存在或不是普通文件 | 提供已有 PDF；不自动获取 |
 | `source_hash_mismatch` | PDF 内容与计划指纹不同 | 重新 plan，保留旧 job 作为审计记录 |
 | `source_profile_mismatch` | native profile 的 source 不是可解析未加密 PDF，或存在 native-text 不足的页面 | 选择显式 scan profile 并重新 plan；matching workpack 不能绕过此门禁 |
+| `automatic_intake_option_requires_explicit_profile` | 无 profile 的自动 plan 收到了只适用于旧 job 的参数 | 对 workpack、Gold、runtime receipt、structure selections、backend 或自定义 job 路径明确传 profile；不静默忽略 |
+| `automatic_intake_options_require_automatic_route` | 旧显式 profile plan 收到了新自动 intake 的 OCR config/capability/renderer/阈值选择 | 使用无 profile 的自动 plan 或 intake plan；不向闭合旧 v0.2 job 塞入新字段 |
+| `intake_binding_drift_replan` | 自动 workflow 的 source、工具、文档、schema、renderer、配置、模型或资格已漂移 | 保留旧 workflow/候选，重新 plan；配置修复须在执行前明确选择 configure_environment 重绑 |
+| `ocr_environment_unavailable` | 所需 OCR 环境不可运行 | 按 checks 区分 interpreter/deps/model/renderer/qualification missing、stale 或 unusable；选择配置修复或可行降级 |
+| `ocr_execution_authorization_required` | 已配置环境可用，但尚无当前 source/config/backend 的执行授权 | 仅在用户授权该模型 OCR 后传 authorize-ocr 和 exclusive-heavy-model；inspect/status/dry-run 不执行 |
+| `ocr_checkpoint_incomplete` | 已保存有界批次，整源还有 OCR 页待处理 | 有进展且仅预算耗尽时按 next_action resume 下一连续物理 chunk；完整 source 页账本始终保留 |
+| `ocr_worker_repair_required` | worker 返回实际错误或本批零进展 | 保留候选和 checkpoint，检查错误码、修复后显式 resume；禁止无限自动重试 |
+| `intake_workflow_schema_invalid` | 新 workflow 的闭合顶层或嵌套 shape 非法 | 保留原文件；不要手改 hash、scope、choice 或授权来绕过校验 |
+| `scan_execution_failed` | 扫描执行/权威完整性检查失败，或运行环境出现异常 | 保留已成功 chunk；根据 failure_detail 修复后显式恢复，不能把失败称为结构 Review 完成 |
 | `source_contains_no_native_text` | 全部页均确认空白，没有可提取的正文 | 选择包含可用 native 正文的原物理页范围；不为白纸启用 OCR |
 | `blank_page_proof_invalid` / `blank_page_proof_mismatch` | 空页证明缺失、错页、重复、漂移，或被附加到有正文的页 | 保留旧 workpack/IR，检查原件、renderer 和页号后重新抽取；不手工修 hash |
 | `non_contiguous_source_scope_requires_separate_package` | 同源 `extend` 跳过了原物理页，包括已确认空页 | 重新提取包含空页的连续范围，或维持分包；失败目标不会留下可验证的旧包 |
@@ -28,7 +37,7 @@
 | `backend_invalid_for_profile` | backend 不在所选 profile 的允许集合内 | 保留旧 job，使用正确 backend 创建新 job；不自动 fallback |
 | `runtime_qualification_validator_required` | 已绑定 backend 没有统一 shortcut validator | 使用该 backend 的既有专项 validator 并重新绑定结果；保持当前 job 暂停 |
 | `runtime_qualification_unverified` | hash-bound runtime receipt 未通过既有专项 validator | 修复或重新取得外部 qualification receipt；不要启动模型重试 |
-| `semantic_authoring_required` | semantic proposal 不完整或不存在 | 未绑定 workpack 时，`compile` 先在 `<workspace>/extraction/` 生成 IR、workpack、figure crops 和 authoring packets；然后用 `semantic_authoring.py run --command ...`（显式模型 CLI）或手写 drafts 补齐，再次 `compile` |
+| `semantic_authoring_required` | semantic proposal 不完整或不存在 | 新 workflow 使用返回的 `children/pages-START-END/workpack`；旧显式 v0.2 未绑定 workpack 时在 `<workspace>/extraction/workpack`。用返回的 workpack 路径运行既有 authoring/ingest，补齐 drafts 后恢复；不自动调用模型 |
 | `extraction_failed` | 统一入口的自动抽取（IR / workpack / authoring packets）失败，例如标题定位需要人工处理或 `extraction/` 非空 | 按附带的原错误码处理（如 `heading_resolution_required` 走既有 heading override）；保留旧目录，换新 workspace 重新 plan |
 | `extraction_workpack_mismatch` | `<workspace>/extraction/workpack` 绑定的 source SHA-256 与 job 不一致 | 不要覆盖；为该 source 新建 workspace 并重新 plan |
 | `numeric_token_untraced` | draft 的数字不在文本证据中，且未绑定图对象（现为 error） | 在 evidence 中引用含该数字的原文，或用 `figure_object_ids` 绑定读数所在的 figure/table |
@@ -68,7 +77,7 @@
 
 - `numeric_review_required`: proposed figure values remain in the workpack. Use the existing independent semantic and visual Review route, then resume; a figure ID, origin label, boolean or presence-only inspection cannot authorize numbers.
 - `legacy_numeric_revalidation_required`: old packages remain readable. Rebuild from a correctly reviewed workpack to migrate untraced numbers; never patch the sealed old package.
-- `structure_review_required` after native extraction: inspect the retained IR and explicitly select actual source text boundaries using `plan --structure-selections`, or bind a validated external workpack. No chapter is invented.
+- `structure_review_required` after native extraction: inspect the retained IR and explicitly select actual source text boundaries using `plan --profile native-text --structure-selections`, or bind a validated external workpack through that explicit profile. New scoped children retain failed structure tasks under their reported `audit_path`; use the existing bounded reconstruct/heading-override route without rewriting the source. No chapter is invented.
 - `extraction_workpack_mismatch`: source/tool/render/checkpoint content drifted, or an unbound workspace contains drafts. Preserve the directory and replan into a fresh workspace.
 - Failed or interrupted extraction directories remain recoverable as `extraction-failed-*` / `extraction-incomplete-*`; no partial directory clears completion.
 - `authoring_packet_drift` / `authoring_response_binding_drift`: preserve the responses and prepare a fresh source-bound workpack, or explicitly rerun the configured command. Existing drafts require `--replace-drafts` for replacement.

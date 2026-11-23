@@ -1,0 +1,1587 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol",
+    "compiler_version",
+    "workflow_id",
+    "workflow_sha256",
+    "workspace",
+    "source",
+    "intake",
+    "ocr_config",
+    "availability",
+    "capability",
+    "renderer",
+    "minimum_native_characters",
+    "package",
+    "bindings",
+    "choice",
+    "route",
+    "state",
+    "authorization"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "tkc.intake-workflow/v0.1"
+    },
+    "protocol": {
+      "const": "intake-workflow-v0.1"
+    },
+    "compiler_version": {
+      "const": "1.2.0-intake-v1"
+    },
+    "workflow_id": {
+      "type": "string",
+      "pattern": "itw-[a-f0-9]{24}"
+    },
+    "workflow_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "workspace": {
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "intake": {
+      "$ref": "#/$defs/intake_report"
+    },
+    "ocr_config": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/config_record"
+        }
+      ]
+    },
+    "availability": {
+      "$ref": "#/$defs/availability"
+    },
+    "capability": {
+      "enum": [
+        "text",
+        "structure"
+      ]
+    },
+    "renderer": {
+      "type": "string"
+    },
+    "minimum_native_characters": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "package": {
+      "$ref": "#/$defs/package"
+    },
+    "bindings": {
+      "$ref": "#/$defs/bindings"
+    },
+    "choice": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "enum": [
+            "configure_environment",
+            "native_ranges",
+            "inspection_only",
+            "review_source"
+          ]
+        }
+      ]
+    },
+    "route": {
+      "enum": [
+        "native",
+        "native_ranges",
+        "ocr",
+        "waiting",
+        "inspection_only"
+      ]
+    },
+    "state": {
+      "$ref": "#/$defs/state"
+    },
+    "authorization": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/authorization"
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tkc.intake-workflow/v0.1",
+  "$defs": {
+    "hash_map": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "display_name",
+        "domain",
+        "version",
+        "created_at",
+        "figures"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "figures": {
+          "enum": [
+            "none",
+            "index",
+            "index+images"
+          ]
+        }
+      }
+    },
+    "renderer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "passed"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "intake_renderer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested",
+        "code",
+        "passed"
+      ],
+      "properties": {
+        "requested": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "proof_render": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "renderer",
+        "version",
+        "renderer_sha256",
+        "dpi",
+        "format",
+        "box",
+        "media_box_points",
+        "rotation_clockwise",
+        "pixel_bounds",
+        "sha256"
+      ],
+      "properties": {
+        "renderer": {
+          "const": "pdftoppm"
+        },
+        "version": {
+          "type": "string"
+        },
+        "renderer_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "dpi": {
+          "const": 150
+        },
+        "format": {
+          "const": "ppm-rgb8"
+        },
+        "box": {
+          "const": "MediaBox"
+        },
+        "media_box_points": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "rotation_clockwise": {
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ]
+        },
+        "pixel_bounds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "blank_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "source_sha256",
+        "physical_page",
+        "pypdf_version",
+        "content_sha256",
+        "content_operator_count",
+        "proof",
+        "render"
+      ],
+      "properties": {
+        "protocol": {
+          "enum": [
+            "native-blank-page-v0.1",
+            "native-white-vector-blank-v0.1"
+          ]
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "physical_page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pypdf_version": {
+          "type": "string"
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "content_operator_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proof": {
+          "enum": [
+            "non-painting-content-and-exact-white-full-render",
+            "opaque-white-rectangles-and-exact-white-full-render"
+          ]
+        },
+        "render": {
+          "$ref": "#/$defs/proof_render"
+        },
+        "white_rectangle_count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "page_diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "source_sha256",
+        "physical_page",
+        "classification",
+        "reason_codes",
+        "proof"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.native-page-diagnostic/v0.1"
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "physical_page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "classification": {
+          "enum": [
+            "native",
+            "confirmed_blank",
+            "needs_ocr",
+            "review_required"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "proof": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/blank_proof"
+            }
+          ]
+        }
+      }
+    },
+    "page_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page_count",
+        "counts",
+        "pages"
+      ],
+      "properties": {
+        "page_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "native",
+            "confirmed_blank",
+            "needs_ocr",
+            "review_required"
+          ],
+          "properties": {
+            "native": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "confirmed_blank": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "needs_ocr": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "review_required": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "pages": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "native",
+            "confirmed_blank",
+            "needs_ocr",
+            "review_required"
+          ],
+          "properties": {
+            "native": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "uniqueItems": true
+            },
+            "confirmed_blank": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "uniqueItems": true
+            },
+            "needs_ocr": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "uniqueItems": true
+            },
+            "review_required": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "page_count"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "page_count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "active_skill_root",
+        "release_version",
+        "intake_version",
+        "build_fingerprint",
+        "capabilities"
+      ],
+      "properties": {
+        "active_skill_root": {
+          "type": "string"
+        },
+        "release_version": {
+          "const": "1.2.0"
+        },
+        "intake_version": {
+          "const": "1.2.0-intake-v1"
+        },
+        "build_fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "automatic_page_intake",
+            "opaque_white_vector_blank_proof",
+            "scoped_native_children",
+            "ocr_backends",
+            "ocr_during_inspection",
+            "network_fallback"
+          ],
+          "properties": {
+            "automatic_page_intake": {
+              "const": true
+            },
+            "opaque_white_vector_blank_proof": {
+              "const": true
+            },
+            "scoped_native_children": {
+              "const": true
+            },
+            "ocr_backends": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "ocr_during_inspection": {
+              "const": false
+            },
+            "network_fallback": {
+              "const": false
+            }
+          }
+        }
+      }
+    },
+    "model_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "status"
+      ],
+      "properties": {
+        "profile_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "profile_schema": {
+          "type": "string"
+        },
+        "required_model_dirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "resolved_model_dirs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "missing_model_dirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "stable_identity_sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "missing_weight_components": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "passed"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "details": {
+          "$ref": "#/$defs/model_status"
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "distributions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "supported": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "receipt_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "runtime_contract_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "worker_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "interpreter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "code"
+      ],
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "python": {
+          "type": "string"
+        },
+        "executable": {
+          "type": "string"
+        },
+        "prefix": {
+          "type": "string"
+        },
+        "distributions": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "launcher": {
+          "type": "string"
+        },
+        "real_binary": {
+          "type": "string"
+        },
+        "binary_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "launcher_link": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "exit_code": {
+          "type": "integer"
+        }
+      }
+    },
+    "availability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "runnable",
+        "checks",
+        "selected_backend",
+        "selection_reason",
+        "ocr_invoked"
+      ],
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "runnable": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/check"
+          }
+        },
+        "selected_backend": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "paddleocr-ppocrv6",
+                "paddleocr-ppstructure-v3"
+              ]
+            }
+          ]
+        },
+        "selection_reason": {
+          "type": "string"
+        },
+        "ocr_invoked": {
+          "const": false
+        },
+        "model_loaded": {
+          "const": false
+        },
+        "network_enabled": {
+          "const": false
+        },
+        "config_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "capability": {
+          "enum": [
+            "text",
+            "structure"
+          ]
+        },
+        "interpreter": {
+          "$ref": "#/$defs/interpreter"
+        }
+      }
+    },
+    "batch_advice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ocr_page_count",
+        "suggested_batch_size",
+        "batches",
+        "basis",
+        "serial_workers",
+        "checkpoint",
+        "physical_scopes"
+      ],
+      "properties": {
+        "ocr_page_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suggested_batch_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "batches": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "uniqueItems": true
+          }
+        },
+        "basis": {
+          "const": "only_pages_classified_needs_ocr"
+        },
+        "serial_workers": {
+          "const": true
+        },
+        "checkpoint": {
+          "type": "string"
+        },
+        "physical_scopes": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    },
+    "omitted_page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "physical_page",
+        "classification",
+        "reason_codes"
+      ],
+      "properties": {
+        "physical_page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "classification": {
+          "enum": [
+            "native",
+            "confirmed_blank",
+            "needs_ocr",
+            "review_required"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "intake_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "status",
+        "code",
+        "identity",
+        "source",
+        "renderer",
+        "source_hints",
+        "minimum_native_characters",
+        "page_ledger",
+        "page_summary",
+        "confirmed_blank_pages",
+        "native_ranges",
+        "omitted_pages_for_native_only",
+        "native_whole_source",
+        "model_selection",
+        "batch_advice",
+        "source_content_is_untrusted",
+        "whole_book_complete",
+        "ocr_availability"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.intake-report/v0.1"
+        },
+        "status": {
+          "const": "inspected"
+        },
+        "code": {
+          "const": "intake_inspected"
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "renderer": {
+          "$ref": "#/$defs/intake_renderer"
+        },
+        "source_hints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cover_title",
+            "origin",
+            "untrusted",
+            "advisory_only",
+            "backend_selection_authority"
+          ],
+          "properties": {
+            "cover_title": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "origin": {
+              "type": "string"
+            },
+            "untrusted": {
+              "const": true
+            },
+            "advisory_only": {
+              "const": true
+            },
+            "backend_selection_authority": {
+              "const": false
+            }
+          }
+        },
+        "minimum_native_characters": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "page_ledger": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/page_diagnostic"
+          }
+        },
+        "page_summary": {
+          "$ref": "#/$defs/page_summary"
+        },
+        "confirmed_blank_pages": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "native_ranges": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "omitted_pages_for_native_only": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/omitted_page"
+          }
+        },
+        "native_whole_source": {
+          "type": "boolean"
+        },
+        "model_selection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "selected_backend",
+            "reason",
+            "title_decides_backend"
+          ],
+          "properties": {
+            "selected_backend": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "reason": {
+              "type": "string"
+            },
+            "title_decides_backend": {
+              "const": false
+            }
+          }
+        },
+        "batch_advice": {
+          "$ref": "#/$defs/batch_advice"
+        },
+        "source_content_is_untrusted": {
+          "const": true
+        },
+        "whole_book_complete": {
+          "const": false
+        },
+        "ocr_availability": {
+          "$ref": "#/$defs/availability"
+        }
+      }
+    },
+    "config_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base",
+        "ocr"
+      ],
+      "properties": {
+        "base": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_sha256",
+            "tools",
+            "schemas",
+            "references",
+            "renderer"
+          ],
+          "properties": {
+            "source_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "tools": {
+              "$ref": "#/$defs/hash_map"
+            },
+            "schemas": {
+              "$ref": "#/$defs/hash_map"
+            },
+            "references": {
+              "$ref": "#/$defs/hash_map"
+            },
+            "renderer": {
+              "$ref": "#/$defs/renderer"
+            }
+          }
+        },
+        "ocr": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "files",
+            "runtime_fingerprint",
+            "was_runnable"
+          ],
+          "properties": {
+            "files": {
+              "$ref": "#/$defs/hash_map"
+            },
+            "runtime_fingerprint": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "binary",
+                "launcher",
+                "launcher_link",
+                "distributions",
+                "model",
+                "qualification"
+              ],
+              "properties": {
+                "binary": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  ]
+                },
+                "launcher": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "launcher_link": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "distributions": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": {
+                        "oneOf": [
+                          {
+                            "type": "null"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "model": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  ]
+                },
+                "qualification": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  ]
+                }
+              }
+            },
+            "was_runnable": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "severity",
+        "code",
+        "path",
+        "message"
+      ],
+      "properties": {
+        "severity": {
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "child_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "code",
+        "physical_pages"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "paused",
+            "draft",
+            "rejected"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "physical_pages": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "child": {
+          "type": "string"
+        },
+        "workpack": {
+          "type": "string"
+        },
+        "package": {
+          "type": "string"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/issue"
+          }
+        },
+        "detail": {
+          "type": "string"
+        },
+        "audit_path": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "next_action": {
+          "type": "string"
+        },
+        "whole_book_complete": {
+          "const": false
+        },
+        "object_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "anchor_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "scan_attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "files",
+        "worker_error_codes",
+        "checkpoint_status",
+        "verification",
+        "scope",
+        "batch_index",
+        "completed_pages"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "files": {
+          "$ref": "#/$defs/hash_map"
+        },
+        "worker_error_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "checkpoint_status": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "passed",
+            "failures"
+          ],
+          "properties": {
+            "passed": {
+              "type": "boolean"
+            },
+            "failures": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "batch_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completed_pages": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "code",
+        "children",
+        "scan_attempts"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "planned",
+            "paused",
+            "draft",
+            "reported",
+            "awaiting_choice",
+            "awaiting_environment",
+            "awaiting_review"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/child_summary"
+          }
+        },
+        "scan_attempts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scan_attempt"
+          }
+        },
+        "failure_detail": {
+          "type": "string"
+        },
+        "checkpoint_reused": {
+          "type": "boolean"
+        },
+        "next_action": {
+          "type": "string"
+        },
+        "ocr_progress": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "total_pages",
+            "completed_pages",
+            "remaining_pages",
+            "request_budget"
+          ],
+          "properties": {
+            "total_pages": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "completed_pages": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "uniqueItems": true
+            },
+            "remaining_pages": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "uniqueItems": true
+            },
+            "request_budget": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_sha256",
+        "ocr_config_sha256",
+        "backend",
+        "exclusive_heavy_model"
+      ],
+      "properties": {
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "ocr_config_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "backend": {
+          "enum": [
+            "paddleocr-ppocrv6",
+            "paddleocr-ppstructure-v3"
+          ]
+        },
+        "exclusive_heavy_model": {
+          "const": true,
+          "type": "boolean"
+        }
+      }
+    },
+    "native_child_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "bindings",
+        "files",
+        "skill_manifest_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tkc.scoped-native-child/v0.1"
+        },
+        "bindings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_sha256",
+            "physical_pages",
+            "workflow_bindings",
+            "package",
+            "minimum_native_characters"
+          ],
+          "properties": {
+            "source_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "physical_pages": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "workflow_bindings": {
+              "$ref": "#/$defs/bindings"
+            },
+            "package": {
+              "$ref": "#/$defs/package"
+            },
+            "minimum_native_characters": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "files": {
+          "$ref": "#/$defs/hash_map"
+        },
+        "skill_manifest_sha256": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
