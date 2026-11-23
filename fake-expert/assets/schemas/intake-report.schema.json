@@ -1,5 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "tkc.intake-report/v0.1",
+  "$id": "tkc.intake-report/v0.2",
   "$ref": "intake-workflow.schema.json#/$defs/intake_report"
 }

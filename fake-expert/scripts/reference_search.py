@@ -33,7 +33,7 @@ sys.dont_write_bytecode = True
 CATALOG_SCHEMA = "tkc.runtime-catalog/v0.3"
 RESPONSE_SCHEMA = "tkc.runtime-response/v0.3"
 EMBEDDINGS_SCHEMA = "tkc.runtime-embeddings/v0.1"
-RUNTIME_VERSION = "reference-search-bm25-v0.3"
+RUNTIME_VERSION = "reference-search-bm25-v0.4"
 BM25_K1 = 1.2
 BM25_B = 0.75
 RELATIVE_CUTOFF = 0.3
@@ -449,6 +449,7 @@ def query_catalog(
     embeddings: Mapping[str, Any] | None = None,
     query_vector: list[float] | None = None,
     min_cosine: float = 0.3,
+    _title_lookup: bool = False,
 ) -> dict[str, Any]:
     if catalog.get("schema_version") != CATALOG_SCHEMA:
         raise ValueError("runtime_catalog_schema_invalid")
@@ -464,7 +465,7 @@ def query_catalog(
     normalized_query = unicodedata.normalize("NFKC", query)
     descriptive = bool(re.match(r"^\s*(?:what (?:is|are)|define|explain the (?:definition|meaning|requirements) of|什么是|解释.*含义)", normalized_query, re.I))
     direct_request = bool(re.search(r"(?:for me|for us|\b(?:safe|acceptable|compliant|safest)\b|帮我|替我|为我|应该|是否安全|安全吗)", normalized_query, re.I))
-    if capabilities.get("decision_support") is False and DECISION_RE.search(normalized_query) and (not descriptive or direct_request):
+    if not _title_lookup and capabilities.get("decision_support") is False and DECISION_RE.search(normalized_query) and (not descriptive or direct_request):
         return _abstain("decision_capability_unavailable", query_terms=query_terms)
     out_of_scope = {stem(str(term).casefold()) for term in policy.get("out_of_scope_terms", []) if isinstance(term, str)}
     if out_of_scope & set(query_terms):
@@ -597,6 +598,8 @@ def query_package(
     limit: int = 8,
     embeddings: Mapping[str, Any] | None = None,
     embedding_command: str | None = None,
+    lookup_title: bool = False,
+    lookup_object_id: str | None = None,
 ) -> dict[str, Any]:
     """Query and attach the package's bound candidate assurance."""
 
@@ -613,7 +616,19 @@ def query_package(
             notes.append("embedding_command_mismatch")
         else:
             query_vector = run_embedding_command(embedding_command, [{"id": "query", "text": query}])["query"]
-    response = query_catalog(catalog, query, limit=limit, embeddings=embeddings if query_vector else None, query_vector=query_vector)
+    if lookup_title:
+        matches=[row for row in catalog.get("objects",[]) if _plain(str(row.get("title","")))==_plain(query) and (lookup_object_id is None or row.get("id")==lookup_object_id)]
+        if not matches:
+            response=_abstain("title_lookup_not_found")
+        else:
+            selected=dict(catalog)
+            selected["objects"]=matches
+            linked={ref for row in matches for ref in row.get("figure_refs",[])}
+            selected["figures"]=[row for row in catalog.get("figures",[]) if row.get("id") in linked]
+            response=query_catalog(selected,query,limit=limit,_title_lookup=True)
+        response["retrieval"]["intent"]="explicit-title-lookup"
+    else:
+        response = query_catalog(catalog, query, limit=limit, embeddings=embeddings if query_vector else None, query_vector=query_vector)
     if notes:
         response["retrieval"]["notes"] = notes
     result = dict(response)
@@ -628,6 +643,7 @@ def query_package(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--query", required=True)
+    parser.add_argument("--lookup-title", action="store_true", help="Exact document-title lookup; does not interpret the title as a decision request.")
     parser.add_argument("--limit", type=int, default=8)
     parser.add_argument("--catalog", type=Path, help="Defaults to references/runtime/catalog.json relative to the Skill root.")
     parser.add_argument(
@@ -645,7 +661,7 @@ def main() -> int:
     try:
         catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
         embeddings = json.loads(embeddings_path.read_text(encoding="utf-8")) if embeddings_path.is_file() else None
-        response = query_package(catalog, args.query, limit=args.limit, embeddings=embeddings, embedding_command=args.embedding_command)
+        response = query_package(catalog, args.query, limit=args.limit, embeddings=embeddings, embedding_command=args.embedding_command, lookup_title=args.lookup_title)
     except (OSError, json.JSONDecodeError, ValueError, subprocess.SubprocessError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

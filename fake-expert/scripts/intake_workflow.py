@@ -21,7 +21,7 @@ WORKFLOW_FILE = "intake-workflow.json"
 CHOICES = ("configure_environment", "native_ranges", "inspection_only", "review_source")
 TOP_KEYS = {"schema_version", "protocol", "compiler_version", "workflow_id", "workflow_sha256", "workspace",
             "source", "intake", "ocr_config", "availability", "capability", "renderer", "minimum_native_characters",
-            "package", "bindings", "choice", "route", "state", "authorization"}
+            "package", "bindings", "choice", "route", "state", "authorization", "page_dispositions", "reused_workpacks"}
 
 
 def _digest(path: Path) -> str:
@@ -75,16 +75,17 @@ def _base_bindings(source: dict[str, Any], renderer: str) -> dict[str, Any]:
     schemas = {path.name: _digest(path) for path in (SCRIPTS.parent / "assets/schemas").glob("*intake*.json")}
     schemas.update({path.name: _digest(path) for path in (SCRIPTS.parent / "assets/schemas").glob("*ocr-local-config*.json")})
     schemas.update({path.name: _digest(path) for path in (SCRIPTS.parent / "assets/schemas").glob("*scoped-native-child*.json")})
+    schemas.update({path.name: _digest(path) for path in (SCRIPTS.parent / "assets/schemas").glob("*page-disposition*.json")})
     return {"source_sha256": _digest(Path(source["path"])), "tools": tools, "schemas": schemas,
             "references": {str(path): _digest(path) for path in references}, "renderer": inspect_renderer(renderer)}
 
 
 def inspect(source: Path, *, config: Path | None = None, renderer: str = "pdftoppm",
-            capability: str = "text", minimum_characters: int = 40) -> dict[str, Any]:
-    report = inspect_source(source, renderer=renderer, minimum_characters=minimum_characters)
+            capability: str = "text", minimum_characters: int = 40, start_page: int = 1, end_page: int | None = None, page_dispositions=None) -> dict[str, Any]:
+    report = inspect_source(source, renderer=renderer, minimum_characters=minimum_characters, start_page=start_page, end_page=end_page, page_dispositions=page_dispositions)
     if report["status"] == "rejected":
         return report
-    if report["page_summary"]["counts"]["needs_ocr"]:
+    if report["selection"]["page_summary"]["counts"]["needs_ocr"]:
         availability = inspect_ocr(config, renderer=renderer, capability=capability)
         report["model_selection"] = {"selected_backend": availability["selected_backend"],
                                      "reason": availability["selection_reason"], "title_decides_backend": False}
@@ -96,7 +97,7 @@ def inspect(source: Path, *, config: Path | None = None, renderer: str = "pdftop
 
 
 def _options(record: dict[str, Any]) -> list[dict[str, str]]:
-    counts = record["intake"]["page_summary"]["counts"]
+    counts = record["intake"]["selection"]["page_summary"]["counts"]
     options = []
     if counts["needs_ocr"]:
         options.append({"choice": "configure_environment", "meaning": "Configure or repair the explicit local OCR runtime, then rebind an OCR config; no installation is automatic."})
@@ -109,9 +110,9 @@ def _options(record: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def _set_route(record: dict[str, Any]) -> None:
-    counts = record["intake"]["page_summary"]["counts"]
+    counts = record["intake"]["selection"]["page_summary"]["counts"]
     choice = record["choice"]
-    if not counts["native"] and not counts["needs_ocr"] and not counts["review_required"]:
+    if not record["intake"]["selection"]["knowledge_candidate_pages"] and not counts["needs_ocr"] and not counts["review_required"]:
         route, status, code = "inspection_only", "reported", "no_content"
     elif choice == "inspection_only":
         route, status, code = "inspection_only", "reported", "inspection_only_selected"
@@ -121,7 +122,7 @@ def _set_route(record: dict[str, Any]) -> None:
         route, status, code = "native_ranges", "planned", "partial_native_ranges_selected"
     elif choice == "review_source":
         route, status, code = "waiting", "awaiting_review", "page_review_required"
-    elif record["intake"]["native_whole_source"]:
+    elif record["intake"]["selection"]["native_selected_scope"]:
         route, status, code = "native", "planned", "native_intake_ready"
     elif counts["needs_ocr"] and record["availability"].get("runnable"):
         route, status, code = "ocr", "planned", "ocr_execution_authorization_required"
@@ -144,7 +145,14 @@ def plan(args: argparse.Namespace) -> dict[str, Any]:
     config = resolve_config_path(getattr(args, "ocr_config", None))
     capability = getattr(args, "capability", "text")
     minimum = getattr(args, "minimum_native_characters", 40)
-    report = inspect(source, config=config, renderer=renderer, capability=capability, minimum_characters=minimum)
+    report = inspect(source, config=config, renderer=renderer, capability=capability, minimum_characters=minimum,
+                     start_page=getattr(args,"start_page",1), end_page=getattr(args,"end_page",None),
+                     page_dispositions=getattr(args,"page_dispositions",None))
+    from intake_workpack_reuse import bind_workpacks
+    supplied = getattr(args,"workpack",None) or []
+    if isinstance(supplied,Path):
+        supplied=[supplied]
+    reused = bind_workpacks(source, supplied, report, getattr(args,"page_dispositions",None)) if report["status"] != "rejected" else []
     if report["status"] == "rejected":
         return report
     package = {"name": args.name, "display_name": args.display_name, "domain": args.domain,
@@ -158,7 +166,7 @@ def plan(args: argparse.Namespace) -> dict[str, Any]:
               "bindings": {"base": _base_bindings(report["source"], renderer),
                            "ocr": _ocr_bindings(config_record, report["ocr_availability"])},
               "choice": None, "route": "waiting", "state": {"status": "planned", "code": "intake_planned", "children": [], "scan_attempts": []},
-              "authorization": None}
+              "authorization": None, "page_dispositions": _config_record(getattr(args,"page_dispositions",None)), "reused_workpacks": reused}
     _set_route(record)
     workspace.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=f".{workspace.name}-intake-", dir=workspace.parent) as temporary:
@@ -173,6 +181,8 @@ def load(path: Path) -> dict[str, Any]:
     if path.is_symlink():
         raise ValueError("intake_workflow_symlink_forbidden")
     record = json.loads(path.read_text())
+    if isinstance(record,dict) and record.get("schema_version")=="tkc.intake-workflow/v0.1":
+        raise ValueError("intake_workflow_upgrade_required")
     if not isinstance(record, dict) or set(record) != TOP_KEYS or record.get("schema_version") != INTAKE_WORKFLOW_SCHEMA or record.get("protocol") != INTAKE_WORKFLOW_PROTOCOL:
         raise ValueError("intake_workflow_schema_invalid")
     if record["workflow_sha256"] != sha256_json({key: value for key, value in record.items() if key != "workflow_sha256"}):
@@ -191,10 +201,15 @@ def _drift(record: dict[str, Any], *, allow_ocr_rebind: bool = False) -> list[st
     try:
         if _base_bindings(record["source"], record["renderer"]) != record["bindings"]["base"]:
             issues.append("source_tool_document_or_renderer_drift")
-        if not allow_ocr_rebind and record["ocr_config"] and record["intake"]["page_summary"]["counts"]["needs_ocr"]:
+        if not allow_ocr_rebind and record["ocr_config"] and record["intake"]["selection"]["page_summary"]["counts"]["needs_ocr"]:
             current = inspect_ocr(Path(record["ocr_config"]["path"]), renderer=record["renderer"], capability=record["capability"])
             if _ocr_bindings(record["ocr_config"], current) != record["bindings"]["ocr"]:
                 issues.append("ocr_config_qualification_model_or_interpreter_drift")
+        if record["page_dispositions"] and _digest(Path(record["page_dispositions"]["path"])) != record["page_dispositions"]["sha256"]:
+            issues.append("page_disposition_receipt_drift")
+        from intake_workpack_reuse import verify_binding
+        for binding in record["reused_workpacks"]:
+            verify_binding(Path(record["source"]["path"]), binding)
         for attempt in record["state"]["scan_attempts"]:
             _check_attempt_files(attempt)
     except (OSError, ValueError, KeyError, TypeError, RuntimeError):
@@ -209,7 +224,8 @@ def summary(record: dict[str, Any]) -> dict[str, Any]:
             "source": record["source"], "route": record["route"], "choice": record["choice"],
             "page_summary": record["intake"]["page_summary"], "page_ledger": record["intake"]["page_ledger"],
             "confirmed_blank_pages": record["intake"]["confirmed_blank_pages"],
-            "native_ranges": record["intake"]["native_ranges"], "partial": partial,
+            "selection": record["intake"]["selection"], "reused_workpacks": record["reused_workpacks"],
+            "native_ranges": record["intake"]["native_ranges"], "partial": partial or bool(record["intake"]["selection"]["outside_pages"]),
             "omitted_pages": record["intake"]["omitted_pages_for_native_only"] if partial else [],
             "ocr_availability": record["availability"], "batch_advice": record["intake"]["batch_advice"],
             "choice_request": {"id": record["workflow_id"], "status": "pending" if record["state"]["status"] == "awaiting_choice" else "resolved",
@@ -222,6 +238,18 @@ def summary(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def status(path: Path) -> dict[str, Any]:
+    if path.is_symlink():
+        raise ValueError("intake_workflow_symlink_forbidden")
+    legacy=json.loads(path.read_text())
+    if isinstance(legacy,dict) and legacy.get("schema_version")=="tkc.intake-workflow/v0.1":
+        from scanned_pdf_ocr import validate_local_json_schema
+        schema=json.loads((SCRIPTS.parent/"assets/schemas/intake-workflow-v0.1.schema.json").read_text())
+        validate_local_json_schema(legacy,schema)
+        if legacy.get("workflow_sha256") != sha256_json({k:v for k,v in legacy.items() if k!="workflow_sha256"}):
+            raise ValueError("intake_workflow_hash_mismatch")
+        return {"status":"read-only","code":"intake_workflow_upgrade_required","schema_version":legacy["schema_version"],
+                "source":legacy["source"],"page_ledger":legacy["intake"]["page_ledger"],"state":legacy["state"],
+                "next_action":"replan_explicitly_in_fresh_workspace","whole_book_complete":False,"writes":False}
     record = load(path)
     drift = _drift(record)
     if drift:
@@ -351,7 +379,7 @@ def run(path: Path, *, authorize_ocr: bool = False, exclusive_model: bool = Fals
     if dry_run:
         return {**summary(record), "dry_run": True, "ocr_invoked": False, "writes": False,
                 "planned_actions": (["bounded_ocr_batch_then_checkpoint"] if record["route"] == "ocr" else
-                                    ["extract_original_physical_native_ranges"] if record["route"] in {"native", "native_ranges"} else [])}
+                                    ["reuse_bound_workpacks"] if record["reused_workpacks"] else ["extract_original_physical_native_ranges"] if record["route"] in {"native", "native_ranges"} else [])}
     if record["route"] in {"waiting", "inspection_only"}:
         return summary(record)
     if record["route"] == "ocr":
@@ -369,14 +397,18 @@ def run(path: Path, *, authorize_ocr: bool = False, exclusive_model: bool = Fals
             record["state"].update(status="paused", code="scan_execution_failed", failure_detail=str(error),
                                     next_action="repair_runtime_then_explicit_resume")
     else:
-        ranges = [[1, record["source"]["page_count"]]] if record["route"] == "native" else record["intake"]["native_ranges"]
+        ranges = [record["intake"]["selection"]["physical_pages"]] if record["route"] == "native" else record["intake"]["native_ranges"]
+        if record["reused_workpacks"]:
+            ranges = [binding["physical_pages"] for binding in record["reused_workpacks"]]
         children = []
         for start, end in ranges:
             try:
                 child = run_native_child(Path(record["source"]["path"]), [start, end],
                                          Path(record["workspace"]) / "children" / f"pages-{start:04d}-{end:04d}",
                                          bindings=record["bindings"], package=record["package"], renderer=record["renderer"],
-                                         minimum_characters=record["minimum_native_characters"])
+                                         minimum_characters=record["minimum_native_characters"],
+                                         page_dispositions=Path(record["page_dispositions"]["path"]) if record["page_dispositions"] else None,
+                                         reused_workpack=next((binding for binding in record["reused_workpacks"] if binding["physical_pages"]==[start,end]),None))
             except (OSError, ValueError, RuntimeError) as error:
                 child = {"status": "paused", "code": "native_child_requires_attention", "physical_pages": [start, end], "detail": str(error),
                          "audit_path": getattr(error, "audit_path", None),
@@ -398,11 +430,15 @@ def add_cli(subparsers: Any) -> None:
     for name in ("inspect", "plan"):
         command = commands.add_parser(name)
         command.add_argument("--source", required=True, type=Path)
+        command.add_argument("--start-page",type=int,default=1)
+        command.add_argument("--end-page",type=int)
+        command.add_argument("--page-dispositions",type=Path)
         command.add_argument("--ocr-config", type=Path)
         command.add_argument("--capability", choices=("text", "structure"), default="text")
         command.add_argument("--pdftoppm", default="pdftoppm")
         command.add_argument("--minimum-native-characters", type=int, default=40)
         if name == "plan":
+            command.add_argument("--workpack",type=Path,action="append",default=[])
             command.add_argument("--workspace", required=True, type=Path)
             command.add_argument("--name", default="reference")
             command.add_argument("--display-name", default="Reference Draft")
@@ -428,7 +464,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     command = args.intake_command
     if command == "inspect":
         return inspect(args.source, config=args.ocr_config, renderer=args.pdftoppm,
-                       capability=args.capability, minimum_characters=args.minimum_native_characters)
+                       capability=args.capability, minimum_characters=args.minimum_native_characters, start_page=args.start_page, end_page=args.end_page, page_dispositions=args.page_dispositions)
     if command == "plan":
         return plan(args)
     if command == "status":
@@ -441,6 +477,6 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
 def is_workflow(path: Path) -> bool:
     try:
         value = json.loads(path.read_text())
-        return isinstance(value, dict) and value.get("schema_version") == INTAKE_WORKFLOW_SCHEMA
+        return isinstance(value, dict) and value.get("schema_version") in {INTAKE_WORKFLOW_SCHEMA,"tkc.intake-workflow/v0.1"}
     except (OSError, ValueError):
         return False

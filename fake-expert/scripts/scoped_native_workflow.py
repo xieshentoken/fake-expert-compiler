@@ -42,9 +42,11 @@ def _write(path: Path, value: dict[str, Any]) -> None:
 
 
 def run_native_child(source: Path, scope: list[int], root: Path, *, bindings: dict[str, Any],
-                     package: dict[str, Any], renderer: str, minimum_characters: int) -> dict[str, Any]:
+                     package: dict[str, Any], renderer: str, minimum_characters: int, page_dispositions=None, reused_workpack=None) -> dict[str, Any]:
     expected = {"source_sha256": _digest(source), "physical_pages": scope, "workflow_bindings": bindings,
                 "package": package, "minimum_native_characters": minimum_characters}
+    from intake_workpack_reuse import verify_binding
+    workpack = verify_binding(source,reused_workpack) if reused_workpack else root / "workpack"
     record_path = root / "child.json"
     if root.is_symlink():
         raise ValueError("native_child_symlink_forbidden")
@@ -56,12 +58,13 @@ def run_native_child(source: Path, scope: list[int], root: Path, *, bindings: di
                 stage = Path(temporary) / "child"
                 stage.mkdir()
                 try:
-                    ir = compile_pdf_intermediate_representation(source, scope[0], scope[1], minimum_characters,
-                                                                 "all", "pypdf", renderer)
-                    if not ir["preflight"]["eligible_for_current_compiler"]:
-                        raise ValueError("native_child_scope_not_eligible")
-                    write_intermediate_representation(stage / "ir", ir)
-                    build_semantic_workpack(source, stage / "ir", stage / "workpack", pdftoppm=Path(renderer))
+                    if not reused_workpack:
+                        ir = compile_pdf_intermediate_representation(source, scope[0], scope[1], minimum_characters,
+                                                                     "all", "pypdf", renderer, page_dispositions=page_dispositions)
+                        if not ir["preflight"]["eligible_for_current_compiler"]:
+                            raise ValueError("native_child_scope_not_eligible")
+                        write_intermediate_representation(stage / "ir", ir)
+                        build_semantic_workpack(source, stage / "ir", stage / "workpack", pdftoppm=Path(renderer))
                 except Exception as error:
                     audit = root.parent.parent / "audit" / f"{root.name}-failed-{uuid.uuid4().hex[:12]}"
                     audit.parent.mkdir(parents=True, exist_ok=True)
@@ -76,7 +79,8 @@ def run_native_child(source: Path, scope: list[int], root: Path, *, bindings: di
                     raise ValueError("native_child_output_not_empty")
                 stage.rename(root)
                 published = True
-                prepare(root / "workpack")
+                if not reused_workpack:
+                    prepare(workpack)
                 files = {path.relative_to(root).as_posix(): _digest(path) for path in root.rglob("*") if path.is_file()}
                 _write(record_path, {"schema_version": SCHEMA, "bindings": expected, "files": files,
                                      "skill_manifest_sha256": None})
@@ -102,19 +106,20 @@ def run_native_child(source: Path, scope: list[int], root: Path, *, bindings: di
             raise ValueError("native_child_artifact_drift")
         return {"status": "draft", "code": "native_child_draft", "child": str(record_path),
                 "physical_pages": scope, "package": str(skill), "whole_book_complete": False}
-    issues, _summary = validate_semantic_workpack(source, root / "workpack")
+    issues, _summary = validate_semantic_workpack(source, workpack)
     errors = [issue for issue in issues if issue.severity == "error"]
     if errors:
         missing = any("draft" in issue.code for issue in errors)
         return {"status": "paused", "code": "semantic_authoring_required" if missing else errors[0].code,
-                "child": str(record_path), "workpack": str(root / "workpack"), "physical_pages": scope,
-                "issues": [issue.to_dict() for issue in errors[:10]], "whole_book_complete": False}
+                "child": str(record_path), "workpack": str(workpack), "physical_pages": scope,
+                "issues": [issue.to_dict() for issue in errors[:10]], "whole_book_complete": False,
+                "next_action": "author_existing_workpack_then_replan_fresh_workflow" if reused_workpack and missing else "complete_existing_authoring_then_resume"}
     if skill.exists() and any(skill.iterdir()):
         raise ValueError("native_child_output_not_empty")
     with tempfile.TemporaryDirectory(prefix=".native-skill-", dir=root) as temporary:
         stage = Path(temporary) / "skill"
         figures = package["figures"]
-        result = build_direct_reference(source, root / "workpack", stage, name=package["name"],
+        result = build_direct_reference(source, workpack, stage, name=package["name"],
                                         display_name=package["display_name"], domain=package["domain"],
                                         version=package["version"], created_at=package["created_at"],
                                         figure_index=figures != "none", figure_images=figures == "index+images")

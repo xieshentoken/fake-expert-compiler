@@ -41,7 +41,24 @@ def validate_workflow(value: dict[str, Any]) -> None:
         if proof and (proof["source_sha256"] != source["sha256"] or proof["physical_page"] != row["physical_page"]):
             raise ValueError("intake_blank_proof_binding_invalid")
     summary = summarize_page_diagnostics(rows)
-    ranges = native_ranges(rows)
+    start,end=intake["selection"]["physical_pages"]
+    if not 1 <= start <= end <= source["page_count"]:
+        raise ValueError("intake_selected_scope_invalid")
+    selected=[row for row in rows if start <= row["physical_page"] <= end]
+    ranges = native_ranges(selected)
+    expected_selection={"physical_pages":[start,end],"page_summary":summarize_page_diagnostics(selected),
+                        "outside_pages":[row["physical_page"] for row in rows if not start <= row["physical_page"] <= end],
+                        "knowledge_candidate_pages":[row["physical_page"] for row in selected if row["classification"]=="native" and not row.get("disposition_proof")],
+                        "non_knowledge_pages":[row["physical_page"] for row in selected if row["classification"]=="confirmed_blank" or row.get("disposition_proof")],
+                        "native_selected_scope":ranges==[[start,end]]}
+    for row in rows:
+        expected_state=("outside-scope" if not start<=row["physical_page"]<=end else
+                        "selected-nonknowledge" if row["classification"]=="confirmed_blank" or row.get("disposition_proof") else
+                        "selected-knowledge-candidate" if row["classification"]=="native" else "selected-unresolved")
+        if row.get("selection_state")!=expected_state:
+            raise ValueError("intake_page_selection_state_invalid")
+    if intake["selection"]!=expected_selection:
+        raise ValueError("intake_selection_accounting_invalid")
     if intake["page_summary"] != summary or intake["confirmed_blank_pages"] != summary["pages"]["confirmed_blank"] or intake["native_ranges"] != ranges:
         raise ValueError("intake_page_summary_mismatch")
     included = {page for start, end in ranges for page in range(start, end + 1)}
@@ -50,18 +67,18 @@ def validate_workflow(value: dict[str, Any]) -> None:
     if intake["omitted_pages_for_native_only"] != omitted:
         raise ValueError("intake_omitted_page_ledger_mismatch")
     advice = intake["batch_advice"]
-    ocr_pages = summary["pages"]["needs_ocr"]
+    ocr_pages = expected_selection["page_summary"]["pages"]["needs_ocr"]
     budget = 5 if len(ocr_pages) <= 20 else 20
     if advice["ocr_page_count"] != len(ocr_pages) or advice["suggested_batch_size"] != budget or advice["batches"] != [ocr_pages[index:index + budget] for index in range(0, len(ocr_pages), budget)]:
         raise ValueError("intake_ocr_batch_accounting_invalid")
-    boundaries = [1, *[batch[0] for batch in advice["batches"][1:]], source["page_count"] + 1]
+    boundaries = [start, *[batch[0] for batch in advice["batches"][1:]], end + 1]
     if advice["physical_scopes"] != [[boundaries[index], boundaries[index + 1] - 1] for index in range(len(advice["batches"]))]:
         raise ValueError("intake_ocr_scope_accounting_invalid")
     if value["bindings"]["base"]["source_sha256"] != source["sha256"]:
         raise ValueError("intake_source_binding_invalid")
     if value["route"] == "native_ranges" and value["choice"] != "native_ranges":
         raise ValueError("intake_partial_choice_missing")
-    if value["route"] == "native" and not intake["native_whole_source"]:
+    if value["route"] == "native" and not intake["selection"]["native_selected_scope"]:
         raise ValueError("intake_native_whole_source_invalid")
     if value["route"] == "ocr" and (not ocr_pages or not value["ocr_config"] or not value["availability"]["runnable"]):
         raise ValueError("intake_ocr_route_invalid")
@@ -73,10 +90,12 @@ def validate_workflow(value: dict[str, Any]) -> None:
     workspace = Path(value["workspace"]).resolve()
     scopes = []
     for child in value["state"]["children"]:
-        if child["physical_pages"] not in ranges or child["physical_pages"] in scopes:
+        if (child["physical_pages"] not in ranges and child["physical_pages"] not in [b["physical_pages"] for b in value["reused_workpacks"]]) or child["physical_pages"] in scopes:
             raise ValueError("intake_native_child_scope_invalid")
         scopes.append(child["physical_pages"])
         for field in ("child", "workpack", "package", "audit_path"):
+            if field=="workpack" and child.get(field) in [b["path"] for b in value["reused_workpacks"]]:
+                continue
             if child.get(field) and not Path(child[field]).resolve().is_relative_to(workspace):
                 raise ValueError("intake_native_child_path_escape")
     for attempt in value["state"]["scan_attempts"]:

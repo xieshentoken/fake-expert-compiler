@@ -16,7 +16,6 @@ from reportlab.pdfgen import canvas
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-HISTORY_ROOT = Path(os.environ.get("FAKE_EXPERT_HISTORY_ROOT", PROJECT_ROOT))
 SCRIPT_ROOT = PROJECT_ROOT / "fake-expert/scripts"
 sys.path.insert(0, str(SCRIPT_ROOT))
 
@@ -430,10 +429,16 @@ class VisualSemanticsTests(unittest.TestCase):
         self.assertTrue(rows[0]["requires_external_review"])
         self.assertFalse(rows[0]["auto_merge"])
 
-    def test_real_wang_bounded_chinese_visual_labels_remain_candidate_only(self) -> None:
-        source = HISTORY_ROOT / "output/private-releases/ebooks for test/托卡马克装置讲义(王龙) .pdf"
-        if not source.is_file():
-            self.skipTest("bounded Wang source is unavailable")
+    def _require_local_pdf(self, variable: str) -> Path:
+        value = os.environ.get(variable)
+        if not value:
+            self.skipTest(f"set {variable} for read-only real-PDF regression")
+        source = Path(value).resolve()
+        self.assertTrue(source.is_file(), f"configured PDF is unavailable: {variable}")
+        return source
+
+    def test_real_chinese_visual_labels_remain_candidate_only(self) -> None:
+        source = self._require_local_pdf("FAKE_EXPERT_TEST_CHINESE_VISUAL_PDF")
         render = _pdftoppm()
         if render is None:
             self.skipTest("pdftoppm is required for the bounded Wang regression")
@@ -1241,10 +1246,8 @@ class VisualSemanticsTests(unittest.TestCase):
         page_only_codes = {issue.code for issue in validate_expert_skill(output, level="structure")}
         self.assertIn("visual_fact_object_support_missing", page_only_codes)
 
-    def test_real_freidberg_chapter_16_candidate_acceptance(self) -> None:
-        source = HISTORY_ROOT / "output/private-releases/ebooks for test/Plasma physics and fusion energy (Jeffrey P. Freidberg).pdf"
-        if not source.is_file():
-            self.skipTest("local acceptance PDF is unavailable")
+    def test_real_visual_chapter_candidate_acceptance(self) -> None:
+        source = self._require_local_pdf("FAKE_EXPERT_TEST_VISUAL_CHAPTER_PDF")
         bundle = extract_visual_candidates(source, pages=[653, 660, 661, 662, 663], pdftoppm=self.render)
         self.assertTrue(any(row["physical_page"] == 653 and row["type"] == "equation_display" for row in bundle["objects"]))
         self.assertEqual(sum(row["physical_page"] == 660 and row["type"] == "figure" and row["subtype"] == "figure" for row in bundle["objects"]), 2)
@@ -1257,10 +1260,8 @@ class VisualSemanticsTests(unittest.TestCase):
         self.assertEqual(validate_visual_bundle(bundle), [])
         self.assertFalse((self.root / "copy-of-source.pdf").exists())
 
-    def test_real_freidberg_figure_16_2_uses_computed_xobject_geometry(self) -> None:
-        source = HISTORY_ROOT / "output/private-releases/ebooks for test/Plasma physics and fusion energy (Jeffrey P. Freidberg).pdf"
-        if not source.is_file():
-            self.skipTest("local acceptance PDF is unavailable")
+    def test_real_figure_16_2_uses_computed_xobject_geometry(self) -> None:
+        source = self._require_local_pdf("FAKE_EXPERT_TEST_VISUAL_CHAPTER_PDF")
         from pypdf import PdfReader
 
         reader = PdfReader(str(source))

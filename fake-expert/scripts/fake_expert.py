@@ -526,6 +526,7 @@ def _validate_job_shape(job: Any) -> None:
     if not isinstance(tools, dict) or set(tools) not in (
         {"cli", "preflight", "direct_reference", "pipeline"},
         {"cli", "preflight", "direct_reference", "pipeline", "native_blank"},
+        {"cli", "preflight", "direct_reference", "pipeline", "native_blank", "native_print_marks", "native_page_disposition"},
     ):
         raise FakeExpertError("job_tool_bindings_invalid")
     for record in tools.values():
@@ -647,6 +648,8 @@ def _validate_job_bindings(path: Path, job: Mapping[str, Any]) -> list[str]:
         "direct_reference": _tool_record("direct_reference_skill.py"),
         "pipeline": _tool_record("pipeline_orchestrator.py"),
         "native_blank": _tool_record("native_blank_pages.py"),
+        "native_print_marks": _tool_record("native_print_marks.py"),
+        "native_page_disposition": _tool_record("native_page_disposition.py"),
     }
     for name, record in current_tools.items():
         if job["tool_bindings"].get(name) != record:
@@ -781,6 +784,8 @@ def _build_job(args: argparse.Namespace, workspace: Path, job_path: Path) -> dic
             "direct_reference": _tool_record("direct_reference_skill.py"),
             "pipeline": _tool_record("pipeline_orchestrator.py"),
             "native_blank": _tool_record("native_blank_pages.py"),
+        "native_print_marks": _tool_record("native_print_marks.py"),
+        "native_page_disposition": _tool_record("native_page_disposition.py"),
         },
         "runtime": {
             "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
@@ -1841,7 +1846,10 @@ def build_parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--backend", help="Explicit backend identity; required for non-native profiles.")
     plan_parser.add_argument("--runtime-receipt", type=Path, help="Optional existing specialist qualification receipt to hash-bind.")
     plan_parser.add_argument("--target-stage", choices=TARGET_STAGES, default="draft")
-    plan_parser.add_argument("--workpack", type=Path)
+    plan_parser.add_argument("--workpack", type=Path, action="append")
+    plan_parser.add_argument("--start-page", type=int, default=1)
+    plan_parser.add_argument("--end-page", type=int)
+    plan_parser.add_argument("--page-dispositions", type=Path)
     plan_parser.add_argument("--gold-mode", choices=GOLD_MODES, default="none")
     plan_parser.add_argument("--gold-revision", type=Path)
     plan_parser.add_argument("--job", type=Path)
@@ -1950,13 +1958,20 @@ def main(argv: list[str] | None = None) -> int:
             if args.profile is None:
                 if not check_document_contract()["passed"]:
                     raise FakeExpertError("document_contract_invalid")
-                explicit_only = [name for name in ("workpack", "structure_selections", "backend", "runtime_receipt", "gold_revision", "job") if getattr(args, name, None) is not None]
+                explicit_only = [name for name in ("structure_selections", "backend", "runtime_receipt", "gold_revision", "job") if getattr(args, name, None) is not None]
                 if args.target_stage != "draft" or args.gold_mode != "none":
                     explicit_only.extend(["target_stage", "gold_mode"])
                 if explicit_only:
                     raise FakeExpertError("automatic_intake_option_requires_explicit_profile:" + ",".join(explicit_only))
             elif args.ocr_config is not None or args.capability != "text" or args.pdftoppm != "pdftoppm" or args.minimum_native_characters != 40:
                 raise FakeExpertError("automatic_intake_options_require_automatic_route")
+            if args.profile is not None:
+                if args.start_page != 1 or args.end_page is not None or args.page_dispositions is not None:
+                    raise FakeExpertError("scope_and_dispositions_require_automatic_route")
+                if args.workpack:
+                    if len(args.workpack)!=1:
+                        raise FakeExpertError("explicit_profile_requires_single_workpack")
+                    args.workpack=args.workpack[0]
             result = plan_job(args) if args.profile is not None else intake_workflow.plan(args)
         elif args.command == "compile":
             result = (intake_workflow.run(args.job, authorize_ocr=args.authorize_ocr, exclusive_model=args.exclusive_heavy_model, dry_run=args.dry_run)

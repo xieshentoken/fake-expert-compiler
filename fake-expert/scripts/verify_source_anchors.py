@@ -47,6 +47,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Optional matching local OCR runtime contract for full scan-anchor replay.",
     )
+    parser.add_argument("--page-dispositions", type=Path, action="append", default=[], help="Explicit local operator receipts for hash-only retained-page replay.")
     parser.add_argument("--json", action="store_true", dest="json_output")
     return parser.parse_args()
 
@@ -1114,6 +1115,9 @@ def main() -> int:
 
     reader = PdfReader(str(source))
     anchor_rows = load_jsonl(anchors_path)
+    from native_page_disposition import verify_package_dispositions
+    disposition_results = verify_package_dispositions(source, package, args.page_dispositions, args.pdftoppm)
+    results.extend(disposition_results)
     for anchor in anchor_rows:
         anchor_id = anchor.get("id")
         result: dict[str, object] = {"id": anchor_id, "passed": False}
@@ -1318,6 +1322,8 @@ def main() -> int:
         "anchor_count": len(anchor_rows),
         "knowledge_gap_count": len(gap_rows),
         "native_formula_binding_count": len(formula_results),
+        "page_disposition_count": len(disposition_results),
+        "page_dispositions": disposition_results,
         "verified_item_count": len(results),
         "anchors": results,
     }

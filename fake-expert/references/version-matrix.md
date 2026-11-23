@@ -8,10 +8,10 @@ maintain its own copy. Update this file and `scripts/compiler_version.py` togeth
 
 | Constant | Value | Meaning |
 |---|---|---|
-| `INTAKE_COMPILER_VERSION` | `1.2.0-intake-v1` | Local automatic intake/workflow candidate; not a formal release or book certification |
-| `INTAKE_REPORT_SCHEMA` | `tkc.intake-report/v0.1` | Full original physical-page ledger, route counts and bounded OCR advice |
-| `INTAKE_WORKFLOW_SCHEMA` | `tkc.intake-workflow/v0.1` | Closed persistent choices, bound configuration and candidate-only execution state |
-| `INTAKE_WORKFLOW_PROTOCOL` | `intake-workflow-v0.1` | Original-source native children and bounded qualified scan chunks |
+| `INTAKE_COMPILER_VERSION` | `1.2.0-intake-v2` | Local automatic intake/workflow candidate; not a formal release or book certification |
+| `INTAKE_REPORT_SCHEMA` | `tkc.intake-report/v0.2` | Full original physical-page ledger, route counts and bounded OCR advice |
+| `INTAKE_WORKFLOW_SCHEMA` | `tkc.intake-workflow/v0.2` | Closed persistent choices, bound configuration and candidate-only execution state |
+| `INTAKE_WORKFLOW_PROTOCOL` | `intake-workflow-v0.2` | Original-source native children and bounded qualified scan chunks |
 | `OCR_LOCAL_CONFIG_SCHEMA` | `tkc.ocr-local-config/v0.1` | Explicit local backend/interpreter/model/worker/qualification paths; no install or model call |
 | `NATIVE_PAGE_DIAGNOSTIC_SCHEMA` | `tkc.native-page-diagnostic/v0.1` | Native/confirmed-blank/needs-OCR/review-required with stable reasons and proof/null |
 | `NATIVE_BLANK_PAGE_PROTOCOL` | `native-blank-page-v0.1` | Compatibility proof for nonpainting streams plus a full strict-white render |
@@ -22,6 +22,15 @@ The existing `tkc.fake-expert-job/v0.2` schema and explicit-profile commands are
 extended with intake fields. Source/tool/document/schema/config/model drift requires
 a fresh plan. Synthetic workers validate software boundaries only; they cannot
 qualify an installed real model or claim OCR, structure or semantic accuracy.
+
+New intake v0.2 adds selected physical scope, operator disposition bindings and
+read-only existing-workpack reuse. The retained `intake-workflow-v0.1.schema.json`
+is a read-only status contract; execution requires explicit rebuilding in a fresh
+workspace. Native proofs add `native-outside-print-marks-v0.1`,
+`native-outline-structure-page-v0.1`, and `native-page-disposition-v0.1`.
+The receipt wire schema is `tkc.page-disposition-receipt/v0.1`; submissions are
+`tkc.page-disposition-submission/v0.1`. These are page handling, never Review/Gold.
+
 
 ## Release version
 
@@ -38,6 +47,7 @@ release, expert-skill v0.1, formula AST, old runtime hashes, or any execution ga
 | `SCIENCE_PROTOCOL` | `science-proposal-v0.1` | Read-only validation and answer-free freeze; no production publication |
 | `SCIENCE_REFERENCE_COMPILER_VERSION` | `1.2.0-science-m2` | Additive source candidate; bounded offline evidence retrieval, not a release |
 | `SCIENCE_REFERENCE_PROTOCOL` | `science-reference-v0.1` | Independent read-only query/host contract; legacy policy abstentions retained |
+| `SCIENCE_RUNTIME_COMPAT_PROTOCOL` | `science-runtime-compat-v0.1` | Explicit compiler/catalog/runtime routing; catalog-bound derived indexes, no package rewrite or authority change |
 | `SCIENCE_CONSULTATION_SCHEMA` | `tkc.science-consultation/v0.1` | Closed request/answer contracts; bundles validated by exact reconstruction |
 | `SCIENCE_INDEX_SCHEMA` | `tkc.science-index/v0.1` | Rebuildable index bound to packages, sidecars, profiles, tokenizer and tools |
 | `SCIENCE_TOKENIZER_SCHEMA` | `tkc.science-tokenizer/v0.1` | Explicit deterministic aliases, Chinese grams and case-preserving math channel |
@@ -130,9 +140,9 @@ introduced only when the emitted artifact shape changes.
 
 | Constant | Value | Stamped where |
 |----------|-------|---------------|
-| `DIRECT_REFERENCE_COMPILER_VERSION` | `1.4.0-direct-reference` | New `fake-*` Reference Draft manifests: `reference-search` runtime, `tkc.runtime-catalog/v0.3` with fact text, optional figure index/images and embeddings; never a promotion identity |
+| `DIRECT_REFERENCE_COMPILER_VERSION` | `1.4.1-direct-reference` | New `fake-*` Reference Draft manifests: `reference-search` runtime, `tkc.runtime-catalog/v0.3` with fact text, optional figure index/images and embeddings; never a promotion identity |
 | `LEGACY_DIRECT_REFERENCE_COMPILER_VERSION` | `1.1.0-direct-reference` | Earlier Drafts; still validated against the unchanged `DIRECT_REFERENCE_RUNTIME_SHA256` / `PORTABLE_REFERENCE_RUNTIME_SHA256` pins. `extend` upgrades them to the current generation |
-| `REFERENCE_SEARCH_RUNTIME_VERSION` | `reference-search-bm25-v0.3` | BM25 + CJK n-gram + stemming runtime copied into packages as `scripts/query_reference.py`; responses `tkc.runtime-response/v0.3` |
+| `REFERENCE_SEARCH_RUNTIME_VERSION` | `reference-search-bm25-v0.4` | BM25 + CJK n-gram + stemming runtime copied into packages as `scripts/query_reference.py`; responses `tkc.runtime-response/v0.3` |
 | `REFERENCE_SEARCH_RUNTIME_SHA256` | pinned in `compiler_version.py` | SHA-256 of `scripts/reference_search.py`; mirrored as a standalone constant in `verify_skill_release.py` |
 | `FIGURE_INDEX_SCHEMA` | `tkc.figure-index/v0.1` | Opt-in, source-derived figure/table index (`--figure-index`); such packages are private and refused by release packaging |
 | `SEMANTIC_AUTHORING_PROTOCOL` | `semantic-authoring-v0.1` | Packets, explicit-command runs, and quote-to-span ingest of model proposals; candidate-only |

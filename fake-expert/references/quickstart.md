@@ -217,3 +217,31 @@ PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/fake_expert.py resu
 知识、Gold、准确率或发布证据。
 
 需要纯文本、source-free Draft 时显式传 `plan --figures none`；已有 job 不会改用新的带图默认值。查询相关图像位于 `figures[].image`，相对生成 Skill 目录解析，先查看后内联展示，并保留图号、物理页和未审核说明。
+
+## 选择原物理范围与只读复用
+
+自动 intake v0.2 支持在原 PDF 上选择一个连续范围，不裁剪、不改写、不重编号：
+
+```bash
+python3 scripts/fake_expert.py plan --source /absolute/path/to/book.pdf \
+  --start-page 10 --end-page 80 --workspace /path/to/fresh-workspace --json
+# 已有包可重复传入，按原件 SHA、物理范围和证据验证，必须无重叠且完整覆盖所选范围：
+python3 scripts/fake_expert.py plan --source /absolute/path/to/book.pdf \
+  --start-page 10 --end-page 80 --workpack /path/to/workpack-a \
+  --workpack /path/to/workpack-b --workspace /path/to/fresh-reuse --json
+```
+
+`page_ledger/page_summary` 仍覆盖原件全部物理页；`selection` 单独给出所选范围、范围外页、
+非知识页、知识候选页和选中页分类。`selection_state` 区分范围外、选中候选、已处置非知识和
+未解决页。目录识别的 frontmatter/backmatter/navigation 只是 `outline_context_hint`；
+Index/References unit 继续使用原有 non-knowledge 规则。显式 start/end 是排除范围外页面的
+授权，不是知识 Review；`whole_book_complete=false` 始终保留。范围内未知页仍是缺口，不能
+靠排除标志桥接连续性；选择 `native_ranges` 会分成独立包，`extend` 仍拒绝跳页。
+
+复用会检查 workpack/source/scope/pypdf normalization、原页证明、资源、proposal 和逐文件
+inventory。完整包直接构建，零重提取、零重复 authoring；旧纯原生包可按原证据回放验证。
+包含不兼容页面证明的旧包明确要求重建。多包按各自物理范围建立子包。
+不完整包保持只读，返回已有 workpack 和 `author_existing_workpack_then_replan_fresh_workflow`；
+在该包原有 authoring 路径完成后显式重新 plan，不能修改已冻结 workflow 的 inventory。
+错源、范围缺失/重叠、收据或资源漂移均拒绝。旧 intake v0.1 只读 `status`，执行报
+`intake_workflow_upgrade_required`，须保留原任务并在新目录重建；旧显式 profile/v0.2 job 接口不变。

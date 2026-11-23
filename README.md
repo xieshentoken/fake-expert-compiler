@@ -147,8 +147,12 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 
 图形测试使用真实 `pdftoppm`；缺少渲染器时会明确跳过。可用
 `FAKE_EXPERT_TEST_PDFTOPPM` 指定本地二进制。测试自带合成资料，不调用真实模型或 OCR。
-`FAKE_EXPERT_HISTORY_ROOT` 可指向原项目，以只读方式重放历史发布包与选定真实 PDF
-回归；未提供这些私有资源时，对应测试会跳过。这些检查不代表整本资料准确性或正式发布认证。
+可用 `FAKE_EXPERT_HISTORY_ROOT` 只读重放历史发布包。真实 PDF 回归通过
+`FAKE_EXPERT_HEAT_CONDUCTION_PDF`、`FAKE_EXPERT_TEST_CHINESE_VISUAL_PDF` 和
+`FAKE_EXPERT_TEST_VISUAL_CHAPTER_PDF` 分别传入对应原件。扫描审核回放需要同时设置
+`FAKE_EXPERT_TEST_SCAN_WORKBENCH` 和 `FAKE_EXPERT_TEST_SCAN_SUBMISSION`。
+未提供私有样本时，对应测试会跳过。科学咨询的历史校验见
+[兼容性说明](./docs/science/compatibility.md)。
 
 ## License
 

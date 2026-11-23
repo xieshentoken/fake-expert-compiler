@@ -148,10 +148,13 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 
 Rendering tests use real `pdftoppm` (or `FAKE_EXPERT_TEST_PDFTOPPM`) and explicitly
 skip if unavailable. Bundled synthetic inputs invoke no real model or OCR.
-Optionally set `FAKE_EXPERT_HISTORY_ROOT` to the original project for read-only
-historical-release and selected real-PDF regressions; missing private fixtures
-are skipped. These checks establish neither whole-book accuracy nor formal
-release certification.
+Set `FAKE_EXPERT_HISTORY_ROOT` for read-only historical-release replay. The
+real-PDF regressions take explicit inputs through `FAKE_EXPERT_HEAT_CONDUCTION_PDF`,
+`FAKE_EXPERT_TEST_CHINESE_VISUAL_PDF`, and `FAKE_EXPERT_TEST_VISUAL_CHAPTER_PDF`.
+Scan review replay takes both `FAKE_EXPERT_TEST_SCAN_WORKBENCH` and
+`FAKE_EXPERT_TEST_SCAN_SUBMISSION`. Tests skip when their private fixtures are
+not configured. See the [compatibility notes](./docs/science/compatibility.md)
+for the science suite's historical checks.
 
 ## License
 

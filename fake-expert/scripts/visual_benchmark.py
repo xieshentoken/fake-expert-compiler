@@ -1271,8 +1271,8 @@ def plan_benchmark(workpack: Path, output: Path, *, created_at: str = "2026-08-2
     facts = load_phase7d5a_workpack(workpack)
     destination = _secure_directory(output, must_be_empty=True)
     # The locator is resolved from the job directory itself.  This keeps the
-    # plan relocatable without accidentally turning ``/Users/...`` into a
-    # path under ``/private/tmp/<job>`` on macOS.
+    # plan relocatable without interpreting an absolute operator path as
+    # relative to the job directory.
     binding_hash = sha256_json({"role": "private-workpack-binding", "manifest_sha256": facts["manifest_sha256"], "candidate_items_sha256": facts["candidate_items_sha256"]})
     qualification_plans = {
         label: {

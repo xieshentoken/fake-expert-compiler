@@ -71,6 +71,32 @@ claims; use the separate M3 receipt. Complex numbers, exp/log, symbolic algebra,
 tensor computation, PDE/FEM/CFD, extrapolation, automatic uncertainty propagation
 and production knowledge publication remain unsupported.
 
+## Package runtime compatibility
+
+`science-runtime-compat-v0.1` routes verified input packages by their declared
+compiler identity and exact catalog/runtime pair. Direct Draft 1.1.0 uses its
+original direct wrapper over catalog v0.1; 1.3.0 uses catalog v0.2 and the frozen
+Opus runtime; 1.4.0 and 1.4.1 use catalog v0.3 with their respective frozen/current
+runtimes. Existing Phase 3, execution and composite reference packages retain the
+portable catalog v0.1 route. Unknown compiler identities, schema/runtime mismatch
+and runtime hash drift fail closed. The in-memory synthetic fixtures do not
+replace the original package validator at the filesystem boundary.
+
+The adapter executes only compiler-owned pinned code. It preserves each original
+response, policy/decision/gap abstention and candidate assurance, and never uses
+explicit title lookup or an embedding command to bypass a refusal. A pure
+`no_supported_reference` lexical miss can still expose separate science-index
+candidates under the existing science-reference contract. Every other original
+abstention blocks that package's science retrieval. Mixed libraries use the same
+routing during query, bundle reconstruction, answer and support validation.
+
+Indexes now bind each catalog hash and compatibility protocol, as well as all
+adapter/runtime tool hashes. **Rebuild old indexes, query bundles and answers in
+fresh paths**; old derived artifacts are stale and cannot be rehashed into current
+review authority. Preserve input packages, sidecars and previous review records.
+Any changed review inputs require new external support review through the existing
+gates. Retrieval compatibility grants no calculation, promotion or execution.
+
 ## Cross-source candidates and review
 
 `science_workpack.py links` accepts a closed proposal file with `proposal_id` and
@@ -161,3 +187,13 @@ into a fresh candidate directory; standalone verification must say
 `candidate-verified`. Formal-release certification is a separate requirement.
 Rollback disables the new host route and selects the preserved old package and
 matching artifacts; it never relabels candidate output as the old formal release.
+
+
+New science compiler candidates require the compatibility declaration and all
+routed runtime files. The source inventory admits `assets/reference-terms.json`
+only at its compiler-pinned SHA-256, and packaging also runs the existing term
+alias validator. Standalone verification enforces the same byte binding; arbitrary
+runtime/private/hidden-answer JSON remains forbidden. The fixed historical M4
+archive identified by `HISTORICAL_SCIENCE_M4_ARCHIVE_SHA256` in the verifier keeps
+its original direct 1.1.0 contract for read-only verification only. That exception
+does not select an old runtime contract for a newly packaged candidate.

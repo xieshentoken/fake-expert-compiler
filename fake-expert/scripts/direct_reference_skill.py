@@ -23,6 +23,8 @@ from typing import Any, Iterable
 
 from compiler_version import (
     DIRECT_REFERENCE_COMPILER_VERSION,
+    PREVIOUS_DIRECT_REFERENCE_COMPILER_VERSION,
+    PREVIOUS_REFERENCE_SEARCH_RUNTIME_SHA256,
     DIRECT_REFERENCE_PROTOCOL,
     DIRECT_REFERENCE_RUNTIME_SHA256,
     DIRECT_REFERENCE_SCHEMA,
@@ -49,6 +51,7 @@ from pdf_structure import detect_printed_page_label, normalize_text, stable_id
 from direct_reference_runtime import query_direct_catalog
 import reference_search
 import reference_search_v130
+import reference_search_v140
 from numeric_evidence import NumericEvidenceError, checked_untraced_numbers, reviewed_figure_basis, check_legacy_numeric
 from reference_tier import _runtime_guide, build_runtime_catalog
 from scanned_pdf_ocr import ScanOcrError, build_scan_evidence_locator
@@ -729,6 +732,15 @@ def _materialize_workpack(
         "draft_bundle_sha256": sha256_json(draft_hashes),
         "scope": dict(scope),
         "object_ids": sorted(proposal_by_id),
+        "native_minimum_characters": manifest.get("pdf_ir",{}).get("minimum_native_characters",40),
+        "page_disposition_protocol": "native-page-disposition-v0.1",
+        "page_dispositions": [
+            {"physical_page":row["page"],"role":row.get("page_disposition_proof",{}).get("role","blank"),
+             "proof_protocol":(row.get("page_disposition_proof") or row.get("blank_page_proof"))["protocol"],
+             "proof_sha256":sha256_json(row.get("page_disposition_proof") or row.get("blank_page_proof"))}
+            for row in load_jsonl(root / manifest.get("page_index","page-index.jsonl"))
+            if row.get("page_disposition_proof") or row.get("blank_page_proof")
+        ],
         "proposal_validation": {
             "status": "passed",
             "warning_count": sum(issue.severity == "warning" for issue in issues),
@@ -1046,7 +1058,7 @@ def _runtime_self_check(root: Path, catalog: dict[str, Any], *, legacy: bool = F
 def _search_runtime_self_check(root: Path, catalog: dict[str, Any], *, runtime=reference_search) -> dict[str, Any]:
     checks = []
     for entry in catalog["objects"]:
-        response = runtime.query_package(catalog, entry["title"], limit=25)
+        response = runtime.query_package(catalog, entry["title"], limit=25, **({"lookup_title":True,"lookup_object_id":entry["id"]} if runtime is reference_search else {}))
         checks.append(
             {
                 "code": "title_retrieves_object",
@@ -1189,6 +1201,11 @@ def _write_package(
     figure_images: bool = False,
     embedding_command: str | None = None,
 ) -> dict[str, Any]:
+    # Every new generation records the page-accounting boundary explicitly.
+    # Upgraded legacy bindings retain an empty unavailable-history projection;
+    # full source replay still requires proofs for any insufficient-text page.
+    bindings=[{**binding,"native_minimum_characters":binding.get("native_minimum_characters",40),"page_disposition_protocol":binding.get("page_disposition_protocol","native-page-disposition-v0.1"),
+               "page_dispositions":binding.get("page_dispositions",[])} for binding in bindings]
     figure_entries = _write_figures(output, figures, figure_images=figure_images)
     object_index = [
         {
@@ -1723,6 +1740,7 @@ def validate_direct_reference(root: Path) -> list[str]:
     legacy = compiler_version == LEGACY_DIRECT_REFERENCE_COMPILER_VERSION
     if manifest.get("build", {}).get("compiler") != "fake-expert" or compiler_version not in {
         DIRECT_REFERENCE_COMPILER_VERSION,
+        PREVIOUS_DIRECT_REFERENCE_COMPILER_VERSION,
         LEGACY_DIRECT_REFERENCE_COMPILER_VERSION,
         OPUS_DIRECT_REFERENCE_COMPILER_VERSION,
     }:
@@ -1882,9 +1900,33 @@ def validate_direct_reference(root: Path) -> list[str]:
         errors.append("workpack_bindings_missing")
     else:
         for binding in bindings:
-            if not isinstance(binding, dict) or set(binding) != expected_binding_fields:
+            if compiler_version==DIRECT_REFERENCE_COMPILER_VERSION and isinstance(binding,dict) and not {"page_disposition_protocol","page_dispositions","native_minimum_characters"}<=set(binding):
+                errors.append("page_disposition_binding_required")
+                continue
+            if not isinstance(binding, dict) or set(binding) not in (expected_binding_fields, expected_binding_fields | {"page_disposition_protocol","page_dispositions"}, expected_binding_fields | {"page_disposition_protocol","page_dispositions","native_minimum_characters"}):
                 errors.append("workpack_binding_invalid")
                 continue
+            if compiler_version==DIRECT_REFERENCE_COMPILER_VERSION and (not {"page_disposition_protocol","page_dispositions","native_minimum_characters"}<=set(binding) or type(binding.get("native_minimum_characters")) is not int or binding["native_minimum_characters"]<1):
+                errors.append("page_disposition_binding_required")
+                continue
+            if "page_dispositions" in binding:
+                rows=binding.get("page_dispositions")
+                if binding.get("page_disposition_protocol")!="native-page-disposition-v0.1" or not isinstance(rows,list):
+                    errors.append("page_disposition_binding_invalid")
+                    continue
+                pages=set()
+                for row in rows:
+                    if (not isinstance(row,dict) or set(row)!={"physical_page","role","proof_protocol","proof_sha256"}
+                            or type(row.get("physical_page")) is not int or row["physical_page"] in pages
+                            or not binding.get("scope",{}).get("start_page",1)<=row["physical_page"]<=binding.get("scope",{}).get("end_page",0)
+                            or row.get("role") not in {"blank","structural","context","non-knowledge"}
+                            or row.get("proof_protocol") not in {"native-blank-page-v0.1","native-white-vector-blank-v0.1","native-outside-print-marks-v0.1","native-outline-structure-page-v0.1","native-page-disposition-v0.1"}
+                            or not isinstance(row.get("proof_sha256"),str) or not SHA256_RE.fullmatch(row["proof_sha256"])):
+                        errors.append("page_disposition_binding_invalid")
+                        continue
+                    pages.add(row["physical_page"])
+                if any(anchor.get("source_id")==binding.get("source_id") and pages.intersection(anchor.get("pages",[])) for anchor in load_jsonl(root/"references/evidence/anchors.jsonl")):
+                    errors.append("non_knowledge_page_evidence")
             source = source_by_id.get(binding.get("source_id"))
             scope = binding.get("scope")
             proposal = binding.get("proposal_validation")
@@ -2035,7 +2077,10 @@ def validate_direct_reference(root: Path) -> list[str]:
     if catalog.get("package_id") != package_id or not self_check.get("passed"):
         errors.append("runtime_self_check_invalid")
     try:
-        if self_check != _runtime_self_check(root, catalog, legacy=legacy, opus=compiler_version == OPUS_DIRECT_REFERENCE_COMPILER_VERSION):
+        expected_check = (_search_runtime_self_check(root,catalog,runtime=reference_search_v140)
+                          if compiler_version==PREVIOUS_DIRECT_REFERENCE_COMPILER_VERSION else
+                          _runtime_self_check(root,catalog,legacy=legacy,opus=compiler_version==OPUS_DIRECT_REFERENCE_COMPILER_VERSION))
+        if self_check != expected_check:
             errors.append("runtime_self_check_invalid")
     except (DirectReferenceError, OSError, KeyError, TypeError, ValueError):
         errors.append("runtime_self_check_invalid")
@@ -2050,7 +2095,7 @@ def validate_direct_reference(root: Path) -> list[str]:
         else:
             runtime_mismatch = (
                 sha256_file(root / "scripts/query_reference.py")
-                != (OPUS_REFERENCE_SEARCH_RUNTIME_SHA256 if compiler_version == OPUS_DIRECT_REFERENCE_COMPILER_VERSION else REFERENCE_SEARCH_RUNTIME_SHA256)
+                != (OPUS_REFERENCE_SEARCH_RUNTIME_SHA256 if compiler_version == OPUS_DIRECT_REFERENCE_COMPILER_VERSION else PREVIOUS_REFERENCE_SEARCH_RUNTIME_SHA256 if compiler_version == PREVIOUS_DIRECT_REFERENCE_COMPILER_VERSION else REFERENCE_SEARCH_RUNTIME_SHA256)
             )
     except OSError:
         runtime_mismatch = True
@@ -2176,9 +2221,26 @@ def _add_figure_flags(parser: argparse.ArgumentParser, *, default_images: bool =
     )
 
 
+def precheck_workpack(source: Path, workpack: Path) -> dict[str, Any]:
+    """Author-facing diagnostics before any output directory is created."""
+    material = _materialize_workpack(source, workpack, source_title=None)
+    rows=[]
+    for obj in material["objects"]:
+        title=obj["title"]
+        triggers=[pattern for pattern in reference_search.DECISION_PATTERNS if re.search(pattern,title,re.I)]
+        rows.append({"object_id":obj["id"],"title":title,"title_lookup_available":True,
+                     "public_query_guarded":bool(triggers),"trigger_rules":triggers,
+                     "reason":"use_explicit_title_lookup" if triggers else "title_lookup_ready"})
+    return {"status":"prechecked","objects":rows,"knowledge_verified":False,
+            "decision_support":False,"writes":False}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    precheck = commands.add_parser("precheck", help="Read-only author diagnostics for IDs, titles and query guards.")
+    precheck.add_argument("--source", required=True, type=Path)
+    precheck.add_argument("--workpack", required=True, type=Path)
     build = commands.add_parser("build", help="Build a new fake-* candidate Skill.")
     build.add_argument("--source", required=True, type=Path)
     build.add_argument("--workpack", required=True, type=Path)
@@ -2232,7 +2294,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        if args.command == "build":
+        if args.command == "precheck":
+            result = precheck_workpack(args.source,args.workpack)
+        elif args.command == "build":
             result = build_direct_reference(
                 args.source,
                 args.workpack,

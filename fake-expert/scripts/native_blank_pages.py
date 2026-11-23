@@ -137,7 +137,9 @@ def _content_diagnostic(page: Any, raw_text: str) -> tuple[str, str, int]:
 
 def _diagnostic(source_hash: str, page: int, classification: str, reason: str, proof: dict[str, Any] | None = None) -> dict[str, Any]:
     return {"schema_version": DIAGNOSTIC_SCHEMA, "source_sha256": source_hash,
-            "physical_page": page, "classification": classification, "reason_codes": [reason], "proof": proof}
+            "physical_page": page, "classification": classification, "reason_codes": [reason], "proof": proof,
+            "page_role": "knowledge-candidate" if classification=="native" else "blank" if classification=="confirmed_blank" else "unresolved",
+            "source_type": "native-text" if classification=="native" else "nontext" if classification=="confirmed_blank" else "unknown"}
 
 
 def native_text_diagnostic(source_hash: str, page: int) -> dict[str, Any]:
@@ -186,7 +188,7 @@ def native_ranges(rows: list[dict[str, Any]]) -> list[list[int]]:
     ranges: list[list[int]] = []
     current: list[dict[str, Any]] = []
     def finish() -> None:
-        if current and any(row["classification"] == "native" for row in current):
+        if current and any(row["classification"] == "native" and not row.get("disposition_proof") for row in current):
             ranges.append([current[0]["physical_page"], current[-1]["physical_page"]])
         current.clear()
     for row in rows:
@@ -219,6 +221,14 @@ def diagnose_blank_page(
         from pypdf.generic import ContentStream
 
         classification, reason, white_rectangles = _content_diagnostic(page, raw_text)
+        from native_print_marks import outside_print_marks, PROTOCOL as PRINT_MARK_PROTOCOL
+        content = page.get_contents()
+        operations = ContentStream(content, getattr(page, "pdf", None)).operations if content is not None else []
+        outside_marks = False
+        if classification != "blank_candidate" and not raw_text.strip() and not any(page.get(k) for k in ("/Annots", "/AA", "/Group", "/PresSteps")):
+            outside_marks = outside_print_marks(page, operations)
+            if outside_marks:
+                classification, reason = "blank_candidate", "outside_media_print_marks_only"
         if classification != "blank_candidate":
             return _diagnostic(source_sha256, physical_page, classification, reason)
         content = page.get_contents()
@@ -288,13 +298,13 @@ def diagnose_blank_page(
             return reject("source_or_renderer_drift")
         decoded_content = content.get_data() if content is not None else b""
         proof = {
-            "protocol": WHITE_VECTOR_PROTOCOL if white_rectangles else PROTOCOL,
+            "protocol": PRINT_MARK_PROTOCOL if outside_marks else WHITE_VECTOR_PROTOCOL if white_rectangles else PROTOCOL,
             "source_sha256": source_sha256,
             "physical_page": physical_page,
             "pypdf_version": pypdf_version,
             "content_sha256": hashlib.sha256(decoded_content).hexdigest(),
             "content_operator_count": len(operations),
-            "proof": "opaque-white-rectangles-and-exact-white-full-render" if white_rectangles else "non-painting-content-and-exact-white-full-render",
+            "proof": "outside-media-print-marks-and-exact-white-full-render" if outside_marks else "opaque-white-rectangles-and-exact-white-full-render" if white_rectangles else "non-painting-content-and-exact-white-full-render",
             "render": {
                 "renderer": "pdftoppm", "version": version_lines[0],
                 "renderer_sha256": renderer_hash, "dpi": DPI, "format": "ppm-rgb8",

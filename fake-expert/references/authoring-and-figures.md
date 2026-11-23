@@ -152,7 +152,7 @@ Both are source-derived. The manifest declares
 (`candidate_source_derived_content_not_distributable`). Use them for private,
 local Skills only.
 
-## 4. Search runtime (`reference-search-bm25-v0.3`)
+## 4. Search runtime (`reference-search-bm25-v0.4`)
 
 New packages ship `scripts/query_reference.py`, a copy of
 `scripts/reference_search.py` (stdlib only).
@@ -186,6 +186,26 @@ The decision guard matches intent, not single words. "design a heat
 exchanger", "is it safe", "should we", "recommend", "批准", and "推荐" abstain.
 "design heat flux" and "safety factor in Table 2" answer.
 
+For an exact document/title lookup, use `--lookup-title --query "Recommended cleaning methods"`.
+This is an explicit retrieval intent, preserves linked figures and candidate warnings,
+and does not reinterpret a source title as a request for approval. Natural-language
+queries still apply the decision guard, even if a malicious imperative title matches.
+Source titles such as "Recommended cleaning methods" remain unchanged and work
+with explicit title lookup. Ordinary natural-language queries retain the prior
+conservative decision guard, including "recommended", "recommend a method for me"
+and "This method is acceptable".
+Internal title self-checks target each object's ID, including more than 25 equal titles.
+
+Before building, run the read-only author diagnostic:
+
+```bash
+python3 scripts/direct_reference_skill.py --json precheck --source /path/book.pdf --workpack /path/workpack
+```
+
+It reports object IDs, original titles, guard reason and triggering rules. Guarded
+source titles remain unchanged and can be retrieved via explicit title lookup;
+precheck never disables public decision guards or writes a package.
+
 Optional hybrid retrieval: build with `--embedding-command "<cmd>"`, where the
 command reads JSONL `{id,text}` and prints JSONL `{id,vector}`, and query with the
 same `--embedding-command`. Lexical and vector ranks are fused (RRF). A
@@ -194,7 +214,7 @@ Packages stay offline unless you pass the command.
 
 ## 5. Compatibility
 
-- `1.1.0-direct-reference` and Opus `1.3.0-direct-reference` packages retain their pinned runtimes and compatibility validation. New builds use `1.4.0-direct-reference` / runtime catalog and response v0.3. Upgrades enforce numeric revalidation, and unsupported legacy values pause rather than being grandfathered into the new generation.
+- `1.1.0-direct-reference` and Opus `1.3.0-direct-reference` packages retain their pinned runtimes and compatibility validation. `1.4.0-direct-reference` retains its frozen `reference_search_v140.py` runtime; new builds use `1.4.1-direct-reference` / runtime catalog and response v0.3. Upgrades enforce numeric revalidation, and unsupported legacy values pause rather than being grandfathered into the new generation.
 - `portable_reference_runtime.py` and `direct_reference_runtime.py` are
   unchanged.
 - After editing `reference_search.py` or the controlled term aliases, update `REFERENCE_SEARCH_RUNTIME_SHA256` in

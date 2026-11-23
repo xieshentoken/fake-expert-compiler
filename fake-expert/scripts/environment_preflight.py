@@ -198,7 +198,7 @@ def _check_optional_module(
         }
 
 
-def _check_source(path_value: str, minimum_native_characters: int, renderer: Path | str | None = None) -> dict[str, Any]:
+def _check_source(path_value: str, minimum_native_characters: int, renderer: Path | str | None = None, page_dispositions=None) -> dict[str, Any]:
     path = Path(path_value).expanduser().resolve()
     result: dict[str, Any] = {
         "path": str(path),
@@ -248,23 +248,25 @@ def _check_source(path_value: str, minimum_native_characters: int, renderer: Pat
         if minimum_native_characters < 1:
             raise ValueError("minimum_native_characters must be positive")
 
+        from native_page_disposition import load_receipt
+        dispositions = load_receipt(path, page_dispositions, renderer or "pdftoppm") if page_dispositions else {}
         labels = reader.page_labels
         for page_number, page in enumerate(reader.pages, start=1):
             # Ordinary text pages need no resource/Form traversal in whole-book
             # preflight. Only insufficient text enters the shared page routing.
             normalized = normalize_text(page.extract_text() or "")
-            if sum(character.isalnum() for character in normalized) >= minimum_native_characters:
+            if sum(character.isalnum() for character in normalized) >= minimum_native_characters and page_number not in dispositions:
                 native_pages += 1
                 result["page_diagnostics"].append(native_text_diagnostic(result["sha256"], page_number))
                 continue
             record, _text, _raw = inspect_page(
                 page, page_number, labels[page_number - 1], minimum_native_characters,
-                source_path=path, source_sha256=result["sha256"], renderer=renderer,
+                source_path=path, source_sha256=result["sha256"], renderer=renderer, disposition=dispositions.get(page_number),
             )
             if record["page_role"] == "confirmed-blank":
                 result["confirmed_blank_pages"].append(page_number)
                 result["blank_page_proofs"].append(record["blank_page_proof"])
-            elif record["native_text"]["status"] == "usable":
+            elif record["native_text"]["status"] == "usable" or record.get("page_disposition_proof"):
                 native_pages += 1
             else:
                 pages_needing_ocr.append(page_number)
@@ -299,9 +301,9 @@ def _check_source(path_value: str, minimum_native_characters: int, renderer: Pat
     return result
 
 
-def inspect_native_source(path: str, minimum_native_characters: int = 40, renderer: Path | str | None = None) -> dict[str, Any]:
+def inspect_native_source(path: str, minimum_native_characters: int = 40, renderer: Path | str | None = None, page_dispositions=None) -> dict[str, Any]:
     """Public read-only source diagnosis shared by the automatic intake route."""
-    return _check_source(path, minimum_native_characters, renderer)
+    return _check_source(path, minimum_native_characters, renderer, page_dispositions)
 
 
 def build_report(

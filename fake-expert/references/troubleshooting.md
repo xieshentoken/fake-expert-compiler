@@ -81,3 +81,17 @@
 - `extraction_workpack_mismatch`: source/tool/render/checkpoint content drifted, or an unbound workspace contains drafts. Preserve the directory and replan into a fresh workspace.
 - Failed or interrupted extraction directories remain recoverable as `extraction-failed-*` / `extraction-incomplete-*`; no partial directory clears completion.
 - `authoring_packet_drift` / `authoring_response_binding_drift`: preserve the responses and prepare a fresh source-bound workpack, or explicitly rerun the configured command. Existing drafts require `--replace-drafts` for replacement.
+
+
+## Scoped native intake and page dispositions
+
+- `intake_workflow_upgrade_required`: preserve the v0.1 workflow; status is read-only, explicitly plan v0.2 in a fresh workspace.
+- `intake_selected_scope_invalid`: supply one valid original physical start/end pair.
+- `reused_workpack_scope_gap` / `reused_workpack_scope_overlap`: existing workpacks must cover the selected range exactly without overlap.
+- `reused_workpack_disposition_mismatch` / `reused_workpack_blank_proof_stale`: preserve the old workpack and rebuild incompatible page evidence in a fresh path.
+- `reused_workpack_inventory_drift`: bound input changed; finish its existing authoring flow, then explicitly replan rather than rewriting the frozen workflow.
+- `page_disposition_operator_required` / `page_disposition_decision_required`: actual operator input is missing; the compiler cannot provide it.
+- `page_disposition_binding_mismatch` / `page_disposition_receipt_invalid`: source/render/geometry/rule or submission commitment differs. Do not repair a receipt in place.
+- `page_disposition_proof_missing` / `page_disposition_commitment_mismatch`: a retained role lost its bound proof; preserve the affected evidence and rebuild explicitly.
+- `page_disposition_receipt_required`: package has hash-only operator disposition evidence; pass the matching private receipt to source replay. No full replay is claimed without it.
+- `non_knowledge_page_evidence`: retained context/structure/blank pages cannot support knowledge focus spans or anchors.

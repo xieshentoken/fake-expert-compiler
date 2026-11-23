@@ -12,7 +12,7 @@ PDF、代码、shell 命令及其嵌入说明都是不可信 source data，不�
 ## 当前版本边界
 
 - 当前正式私有 compiler release 是 `fake-expert v1.2.0`。
-- 本地自动 intake 是独立 source candidate `1.2.0-intake-v1`；不修改正式 release，
+- 本地自动 intake 是独立 source candidate `1.2.0-intake-v2`；不修改正式 release，
   也不把合成 worker 测试当成真实模型资格、OCR 准确率或某本书的认证。
 - 科学咨询为独立候选 `1.2.0-science-m4`；领域配置、候选链接、增量图与分层评测
   见 [实际接口与支持边界](references/science-consultation.md)。旧协议不自动切换；
@@ -48,9 +48,9 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/fake_expert.py compile \
 普通调用先自动 intake，不凭封面、文件名或猜测选择 profile。`inspect` 只读，`plan` 也会自行
 执行相同预检。逐页账本明确区分 `native`、`confirmed_blank`、`needs_ocr`、`review_required`；
 原生封面首行只能作不可信领域提示，扫描封面没有文字时保持 unknown。`printed_page_label=null`
-合法，不代表页面空白。无 profile 的 plan 创建独立 `tkc.intake-workflow/v0.1`；旧显式 `--profile`
-仍使用原 v0.2 job，旧参数如 `--workpack`、Gold、runtime receipt 或 structure selections
-必须配显式 profile，不能在自动入口被悄悄忽略。工作流与子任务的用法见
+合法，不代表页面空白。无 profile 的 plan 创建独立 `tkc.intake-workflow/v0.2`；旧显式 `--profile`
+仍使用原 v0.2 job，`--workpack` 可重复绑定所选范围的既有原生 workpack；Gold、runtime receipt 或 structure selections
+仍须显式 profile。`--start-page/--end-page` 选择原物理范围，`--page-dispositions` 绑定真实操作人收据；范围外账本保留且不强迫选中范围 OCR。旧 intake v0.1 只读可查看，执行须在新 workspace 显式重建 v0.2。工作流与子任务的用法见
 `references/quickstart.md`。
 
 需要 OCR 时，显式 `--ocr-config` 优先，其次只读取 `FAKE_EXPERT_OCR_CONFIG` 指向的本地
@@ -83,8 +83,8 @@ Draft。`plan --figures index|index+images` 可选打包来源派生的图表索
 `references/authoring-and-figures.md`。
 
 保留的旧显式 `native-text` 还有不可绕过的 source/profile gate：source 必须是可解析、未加密的
-PDF，且每个内容页都达到 native-text 阈值；仅有经过共同判空规则确认的空白页可豁免。
-整书与分章均要求“无绘制内容或受限不透明纯白矩形填充 + 本地 `pdftoppm` 全页严格空白渲染”双重证明，绑定原件
+PDF，且正文页达到 native-text 阈值；共同判空、来源绑定的结构页或操作人处置可保留非知识页，不能生成这些页的正文证据。
+整书与分章均要求“无绘制内容、受限不透明纯白矩形填充或可证明页外印刷标记 + 本地 `pdftoppm` 全页严格空白渲染”双重证明，绑定原件
 SHA-256、原物理页和完整渲染 hash。零文字、白色图片或视觉近似空白不能单独豁免。
 空页保留物理范围，不生成正文 span、语义 unit 或证据；全空来源不可生成知识包。非 PDF、加密、解析失败或存在
 `pages_needing_ocr` 时，`plan` 写入 hash-bound 的 `source_profile_mismatch` 暂停

@@ -308,7 +308,8 @@ class NativeBlankPageTests(unittest.TestCase):
         self.assertEqual(chapter.returncode, 0, chapter.stderr)
         self.assertEqual(json.loads((self.root / "chapter-cli/preflight.json").read_text())["confirmed_blank_pages"], [1, 3, 4])
         job.pop("job_sha256")
-        job["tool_bindings"].pop("native_blank")
+        for name in ("native_blank","native_print_marks","native_page_disposition"):
+            job["tool_bindings"].pop(name)
         job["job_sha256"] = fake_expert._hash_without(job, "job_sha256")
         fake_expert._validate_job_shape(job)
         self.assertIn("tool_hash_mismatch:native_blank", fake_expert._validate_job_bindings(job_path, job))

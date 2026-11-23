@@ -19,6 +19,7 @@ from compiler_version import (
     DIRECT_REFERENCE_COMPILER_VERSION,
     DIRECT_REFERENCE_PROTOCOL,
     DIRECT_REFERENCE_SCHEMA,
+    REFERENCE_TERM_ALIASES_SHA256,
     HEADING_LOCATOR_PROTOCOL,
     RELEASE_VERSION as VERSION,
     REPAIR_SOURCE_CANDIDATE_VERSION,
@@ -395,8 +396,9 @@ def _source_files(skill_root: Path, *, science: bool = False) -> list[Path]:
     }
     paths: list[Path] = []
     if science:
-        from verify_fake_expert_release import SCIENCE_REQUIRED_PATHS, science_source_file_error
-        required.update(SCIENCE_REQUIRED_PATHS)
+        from verify_fake_expert_release import (SCIENCE_REQUIRED_PATHS, SCIENCE_RUNTIME_COMPAT_REQUIRED_PATHS,
+            science_source_file_error, science_runtime_inventory_error)
+        required.update(SCIENCE_REQUIRED_PATHS | SCIENCE_RUNTIME_COMPAT_REQUIRED_PATHS)
     for path in sorted(skill_root.rglob("*")):
         relative = path.relative_to(skill_root)
         if path.is_symlink():
@@ -431,11 +433,22 @@ def _source_files(skill_root: Path, *, science: bool = False) -> list[Path]:
             error = science_source_file_error(relative.as_posix(), content)
             if error:
                 raise CompilerReleasePackagingError(error + ":" + relative.as_posix())
+            if relative.as_posix() == "assets/reference-terms.json":
+                from reference_search import load_term_aliases
+                try:
+                    load_term_aliases(path)
+                except ValueError as error:
+                    raise CompilerReleasePackagingError("science_reference_terms_invalid") from error
             if relative.parent.as_posix() == "assets/domain-profiles":
                 from science_workpack import domain_inputs
                 domain_inputs(json.loads(content))
         paths.append(path)
     found = {path.relative_to(skill_root).as_posix() for path in paths}
+    if science:
+        error = science_runtime_inventory_error((skill_root / "scripts/compiler_version.py").read_text(),
+            (skill_root / "scripts/science_reference_runtime.py").read_text(), found, require_current=True)
+        if error:
+            raise CompilerReleasePackagingError(error)
     missing = sorted(required - found)
     if missing:
         raise CompilerReleasePackagingError(f"required_file_missing: {missing[0]}")
@@ -634,6 +647,7 @@ def package_fake_expert_skill(
         "DIRECT_REFERENCE_COMPILER_VERSION": DIRECT_REFERENCE_COMPILER_VERSION,
         "DIRECT_REFERENCE_PROTOCOL": DIRECT_REFERENCE_PROTOCOL,
         "DIRECT_REFERENCE_SCHEMA": DIRECT_REFERENCE_SCHEMA,
+        "REFERENCE_TERM_ALIASES_SHA256": REFERENCE_TERM_ALIASES_SHA256,
     }
     for binding, expected in standalone_bindings.items():
         match = re.search(

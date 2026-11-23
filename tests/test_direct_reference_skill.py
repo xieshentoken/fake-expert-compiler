@@ -390,7 +390,7 @@ class DirectReferenceSkillTests(unittest.TestCase):
         write_json(
             invalid_schema,
             {
-                "schema_version": "/Users/private/gold.json",
+                "schema_version": "/example/invalid-schema.json",
                 "source_sha256": source_hash,
             },
         )

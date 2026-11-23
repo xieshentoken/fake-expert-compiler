@@ -1,0 +1,103 @@
+{
+  "provenance": "original-synthetic-software-test",
+  "knowledge_verified": false,
+  "independent_gold": false,
+  "ast": {
+    "schema_version": "tkc.formula-ast/v0.1",
+    "output": "power",
+    "symbols": {
+      "conductivity": {
+        "role": "input",
+        "unit": "W/m/K",
+        "dimension": {
+          "L": 1,
+          "M": 1,
+          "T": -3,
+          "Theta": -1
+        }
+      },
+      "area": {
+        "role": "input",
+        "unit": "m^2",
+        "dimension": {
+          "L": 2
+        }
+      },
+      "delta_temperature": {
+        "role": "input",
+        "unit": "K",
+        "dimension": {
+          "Theta": 1
+        }
+      },
+      "thickness": {
+        "role": "input",
+        "unit": "m",
+        "dimension": {
+          "L": 1
+        }
+      },
+      "power": {
+        "role": "output",
+        "unit": "W",
+        "dimension": {
+          "L": 2,
+          "M": 1,
+          "T": -3
+        }
+      }
+    },
+    "expression": {
+      "kind": "divide",
+      "left": {
+        "kind": "multiply",
+        "left": {
+          "kind": "multiply",
+          "left": {
+            "kind": "symbol",
+            "name": "conductivity"
+          },
+          "right": {
+            "kind": "symbol",
+            "name": "area"
+          }
+        },
+        "right": {
+          "kind": "symbol",
+          "name": "delta_temperature"
+        }
+      },
+      "right": {
+        "kind": "symbol",
+        "name": "thickness"
+      }
+    }
+  },
+  "inputs": {
+    "conductivity": {
+      "value": "5",
+      "unit": "W/m/K"
+    },
+    "area": {
+      "value": "100",
+      "unit": "mm^2"
+    },
+    "delta_temperature": {
+      "value": "10",
+      "unit": "K"
+    },
+    "thickness": {
+      "value": "2",
+      "unit": "mm"
+    }
+  },
+  "gate_hashes": {
+    "skills/fake-expert/assets/schemas/knowledge-object.schema.json": "6d9bb3b43cf31384e06f272979082705b284711b6edcbac82bf7dbafea4e6d10",
+    "skills/fake-expert/scripts/formula_execution.py": "77b6a31e89bec9a18439b0c6b82a08303f0cb89b33e137a44841691d9e9507a1",
+    "skills/fake-expert/scripts/executable_formula_tier.py": "360e8bc1f762a848a39f13782e8ab1e4d9605da5bf9afb069d3564417534c5d4",
+    "skills/fake-expert/scripts/portable_reference_runtime.py": "50de12e92c840806121d898d1f44d36c57d80e81ad13ef82e08b4417c6ba5581",
+    "skills/fake-expert/scripts/semantic_assurance.py": "78b8f9d421994bb474ca10220bbf3a190886d3cd8df462039c95bb4d51de9b96",
+    "skills/fake-expert/scripts/semantic_promotion.py": "6d27a0f824d2822bc0e8d1b676d2770ce70520a65a234dbb268e3521dabbf1e7",
+    "skills/fake-expert/scripts/scan_structure_review.py": "c4f811b64b640f10e5ccd6fae81b3a74682847954435cfd493e71b520ad2b910"
+  }
+}

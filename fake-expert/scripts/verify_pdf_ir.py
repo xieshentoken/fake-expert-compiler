@@ -126,6 +126,18 @@ def verify_pdf_ir(
         raise PdfPipelineError(str(error)) from error
 
     failures: list[str] = []
+    from native_page_disposition import replay
+    for row in preflight.get("pages", []):
+        if (row.get("page_role")=="structural-text" or str(row.get("page_role","")).startswith("operator-") or row.get("page_disposition")=="retain-context") and not row.get("page_disposition_proof"):
+            failures.append("page_disposition_proof_missing:page="+str(row.get("physical_page")))
+        if row.get("page_disposition_proof"):
+            try:
+                role = replay(source_path, row["page_disposition_proof"], pdftoppm or "pdftoppm")
+                expected_role = "structural-text" if role == "structural" else "operator-"+role
+                if row.get("page_role") != expected_role or row.get("page_disposition") != "retain-context":
+                    raise ValueError("page_disposition_role_mismatch")
+            except (ValueError, OSError) as error:
+                failures.append(str(error))
     blank_pages: list[int] = []
     for record in preflight.get("pages", []):
         if record.get("page_role") != "confirmed-blank" and "blank_page_proof" not in record:
@@ -148,7 +160,7 @@ def verify_pdf_ir(
         # New receipts must not hide a blank exemption by dropping its proof
         # and then recomputing source.json's component hashes.
         for page in range(start_page, end_page + 1):
-            if page in blank_pages:
+            if page in blank_pages or any(r.get("physical_page")==page and r.get("page_disposition_proof") for r in preflight.get("pages",[])):
                 continue
             raw = reader.pages[page - 1].extract_text() or ""
             if normalize_text(raw):

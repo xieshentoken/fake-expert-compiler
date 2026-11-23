@@ -255,3 +255,52 @@ Do not copy candidate anchors directly into a ready Expert Skill. Before promoti
 4. populate bidirectional `supports` and `evidence_ids` links;
 5. record conflicts or gaps instead of repairing source content silently;
 6. verify final anchor hashes against the external source.
+
+## 原生页面处置证明
+
+`native-outside-print-marks-v0.1` 扩展自动判空：每个已绘制路径及包含 CTM、线宽、端帽和
+miter 的保守描边包络必须严格在完整 MediaBox 外，并且完整 MediaBox 的 150 DPI
+Poppler RGB 渲染逐通道全 255、无警告。PDF 合法负宽高矩形可作受限裁剪路径；裁剪/白像素
+本身不能掩盖页内内容。未知操作、外部 opacity/混合状态、图像、文字、页内细线和被白色覆盖
+的黑内容不获得自动空白豁免。旧 nonpainting/opaque-white proofs 保留兼容回放。
+
+`native-outline-structure-page-v0.1` 只保留低文本 Part/Chapter 结构页：原生文字与同物理页
+outline 目的标题精确紧凑匹配，文字几何/可见状态可核对，裁剪覆盖标题 glyph，非文字绘制只能
+通过受限页外标记证明。页内图形、图像、隐藏/白色文字、未知操作留复核。页面保留原生 text
+和物理页，不降低正文 40 字符阈值，不生成该页的知识 focus span/证据锚。
+仅该精确证明可定位其自身结构父节点，不豁免其他 heading gate。
+
+实际操作人可用独立入口准备待填任务，外部完成后验证、导入新收据：
+
+```bash
+python3 scripts/native_page_disposition.py prepare --source /path/book.pdf \
+  --pages 12 13 --output /path/pending-submission.json
+# 操作人亲自填写 operator_id、operator_attestation、每页 role 与 reason 后：
+python3 scripts/native_page_disposition.py validate --source /path/book.pdf \
+  --submission /path/completed-submission.json --operator-id ACTUAL_OPERATOR
+python3 scripts/native_page_disposition.py import --source /path/book.pdf \
+  --submission /path/completed-submission.json --operator-id ACTUAL_OPERATOR \
+  --output /path/new-receipt.json
+python3 scripts/fake_expert.py plan --source /path/book.pdf --start-page 10 --end-page 30 \
+  --page-dispositions /path/new-receipt.json --workspace /path/fresh-workspace --json
+```
+
+编译器不填写身份、理由、同意或 attestation。收据是 **operator-provided transport**，不提供
+身份认证、签名、独立知识 Review 或 Gold。`blank` 还要求无原生文字且完整渲染全白；有可见
+内容的页面只能由操作人明确选择 `structural/context/non-knowledge`。所有处置都保留原页，
+不产生该页正文知识证据。绑定 source/content/text/render/renderer/pypdf/geometry/rule；
+重复页、错源、改渲染、缺身份/理由、缺证明或规则漂移失败。
+
+IR、workpack page-index 与 manifest commitments 逐级保留/回放证明。Draft 的
+`references/runtime/direct-reference.json` 在每个 workpack binding 下保留
+`page_disposition_protocol`、实际 `native_minimum_characters` 阈值和逐物理页 role/proof_protocol/proof_sha256，不复制完整人工收据、
+操作人身份或来源标题。`extend` 保留所有旧绑定并新增新范围绑定，连续性规则不变。
+
+```bash
+python3 scripts/verify_source_anchors.py /path/to/fake-reference --source /path/book.pdf \
+  --page-dispositions /path/new-receipt.json --json
+```
+
+自动 blank/structure 可用原件重算；人工处置必须显式提供匹配收据，可重复传入多个。
+缺失收据报告 `page_disposition_receipt_required`、`full_replay=false`，不会虚称已回放。
+匹配回放仅证明处置输入和绑定完整性，不认证操作人判断或知识准确率。

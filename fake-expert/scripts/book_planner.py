@@ -125,6 +125,8 @@ def _page_planning_status(
 ) -> tuple[str, str]:
     if page.get("page_role") == "confirmed-blank" and page.get("blank_page_proof"):
         return "non-knowledge", "Confirmed blank paper is retained at its physical page number and supplies no knowledge evidence."
+    if page.get("page_disposition_proof"):
+        return "context-only", "A source-bound page disposition retains structural or non-knowledge context, without knowledge evidence."
     if page.get("ocr_reasons"):
         return "ocr-candidate", "Native text is missing or below the configured threshold; OCR is a candidate route only."
     if page.get("page_disposition") == "manual-review-required":

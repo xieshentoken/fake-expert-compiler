@@ -1723,6 +1723,12 @@ def build_semantic_workpack(
         if isinstance(scan_candidate_for_pages, dict)
         else []
     )
+    from native_page_disposition import replay
+    disposition_proofs = {}
+    for row in ir["preflight"].get("pages", []):
+        if row.get("page_disposition_proof"):
+            replay(source_path, row["page_disposition_proof"], pdftoppm or "pdftoppm")
+            disposition_proofs[row["physical_page"]] = row["page_disposition_proof"]
     blank_proofs: dict[int, dict[str, Any]] = {}
     for record in ir["preflight"].get("pages", []):
         if record.get("page_role") != "confirmed-blank":
@@ -1737,7 +1743,7 @@ def build_semantic_workpack(
         blank_proofs[page] = proof
     if ir["preflight"].get("confirmed_blank_pages", []) != sorted(blank_proofs):
         raise SemanticPromotionError("blank_page_routing_mismatch")
-    if any(not text for page, text in page_texts.items() if page not in manual_scan_pages and page not in blank_proofs):
+    if any(not text for page, text in page_texts.items() if page not in manual_scan_pages and page not in blank_proofs and page not in disposition_proofs):
         raise SemanticPromotionError("empty_native_text_in_eligible_scope")
 
     segments = ir["document_map"].get("segments")
@@ -1748,7 +1754,7 @@ def build_semantic_workpack(
     # segment containing even one unconfirmed/content page keeps its locator gate.
     segments = [
         segment for segment in segments
-        if not (segment.get("physical_pages") and all(page in blank_proofs for page in segment["physical_pages"]))
+        if not (segment.get("physical_pages") and all(page in blank_proofs or page in disposition_proofs for page in segment["physical_pages"]))
     ]
     if not segments:
         raise SemanticPromotionError("ir_segments_missing")
@@ -1759,11 +1765,11 @@ def build_semantic_workpack(
         and isinstance(ir.get("heading_resolutions"), list)
     ):
         structure_status = "heading-locator-v0.2"
+        from native_page_disposition import structural_locator_overlay
+        locator_candidates, locator_resolutions = structural_locator_overlay(
+            segments, page_texts, disposition_proofs, ir["heading_candidates"], ir["heading_resolutions"])
         locations, ordered_segments, unresolved = _locate_headings_from_resolutions(
-            segments,
-            page_texts,
-            ir["heading_candidates"],
-            ir["heading_resolutions"],
+            segments, page_texts, locator_candidates, locator_resolutions,
         )
         structure_resolution_sha256 = locator_bundle_sha256(
             ir["heading_candidates"], ir["heading_resolutions"]
@@ -1865,6 +1871,7 @@ def build_semantic_workpack(
             boundary_end[0],
             boundary_end[1],
         )
+        focus = [span for span in focus if span["page"] not in disposition_proofs]
         total_focus = sum(span["end"] - span["start"] for span in focus)
         if total_focus > max_focus_characters:
             raise SemanticPromotionError(
@@ -1977,6 +1984,7 @@ def build_semantic_workpack(
                 "pdf_page_label": str(reader.page_labels[page - 1]),
                 **({"page_diagnostic": next(row["page_diagnostic"] for row in ir["preflight"]["pages"] if row["physical_page"] == page)} if ir["preflight"].get("page_summary") else {}),
                 **({"blank_page_proof": blank_proofs[page]} if page in blank_proofs else {}),
+                **({"page_disposition_proof": disposition_proofs[page]} if page in disposition_proofs else {}),
             }
             for page, text in page_texts.items()
         ],
@@ -2066,6 +2074,9 @@ def build_semantic_workpack(
             "scope": {"start_page": scope_start, "end_page": scope_end},
         },
         "pdf_ir": {
+            "page_disposition_protocol": "native-page-disposition-v0.1",
+            "minimum_native_characters": ir["preflight"].get("minimum_native_characters",40),
+            "page_disposition_commitments": {str(n):sha256_json(proof) for n,proof in disposition_proofs.items()},
             "confirmed_blank_pages": ir["preflight"].get("confirmed_blank_pages", []),
             **({"page_summary": ir["preflight"]["page_summary"]} if "page_summary" in ir["preflight"] else {}),
             "schema_version": ir["preflight"].get("schema_version"),
@@ -2263,6 +2274,21 @@ def _validate_native_blank_index(
             raise SemanticPromotionError(f"blank_page_proof_on_nonempty_page:page={page}")
     if set(indexed) != set(page_texts):
         raise SemanticPromotionError("blank_page_index_coverage_mismatch")
+    from native_page_disposition import replay
+    if manifest.get("pdf_ir",{}).get("page_disposition_protocol"):
+        commitments={str(n):sha256_json(row["page_disposition_proof"]) for n,row in indexed.items() if row.get("page_disposition_proof")}
+        if commitments!=manifest["pdf_ir"].get("page_disposition_commitments"):
+            raise SemanticPromotionError("page_disposition_commitment_mismatch")
+        minimum=manifest["pdf_ir"].get("minimum_native_characters",40)
+        for n,row in indexed.items():
+            if sum(c.isalnum() for c in page_texts[n]) < minimum and not row.get("page_disposition_proof") and not row.get("blank_page_proof"):
+                raise SemanticPromotionError("page_disposition_proof_missing:page="+str(n))
+    for page, row in indexed.items():
+        if row.get("page_disposition_proof"):
+            replay(source, row["page_disposition_proof"])
+            if row.get("page_diagnostic", {}).get("disposition_proof") != row["page_disposition_proof"]:
+                raise SemanticPromotionError("page_disposition_index_binding_mismatch")
+            empty_pages.discard(page)
     for page in sorted(empty_pages):
         expected = indexed[page].get("blank_page_proof")
         actual = confirm_blank_page(reader.pages[page - 1], reader.pages[page - 1].extract_text() or "",
@@ -2516,6 +2542,10 @@ def validate_semantic_workpack(
                     _add_issue(issues, "error", "unit_span_stale", span_path, "Stored text/hash differs from source.")
                 if span.get("page_text_sha256") != sha256_text(page_texts[page]):
                     _add_issue(issues, "error", "page_text_hash_mismatch", span_path, "Page text hash differs.")
+                if kind == "focus_spans":
+                    page_index = load_jsonl(root / manifest.get("page_index","page-index.jsonl"))
+                    if any(isinstance(row,dict) and row.get("page")==page and row.get("page_disposition_proof") for row in page_index):
+                        _add_issue(issues,"error","non_knowledge_page_evidence",span_path,"Retained page roles cannot supply knowledge focus spans.")
                 expected_extractable = kind == "focus_spans"
                 if span.get("extractable") is not expected_extractable:
                     _add_issue(issues, "error", "unit_span_policy_invalid", span_path, "Extractable flag differs from span role.")

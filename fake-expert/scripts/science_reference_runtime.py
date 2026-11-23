@@ -14,7 +14,7 @@ import science_contract as sc
 import science_index as si
 import science_workpack as sw
 from compiler_version import SCIENCE_CONSULTATION_SCHEMA, SCIENCE_REFERENCE_PROTOCOL
-from portable_reference_runtime import query_catalog
+from science_runtime_compat import query_package
 
 DEFAULT_LIMITS = {"max_hops": 3, "max_objects": 64, "max_bytes": 1048576}
 
@@ -234,7 +234,7 @@ def query(request, library, index, tokenizer, *, limits=None):
     scoped = [e for e in library if e["package"]["fingerprint"] in request["source_scope"]]
     legacy, allowed = [], []
     for entry in scoped:
-        response = query_catalog(entry["catalog"], request["question"])
+        response = query_package(entry["package"], entry["catalog"], request["question"])
         legacy.append({"package_fingerprint": entry["package"]["fingerprint"], "response": response})
         # A lexical miss is retained as a legacy miss; the new protocol may return
         # new index candidates. Policy/decision/gap abstentions still block retrieval.

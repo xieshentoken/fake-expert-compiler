@@ -289,6 +289,12 @@
         },
         "native_blank": {
           "$ref": "#/$defs/tool"
+        },
+        "native_print_marks": {
+          "$ref": "#/$defs/tool"
+        },
+        "native_page_disposition": {
+          "$ref": "#/$defs/tool"
         }
       }
     },

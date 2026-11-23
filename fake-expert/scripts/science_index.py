@@ -12,7 +12,7 @@ import unicodedata
 import science_contract as sc
 import science_workpack as sw
 import consultation_contract as cc
-from compiler_version import SCIENCE_INDEX_SCHEMA, SCIENCE_REFERENCE_PROTOCOL, SCIENCE_REFERENCE_COMPILER_VERSION
+from compiler_version import SCIENCE_INDEX_SCHEMA, SCIENCE_REFERENCE_PROTOCOL, SCIENCE_REFERENCE_COMPILER_VERSION, SCIENCE_RUNTIME_COMPAT_PROTOCOL
 
 
 def object_ref(package, obj):
@@ -53,6 +53,8 @@ def load_library(path):
         package["conflicts"] = jsonl("references/conflicts.jsonl")
         package["gaps"] = jsonl("references/knowledge-gaps.jsonl")
         catalog = sc.load_json(sw._safe_path(root, "references/runtime/catalog.json"))
+        from science_runtime_compat import runtime_for
+        runtime_for(package, catalog)
         library.append({"package": package, "sidecar": sidecar, "profile": profile, "catalog": catalog})
     validate_library(library)
     return library, config["tokenizer"]
@@ -69,6 +71,11 @@ def validate_library(library):
         if key in seen:
             raise ValueError("science_library_duplicate_package_version")
         seen.add(key)
+        from science_runtime_compat import runtime_for
+        # Calculation-only synthetic DAG inputs can have no retrieval catalog.
+        # Filesystem libraries and every query still require a valid runtime.
+        if entry["catalog"] is not None:
+            runtime_for(package, entry["catalog"])
         sc.validate_shape(entry["profile"], "profile")
         sc.validate_sidecar(entry["sidecar"], package, entry["profile"])
 
@@ -106,7 +113,9 @@ def build_index(library, tokenizer):
     for item in sorted(library, key=lambda e: sc.sha256_json(e["package"]["fingerprint"])):
         package, sidecar, profile = item["package"], item["sidecar"], item["profile"]
         packages.append({"fingerprint": package["fingerprint"], "sidecar_sha256": sidecar["sidecar_sha256"] if sidecar else None,
-                         "profile_sha256": sc.sha256_json(profile)})
+                         "profile_sha256": sc.sha256_json(profile),
+                         "runtime_compat_protocol": SCIENCE_RUNTIME_COMPAT_PROTOCOL,
+                         "catalog_sha256": sc.sha256_json(item["catalog"])})
         records = sidecar["records"] if sidecar else []
         for obj in sorted(package["objects"], key=lambda o: o["id"]):
             reference = object_ref(package, obj)

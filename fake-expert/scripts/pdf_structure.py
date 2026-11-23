@@ -281,6 +281,7 @@ def inspect_page(
     source_path: Path | None = None,
     source_sha256: str | None = None,
     renderer: Path | str | None = None,
+    disposition: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], str, str]:
     raw_text = page.extract_text() or ""
     normalized = normalize_text(raw_text)
@@ -387,6 +388,21 @@ def inspect_page(
         diagnostic = {"schema_version": "tkc.native-page-diagnostic/v0.1", "source_sha256": source_sha256,
                       "physical_page": physical_page, "classification": "review_required",
                       "reason_codes": ["source_context_missing"], "proof": None}
+    from native_page_disposition import structural_proof, replay
+    role_proof = disposition
+    if role_proof is not None:
+        replay(source_path, role_proof, renderer or "pdftoppm")
+    elif native_status == "low" and source_path is not None:
+        role_proof = structural_proof(source_path, physical_page, renderer or "pdftoppm", reader=getattr(page,"pdf",None))
+    if role_proof is not None:
+        role = role_proof["role"]
+        page_record.update(page_role="structural-text" if role == "structural" else "operator-"+role,
+                           page_disposition="retain-context", page_disposition_proof=role_proof,
+                           ocr_reasons=[], visual_verification_reasons=[])
+        diagnostic = native_text_diagnostic(source_sha256 or "", physical_page)
+        diagnostic["reason_codes"]=["source_bound_page_context_retained"]
+        diagnostic.update(page_role=role, source_type="native-text" if normalized else "nontext",
+                          disposition_proof=role_proof)
     page_record["page_diagnostic"] = diagnostic
     return page_record, normalized, raw_text
 
@@ -753,7 +769,7 @@ def build_anchor_candidates(
     for segment in selected:
         # Page scopes retain blank physical pages, but blank paper supports no
         # semantic assertion and must never become a text evidence anchor.
-        pages = [page for page in segment["physical_pages"] if page_records[page]["page_role"] != "confirmed-blank"]
+        pages = [page for page in segment["physical_pages"] if page_records[page]["page_role"] != "confirmed-blank" and not page_records[page].get("page_disposition_proof")]
         if not pages:
             continue
         joined_text = "\f".join(page_texts[page] for page in pages)
@@ -938,6 +954,7 @@ def compile_pdf_intermediate_representation(
     heading_overrides: Path | None = None,
     heading_locator_overrides: Path | None = None,
     structure_selections: Path | None = None,
+    page_dispositions: Path | dict | None = None,
 ) -> dict[str, Any]:
     try:
         from pypdf import PdfReader, __version__ as pypdf_version
@@ -979,6 +996,8 @@ def compile_pdf_intermediate_representation(
             f"unsupported_layout_parser: {layout_parser}; choose from {','.join(SUPPORTED_LAYOUT_PARSERS)}"
         )
 
+    from native_page_disposition import load_receipt
+    dispositions = load_receipt(source_path, page_dispositions, pdftoppm or "pdftoppm") if page_dispositions else {}
     labels = reader.page_labels
     page_records: dict[int, dict[str, Any]] = {}
     page_texts: dict[int, str] = {}
@@ -993,6 +1012,7 @@ def compile_pdf_intermediate_representation(
             source_path=source_path,
             source_sha256=source_hash,
             renderer=pdftoppm,
+            disposition=dispositions.get(physical_page),
         )
         page_records[physical_page] = record
         page_texts[physical_page] = text
@@ -1000,7 +1020,7 @@ def compile_pdf_intermediate_representation(
         page_sizes[physical_page] = page_dimensions(reader.pages[physical_page - 1])
 
     page_values = list(page_records.values())
-    usable_count = sum(page["native_text"]["status"] == "usable" for page in page_values)
+    usable_count = sum(page["native_text"]["status"] == "usable" or bool(page.get("page_disposition_proof")) for page in page_values)
     blank_count = sum(page["page_role"] == "confirmed-blank" for page in page_values)
     if blank_count == len(page_values):
         classification = "blank"

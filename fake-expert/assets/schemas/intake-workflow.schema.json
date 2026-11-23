@@ -20,17 +20,19 @@
     "choice",
     "route",
     "state",
-    "authorization"
+    "authorization",
+    "page_dispositions",
+    "reused_workpacks"
   ],
   "properties": {
     "schema_version": {
-      "const": "tkc.intake-workflow/v0.1"
+      "const": "tkc.intake-workflow/v0.2"
     },
     "protocol": {
-      "const": "intake-workflow-v0.1"
+      "const": "intake-workflow-v0.2"
     },
     "compiler_version": {
-      "const": "1.2.0-intake-v1"
+      "const": "1.2.0-intake-v2"
     },
     "workflow_id": {
       "type": "string",
@@ -117,6 +119,68 @@
           "$ref": "#/$defs/authorization"
         }
       ]
+    },
+    "page_dispositions": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "reused_workpacks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "physical_pages": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "source_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "workpack_id": {
+            "type": "string"
+          },
+          "files": {
+            "$ref": "#/$defs/hash_map"
+          }
+        },
+        "required": [
+          "path",
+          "physical_pages",
+          "source_sha256",
+          "workpack_id",
+          "files"
+        ]
+      }
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -304,7 +368,8 @@
         "protocol": {
           "enum": [
             "native-blank-page-v0.1",
-            "native-white-vector-blank-v0.1"
+            "native-white-vector-blank-v0.1",
+            "native-outside-print-marks-v0.1"
           ]
         },
         "source_sha256": {
@@ -329,7 +394,8 @@
         "proof": {
           "enum": [
             "non-painting-content-and-exact-white-full-render",
-            "opaque-white-rectangles-and-exact-white-full-render"
+            "opaque-white-rectangles-and-exact-white-full-render",
+            "outside-media-print-marks-and-exact-white-full-render"
           ]
         },
         "render": {
@@ -388,6 +454,415 @@
               "$ref": "#/$defs/blank_proof"
             }
           ]
+        },
+        "page_role": {
+          "enum": [
+            "blank",
+            "structural",
+            "context",
+            "non-knowledge",
+            "knowledge-candidate",
+            "unresolved"
+          ]
+        },
+        "source_type": {
+          "enum": [
+            "native-text",
+            "nontext",
+            "unknown",
+            "raster"
+          ]
+        },
+        "disposition_proof": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "protocol": {
+                  "const": "native-outline-structure-page-v0.1"
+                },
+                "binding": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "source_sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "physical_page": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "pypdf_version": {
+                      "type": "string"
+                    },
+                    "content_sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "text_sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "render": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "renderer": {
+                          "const": "pdftoppm"
+                        },
+                        "renderer_sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "version": {
+                          "type": "string"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "box": {
+                          "const": "MediaBox"
+                        },
+                        "media_box_points": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "minItems": 4,
+                          "maxItems": 4
+                        },
+                        "rotation_clockwise": {
+                          "enum": [
+                            0,
+                            90,
+                            180,
+                            270
+                          ]
+                        },
+                        "dpi": {
+                          "const": 150
+                        },
+                        "dimensions": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "minItems": 2,
+                          "maxItems": 2
+                        },
+                        "nonwhite": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "renderer",
+                        "renderer_sha256",
+                        "version",
+                        "sha256",
+                        "box",
+                        "media_box_points",
+                        "rotation_clockwise",
+                        "dpi",
+                        "dimensions",
+                        "nonwhite"
+                      ]
+                    },
+                    "rule_version": {
+                      "const": "native-page-disposition-v0.1"
+                    }
+                  },
+                  "required": [
+                    "source_sha256",
+                    "physical_page",
+                    "pypdf_version",
+                    "content_sha256",
+                    "text_sha256",
+                    "render",
+                    "rule_version"
+                  ]
+                },
+                "outline_title": {
+                  "type": "string"
+                },
+                "role": {
+                  "const": "structural"
+                },
+                "knowledge_review": {
+                  "const": false
+                },
+                "gold": {
+                  "const": false
+                }
+              },
+              "required": [
+                "protocol",
+                "binding",
+                "outline_title",
+                "role",
+                "knowledge_review",
+                "gold"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "protocol": {
+                  "const": "native-page-disposition-v0.1"
+                },
+                "receipt": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "schema_version": {
+                      "const": "tkc.page-disposition-receipt/v0.1"
+                    },
+                    "protocol": {
+                      "const": "native-page-disposition-v0.1"
+                    },
+                    "submission_sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "submission": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "schema_version": {
+                          "const": "tkc.page-disposition-submission/v0.1"
+                        },
+                        "protocol": {
+                          "const": "native-page-disposition-v0.1"
+                        },
+                        "source_sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "operator_id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "operator_attestation": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "binding": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "source_sha256": {
+                                    "type": "string",
+                                    "pattern": "^[a-f0-9]{64}$"
+                                  },
+                                  "physical_page": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                  },
+                                  "pypdf_version": {
+                                    "type": "string"
+                                  },
+                                  "content_sha256": {
+                                    "type": "string",
+                                    "pattern": "^[a-f0-9]{64}$"
+                                  },
+                                  "text_sha256": {
+                                    "type": "string",
+                                    "pattern": "^[a-f0-9]{64}$"
+                                  },
+                                  "render": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "renderer": {
+                                        "const": "pdftoppm"
+                                      },
+                                      "renderer_sha256": {
+                                        "type": "string",
+                                        "pattern": "^[a-f0-9]{64}$"
+                                      },
+                                      "version": {
+                                        "type": "string"
+                                      },
+                                      "sha256": {
+                                        "type": "string",
+                                        "pattern": "^[a-f0-9]{64}$"
+                                      },
+                                      "box": {
+                                        "const": "MediaBox"
+                                      },
+                                      "media_box_points": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "number"
+                                        },
+                                        "minItems": 4,
+                                        "maxItems": 4
+                                      },
+                                      "rotation_clockwise": {
+                                        "enum": [
+                                          0,
+                                          90,
+                                          180,
+                                          270
+                                        ]
+                                      },
+                                      "dpi": {
+                                        "const": 150
+                                      },
+                                      "dimensions": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "integer",
+                                          "minimum": 1
+                                        },
+                                        "minItems": 2,
+                                        "maxItems": 2
+                                      },
+                                      "nonwhite": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "renderer",
+                                      "renderer_sha256",
+                                      "version",
+                                      "sha256",
+                                      "box",
+                                      "media_box_points",
+                                      "rotation_clockwise",
+                                      "dpi",
+                                      "dimensions",
+                                      "nonwhite"
+                                    ]
+                                  },
+                                  "rule_version": {
+                                    "const": "native-page-disposition-v0.1"
+                                  }
+                                },
+                                "required": [
+                                  "source_sha256",
+                                  "physical_page",
+                                  "pypdf_version",
+                                  "content_sha256",
+                                  "text_sha256",
+                                  "render",
+                                  "rule_version"
+                                ]
+                              },
+                              "role": {
+                                "enum": [
+                                  "blank",
+                                  "structural",
+                                  "context",
+                                  "non-knowledge"
+                                ]
+                              },
+                              "reason": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "binding",
+                              "role",
+                              "reason"
+                            ]
+                          },
+                          "minItems": 1
+                        },
+                        "knowledge_review": {
+                          "const": false
+                        },
+                        "gold": {
+                          "const": false
+                        }
+                      },
+                      "required": [
+                        "schema_version",
+                        "protocol",
+                        "source_sha256",
+                        "operator_id",
+                        "operator_attestation",
+                        "items",
+                        "knowledge_review",
+                        "gold"
+                      ]
+                    },
+                    "authority": {
+                      "const": "operator-provided-transport-only"
+                    }
+                  },
+                  "required": [
+                    "schema_version",
+                    "protocol",
+                    "submission_sha256",
+                    "submission",
+                    "authority"
+                  ]
+                },
+                "physical_page": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "role": {
+                  "enum": [
+                    "blank",
+                    "structural",
+                    "context",
+                    "non-knowledge"
+                  ]
+                }
+              },
+              "required": [
+                "protocol",
+                "receipt",
+                "physical_page",
+                "role"
+              ]
+            }
+          ]
+        },
+        "selection_state": {
+          "enum": [
+            "outside-scope",
+            "selected-nonknowledge",
+            "selected-knowledge-candidate",
+            "selected-unresolved"
+          ]
+        },
+        "outline_context_hint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "role",
+            "outline_page",
+            "advisory_only"
+          ],
+          "properties": {
+            "role": {
+              "enum": [
+                "frontmatter",
+                "backmatter-or-navigation"
+              ]
+            },
+            "outline_page": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "advisory_only": {
+              "const": true
+            }
+          }
         }
       }
     },
@@ -518,7 +993,7 @@
           "const": "1.2.0"
         },
         "intake_version": {
-          "const": "1.2.0-intake-v1"
+          "const": "1.2.0-intake-v2"
         },
         "build_fingerprint": {
           "type": "string",
@@ -921,11 +1396,12 @@
         "batch_advice",
         "source_content_is_untrusted",
         "whole_book_complete",
-        "ocr_availability"
+        "ocr_availability",
+        "selection"
       ],
       "properties": {
         "schema_version": {
-          "const": "tkc.intake-report/v0.1"
+          "const": "tkc.intake-report/v0.2"
         },
         "status": {
           "const": "inspected"
@@ -1057,6 +1533,56 @@
         },
         "ocr_availability": {
           "$ref": "#/$defs/availability"
+        },
+        "selection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "physical_pages",
+            "page_summary",
+            "outside_pages",
+            "non_knowledge_pages",
+            "native_selected_scope",
+            "knowledge_candidate_pages"
+          ],
+          "properties": {
+            "physical_pages": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "page_summary": {
+              "$ref": "#/$defs/page_summary"
+            },
+            "outside_pages": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "non_knowledge_pages": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "native_selected_scope": {
+              "type": "boolean"
+            },
+            "knowledge_candidate_pages": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
         }
       }
     },

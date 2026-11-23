@@ -221,7 +221,7 @@ class IntakeWorkflowTests(unittest.TestCase):
         self.assertFalse(second["whole_book_complete"])
 
     def test_automatic_plan_rejects_legacy_options_instead_of_ignoring_them(self) -> None:
-        for name, value in (("--backend", "paddleocr-ppocrv6"), ("--workpack", str(self.root)),
+        for name, value in (("--backend", "paddleocr-ppocrv6"),
                             ("--target-stage", "ready"), ("--gold-mode", "reuse")):
             with self.subTest(option=name):
                 result = subprocess.run([sys.executable, str(SCRIPTS / "fake_expert.py"), "plan", "--source", str(self.source),

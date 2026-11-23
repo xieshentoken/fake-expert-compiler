@@ -22,10 +22,6 @@ import fake_expert as fake_expert_module  # noqa: E402
 import reviewer_workbench  # noqa: E402
 
 
-SCAN_WORKBENCH = ROOT / "tmp/workspace/output/phase7d6e-ceramic-structure-review-r5"
-SCAN_SUBMISSION = ROOT / "tmp/workspace/output/phase7d6e-ceramic-structure-review-inputs-r1/scan-structure-review-submission.json"
-
-
 class FakeExpertUxTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp(prefix="fake-expert-ux-test-"))
@@ -700,8 +696,14 @@ class FakeExpertUxTests(unittest.TestCase):
         for key in ("code", "meaning", "next_action", "remediation"):
             self.assertIn(key, source_report)
 
-    @unittest.skipUnless(SCAN_WORKBENCH.is_dir() and SCAN_SUBMISSION.is_file(), "private workbench fixture unavailable")
     def test_review_route_validates_existing_scan_submission_read_only(self) -> None:
+        workbench_path = os.environ.get("FAKE_EXPERT_TEST_SCAN_WORKBENCH")
+        submission_path = os.environ.get("FAKE_EXPERT_TEST_SCAN_SUBMISSION")
+        if not workbench_path or not submission_path:
+            self.skipTest("set FAKE_EXPERT_TEST_SCAN_WORKBENCH and FAKE_EXPERT_TEST_SCAN_SUBMISSION for read-only replay")
+        scan_workbench, scan_submission = Path(workbench_path).resolve(), Path(submission_path).resolve()
+        self.assertTrue(scan_workbench.is_dir() and scan_submission.is_file(), "configured scan review fixtures unavailable")
+
         listed_root = self.tmp / "workbenches"
         for name, manifest_name, schema in (
             ("semantic", "manifest.json", "tkc.semantic-review-workbench/v0.1"),
@@ -720,8 +722,8 @@ class FakeExpertUxTests(unittest.TestCase):
         self.assertTrue({"semantic", "visual", "scan-structure"}.issubset(kinds))
 
         valid = self.run_cli(
-            "review", "validate-submission", "--workbench", str(SCAN_WORKBENCH),
-            "--submission", str(SCAN_SUBMISSION), "--json",
+            "review", "validate-submission", "--workbench", str(scan_workbench),
+            "--submission", str(scan_submission), "--json",
         )
         self.assertEqual(valid.returncode, 0, valid.stderr)
         result = json.loads(valid.stdout)
@@ -730,11 +732,11 @@ class FakeExpertUxTests(unittest.TestCase):
         self.assertFalse(result["writes"])
 
         tampered = self.tmp / "tampered-submission.json"
-        value = json.loads(SCAN_SUBMISSION.read_text(encoding="utf-8"))
+        value = json.loads(scan_submission.read_text(encoding="utf-8"))
         value["items"][0]["input_sha256"] = "0" * 64
         tampered.write_text(json.dumps(value), encoding="utf-8")
         rejected = self.run_cli(
-            "review", "validate-submission", "--workbench", str(SCAN_WORKBENCH),
+            "review", "validate-submission", "--workbench", str(scan_workbench),
             "--submission", str(tampered), "--json",
         )
         self.assertEqual(rejected.returncode, 2)

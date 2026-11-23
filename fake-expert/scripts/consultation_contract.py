@@ -44,7 +44,8 @@ def shape(value, definition):
 def tool_hashes():
     paths = [sc.ROOT / name for name in ("science_contract.py", "science_workpack.py", "science_index.py",
              "science_reference_runtime.py", "consultation_contract.py", "compiler_version.py",
-             "portable_reference_runtime.py", "verify_source_anchors.py")]
+             "portable_reference_runtime.py", "verify_source_anchors.py", "science_runtime_compat.py",
+             "direct_reference_runtime.py", "reference_search.py", "reference_search_v140.py", "reference_search_v130.py")]
     paths += [SCHEMA_PATH, sc.SCHEMA_PATH]
     return {str(p.relative_to(sc.ROOT.parent)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 

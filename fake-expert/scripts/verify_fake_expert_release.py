@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -23,6 +24,7 @@ try:
         DIRECT_REFERENCE_COMPILER_VERSION,
         DIRECT_REFERENCE_PROTOCOL,
         DIRECT_REFERENCE_SCHEMA,
+        REFERENCE_TERM_ALIASES_SHA256,
         READONLY_COMPATIBLE_SOURCE_CANDIDATE_VERSIONS,
         SCAN_MVP_CONTRACT_HARDENING_COMPILER_VERSION as HARDENING_VERSION,
     )
@@ -31,9 +33,10 @@ except ModuleNotFoundError:
     VERSION = "1.2.0"  # standalone-release fallback; package time cross-checks this literal
     UX_SOURCE_CANDIDATE_VERSION = "1.2.0-ux"  # standalone-release fallback
     SCIENCE_LIFECYCLE_COMPILER_VERSION = "1.2.0-science-m4"  # standalone-release fallback
-    DIRECT_REFERENCE_COMPILER_VERSION = "1.4.0-direct-reference"  # standalone-release fallback
+    DIRECT_REFERENCE_COMPILER_VERSION = "1.4.1-direct-reference"  # standalone-release fallback
     DIRECT_REFERENCE_PROTOCOL = "direct-reference-draft-v0.1"  # standalone-release fallback
     DIRECT_REFERENCE_SCHEMA = "tkc.direct-reference/v0.1"  # standalone-release fallback
+    REFERENCE_TERM_ALIASES_SHA256 = "82fd9a695c8dd68e1b0ec8000288b73fd9821bba5ac30d6d721fe6d44fda26ab"  # standalone-release fallback
     READONLY_COMPATIBLE_SOURCE_CANDIDATE_VERSIONS = ("0.14.1",)
     HARDENING_VERSION = "0.14.4-scan-mvp-contract-hardening"
 
@@ -71,6 +74,40 @@ SCIENCE_REQUIRED_PATHS = {
     "assets/schemas/science-lifecycle.schema.json", "assets/domain-profiles/heat-transfer.json",
     "assets/domain-profiles/materials-optics.json", "references/science-consultation.md",
 }
+SCIENCE_RUNTIME_COMPAT_REQUIRED_PATHS = {
+    "scripts/science_runtime_compat.py", "scripts/direct_reference_runtime.py",
+    "scripts/portable_reference_runtime.py", "scripts/reference_search.py",
+    "scripts/reference_search_v140.py", "scripts/reference_search_v130.py",
+    "assets/reference-terms.json",
+}
+HISTORICAL_SCIENCE_M4_ARCHIVE_SHA256 = "ff2d2ba9c394bb27312c98bc8db51753c6d4a4f5506f1017624f65f2d190e777"
+
+
+def science_runtime_inventory_error(compiler_source: str, reference_source: str, paths, *, require_current=False) -> str | None:
+    """Read declarations only; never import or execute code from an archive."""
+    try:
+        tree = ast.parse(compiler_source)
+        reference = ast.parse(reference_source)
+    except (SyntaxError, ValueError):
+        return "science_runtime_source_invalid"
+    markers = []
+    for node in ast.walk(tree):
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+        if any(isinstance(target, ast.Name) and target.id == "SCIENCE_RUNTIME_COMPAT_PROTOCOL" for target in targets):
+            markers.append(node)
+    adapter_dependency = any(isinstance(node, ast.ImportFrom) and node.module == "science_runtime_compat"
+        or isinstance(node, ast.Import) and any(alias.name == "science_runtime_compat" for alias in node.names)
+        for node in ast.walk(reference))
+    if not markers:
+        return "science_runtime_compat_marker_missing" if adapter_dependency or require_current else None
+    if (len(markers) != 1 or markers[0] not in tree.body
+            or not isinstance(markers[0].value, ast.Constant)
+            or markers[0].value.value != "science-runtime-compat-v0.1"):
+        return "science_runtime_compat_protocol_invalid"
+    if not SCIENCE_RUNTIME_COMPAT_REQUIRED_PATHS.issubset(paths):
+        return "science_runtime_compat_path_missing"
+    return None
+
 SCIENCE_SCHEMA_IDS = {
     "assets/schemas/science-sidecar.schema.json": "tkc.science-sidecar/v0.1",
     "assets/schemas/science-consultation.schema.json": "tkc.science-consultation/v0.1",
@@ -95,6 +132,12 @@ def science_source_file_error(relative: str, content: str) -> str | None:
             return "science_schema_identity_required"
         if relative in SCIENCE_SCHEMA_IDS and value["$id"] != SCIENCE_SCHEMA_IDS[relative]:
             return "science_schema_identity_drift"
+        return None
+    if relative == "assets/reference-terms.json":
+        # The standalone verifier accepts only the compiler-owned dictionary
+        # already validated by reference_search.load_term_aliases at packaging.
+        if hashlib.sha256(content.encode("utf-8")).hexdigest() != REFERENCE_TERM_ALIASES_SHA256:
+            return "science_reference_terms_hash_mismatch"
         return None
     if relative == "references/review-convention-profile-v0.2.json":
         return None if isinstance(value, dict) and value.get("schema_version") == "tkc.visual-review-convention-profile/v0.2" else "science_legacy_profile_invalid"
@@ -543,8 +586,10 @@ def verify_compiler_release(
         if legacy_manifest
         else "0.14.12-visual-parser-calibration"
     )
+    historical_science_m4 = (compiler_version == SCIENCE_LIFECYCLE_COMPILER_VERSION
+        and archive_record.get("sha256") == HISTORICAL_SCIENCE_M4_ARCHIVE_SHA256)
     expected_direct_reference = None if legacy_manifest else {
-        "compiler_version": DIRECT_REFERENCE_COMPILER_VERSION,
+        "compiler_version": "1.1.0-direct-reference" if historical_science_m4 else DIRECT_REFERENCE_COMPILER_VERSION,
         "protocol": DIRECT_REFERENCE_PROTOCOL,
         "schema": DIRECT_REFERENCE_SCHEMA,
         "commands": ["build", "extend", "bind-gold", "status", "validate"],
@@ -886,6 +931,11 @@ def verify_compiler_release(
         if set(members) != set(inventory):
             raise CompilerReleaseVerificationError("compiler_inventory_mismatch")
         if compiler_version == SCIENCE_LIFECYCLE_COMPILER_VERSION:
+            error = science_runtime_inventory_error(
+                archive.read(members["scripts/compiler_version.py"]).decode("utf-8"),
+                archive.read(members["scripts/science_reference_runtime.py"]).decode("utf-8"), set(members), require_current=not historical_science_m4)
+            if error:
+                raise CompilerReleaseVerificationError(error)
             for relative, info in members.items():
                 error = science_source_file_error(relative, archive.read(info).decode("utf-8"))
                 if error:
