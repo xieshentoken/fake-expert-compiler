@@ -152,6 +152,19 @@ Both are source-derived. The manifest declares
 (`candidate_source_derived_content_not_distributable`). Use them for private,
 local Skills only.
 
+For full-page raster scans with a text layer, raster table candidates require
+visible top, header and closing rules with a shared footprint. Unresolved
+geometry is reported with the original page render and caption locator. The
+compiler does not emit a caption-only table crop. A formula number recovered
+without its body can produce a suggested inspection region on the hash-bound
+page render. Region notices do not run OCR or confirm formula content.
+
+Before ingesting, run `semantic_authoring.py lint --workpack DIR --unit ID`.
+It checks the same response shapes, exact quotes and evidence rules as ingest.
+Omit `--unit` to check all responses. Use `--source` for source-bound formula
+numeric checks. Lint reports diagnostics without writing drafts, receipts or
+reports. A pending image-only value still requires independent review.
+
 ## 4. Search runtime (`reference-search-bm25-v0.4`)
 
 New packages ship `scripts/query_reference.py`, a copy of
@@ -159,7 +172,14 @@ New packages ship `scripts/query_reference.py`, a copy of
 
 Tokens:
 
-The compiler freezes the versioned `assets/reference-terms.json` term aliases in each catalog policy. This controlled bilingual vocabulary changes retrieval only, never facts or evidence. Unknown properties abstain; this is not general translation. The alias file and runtime have explicit SHA-256 pins.
+The compiler freezes the versioned `assets/reference-terms.json` aliases and
+distinct concepts for silicon and silicone in the catalog. Use
+`direct_reference_skill.py build --term-aliases PATH` for a book's own
+`tkc.reference-term-aliases/v0.1` JSON (a closed object with a `terms` array of
+`term` and `aliases` rows). Conflicts with existing terms are rejected. The
+extensions are recorded and hash-bound in the catalog and retained on extend.
+This vocabulary changes retrieval only. Where a bilingual alias is missing,
+query using precise terms in the language of the source.
 
 - NFKC + casefold Latin words with light stemming (plurals, -ing/-ed/-ion/-ive);
 - numbers;

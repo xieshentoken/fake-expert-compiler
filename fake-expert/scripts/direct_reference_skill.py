@@ -47,8 +47,10 @@ from expert_skill_contract import (
     write_json,
 )
 from formula_execution import FORMULA_AST_SCHEMA, sha256_json as formula_sha256_json
-from pdf_structure import detect_printed_page_label, normalize_text, stable_id
+from pdf_structure import normalize_text, stable_id
+from printed_page_labels import display_label, resolve as resolve_printed_labels
 from direct_reference_runtime import query_direct_catalog
+import reference_alias_profiles
 import reference_search
 import reference_search_v130
 import reference_search_v140
@@ -288,19 +290,14 @@ def _formula(proposal: dict[str, Any]) -> dict[str, Any] | None:
 
 def _source_record(
     source: Path,
-    reader: Any,
+    printed_labels: dict[int, str | None],
     source_id: str,
     source_hash: str,
     scope: dict[str, Any],
     title: str,
 ) -> dict[str, Any]:
-    labels = []
-    for page in range(scope["start_page"], scope["end_page"] + 1):
-        extracted = reader.pages[page - 1].extract_text() or ""
-        labels.append(
-            detect_printed_page_label(extracted)
-            or str(reader.page_labels[page - 1])
-        )
+    labels = [display_label(printed_labels[page], page)
+              for page in range(scope["start_page"], scope["end_page"] + 1)]
     return {
         "source_id": source_id,
         "title": title,
@@ -426,6 +423,7 @@ def _materialize_workpack(
         raise DirectReferenceError("candidate_objects_missing")
     source_id = manifest["source"]["source_id"]
     scope = manifest["source"]["scope"]
+    printed_labels = resolve_printed_labels(reader, scope["start_page"], scope["end_page"])
     page_texts = _page_texts_for_workpack(
         reader, root, manifest, scope["start_page"], scope["end_page"]
     )
@@ -559,8 +557,7 @@ def _materialize_workpack(
             "source_id": source_id,
             "pages": pages,
             "printed_page_labels": [
-                detect_printed_page_label(reader.pages[page - 1].extract_text() or "")
-                or str(reader.page_labels[page - 1])
+                display_label(printed_labels[page], page)
                 for page in pages
             ],
             "segment_id": segment_id,
@@ -748,21 +745,21 @@ def _materialize_workpack(
         },
     }
     return {
-        "source": _source_record(source, reader, source_id, source_hash, scope, title),
+        "source": _source_record(source, printed_labels, source_id, source_hash, scope, title),
         "objects": objects,
         "anchors": anchors,
         "relations": relations,
         "conflicts": conflicts,
         "gaps": gaps,
         "binding": binding,
-        "figures": _workpack_figures(root, manifest, reader, source_id, objects),
+        "figures": _workpack_figures(root, manifest, printed_labels, source_id, objects),
     }
 
 
 def _workpack_figures(
     root: Path,
     manifest: dict[str, Any],
-    reader: Any,
+    printed_labels: dict[int, str | None],
     source_id: str,
     objects: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -809,8 +806,7 @@ def _workpack_figures(
             "label": row.get("label"),
             "source_id": source_id,
             "physical_page": page,
-            "printed_page_label": detect_printed_page_label(reader.pages[page - 1].extract_text() or "")
-            or str(reader.page_labels[page - 1]),
+            "printed_page_label": printed_labels.get(page),
             "bbox_pdf_points": [round(float(value), 3) for value in row["bbox"]],
             "caption": captions.get(figure_id),
             "figure_text": [
@@ -952,14 +948,17 @@ executable.
 ## Runtime workflow
 
 1. Run `python3 -B scripts/query_reference.py --query "<request>" --limit 8`.
-   English and Chinese queries are supported (word stems and CJK n-grams).
+   Retrieval uses indexed words and configured bilingual aliases. For a Chinese
+   question about an English source, use precise English search terms where an
+   alias is missing. A miss does not show the source lacks the topic.
 2. Preserve the returned `assurance` and `warnings` in every technical answer.
 3. Answer from `results`: each has the statement, assumptions, `valid_when`,
    `fails_when`, formula, physical pages / printed page labels, and IDs.
 4. State assumptions, applicability, valid conditions, and failure conditions.
 5. Cite every technical claim with both knowledge-object IDs and evidence IDs.
-6. A result warning `figure_value_unreviewed` means its numbers were read from a
-   figure and await visual review; say so when you use them.
+6. Current drafts admit image-only numeric claims only after their required
+   independent semantic and visual review. Preserve any legacy
+   `figure_value_unreviewed` warning and do not present those values as verified.
 7. Preserve unresolved conflicts and known gaps; do not silently reconcile them.
    Abstain when `behavior` is `abstain`, outside the declared source scope, and
    for design-for-me, safety-judgement, approval, decision, or execution requests.{figure_line}
@@ -1108,7 +1107,7 @@ def _figure_section(catalog: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _write_runtime(root: Path, control: dict[str, Any], *, embedding_command: str | None = None) -> dict[str, Any]:
+def _write_runtime(root: Path, control: dict[str, Any], *, embedding_command: str | None = None, alias_extensions=()) -> dict[str, Any]:
     """Install the current search runtime, catalog, response schema, and self-check."""
 
     runtime_target = root / "scripts/query_reference.py"
@@ -1123,6 +1122,7 @@ def _write_runtime(root: Path, control: dict[str, Any], *, embedding_command: st
         "assurance": _assurance(control["gold"], control["package"]["version"]),
     }
     catalog = reference_search.build_catalog(root, policy)
+    reference_alias_profiles.apply_profile(root, catalog, list(alias_extensions))
     write_json(root / "references/runtime/catalog.json", catalog)
     embeddings_path = root / EMBEDDINGS_PATH
     if embeddings_path.exists():
@@ -1200,6 +1200,7 @@ def _write_package(
     figures: list[dict[str, Any]] | None = None,
     figure_images: bool = False,
     embedding_command: str | None = None,
+    alias_extensions=(),
 ) -> dict[str, Any]:
     # Every new generation records the page-accounting boundary explicitly.
     # Upgraded legacy bindings retain an empty unavailable-history projection;
@@ -1358,7 +1359,7 @@ def _write_package(
     for stale in (runtime_dir / "catalog.json", runtime_dir / "reference-map.md", runtime_dir / "self-check.json"):
         if stale.exists():
             stale.unlink()
-    _write_runtime(output, control, embedding_command=embedding_command)
+    _write_runtime(output, control, embedding_command=embedding_command, alias_extensions=alias_extensions)
     manifest.pop("integrity", None)
     manifest["integrity"] = {
         "algorithm": "sha256",
@@ -1481,6 +1482,7 @@ def build_direct_reference(
     figure_index: bool = False,
     figure_images: bool = False,
     embedding_command: str | None = None,
+    term_aliases: Path | None = None,
 ) -> dict[str, Any]:
     if figure_images and not figure_index:
         raise DirectReferenceError("figure_crops_require_figure_index")
@@ -1500,6 +1502,10 @@ def build_direct_reference(
         gold_revision,
         {material["source"]["sha256"]},
     )
+    try:
+        alias_extensions = reference_alias_profiles.load_extensions(term_aliases) if term_aliases else []
+    except (OSError, ValueError, TypeError) as error:
+        raise DirectReferenceError(f"reference_alias_profile_invalid:{error}") from error
     output = _ensure_empty_output(output)
     object_ids = sorted(row["id"] for row in material["objects"])
     return _write_package(
@@ -1527,6 +1533,7 @@ def build_direct_reference(
         figures=material["figures"] if figure_index else None,
         figure_images=figure_images,
         embedding_command=embedding_command,
+        alias_extensions=alias_extensions,
     )
 
 
@@ -1617,6 +1624,7 @@ def extend_direct_reference(
         shutil.copytree(base, stage)
         result = _write_package(
             stage,
+            alias_extensions=reference_alias_profiles.saved_extensions(load_json(base / "references/runtime/catalog.json")),
             figures=figures,
             figure_images=figure_images,
             embedding_command=embedding_command,
@@ -1683,6 +1691,7 @@ def bind_gold(
     object_ids = sorted(row["id"] for row in records["objects"])
     return _write_package(
         output,
+        alias_extensions=reference_alias_profiles.saved_extensions(load_json(base / "references/runtime/catalog.json")),
         figures=base_figures,
         name=manifest["package"]["id"],
         display_name=manifest["package"]["name"],
@@ -2069,6 +2078,10 @@ def validate_direct_reference(root: Path) -> list[str]:
             actual_files.add(relative.as_posix())
     if unsafe_file or actual_files != expected_files:
         errors.append("candidate_file_inventory_invalid")
+    try:
+        reference_alias_profiles.saved_extensions(catalog)
+    except (ValueError, TypeError, KeyError, AttributeError):
+        errors.append("reference_alias_profile_binding_invalid")
     policy_assurance = catalog.get("policy", {}).get("assurance")
     if not isinstance(policy_assurance, dict) or policy_assurance != _assurance(
         gold, str(package.get("version"))
@@ -2253,6 +2266,7 @@ def parse_args() -> argparse.Namespace:
     build.add_argument("--source-title")
     build.add_argument("--gold-mode", choices=sorted(GOLD_MODES), default="none")
     build.add_argument("--gold-revision", type=Path)
+    build.add_argument("--term-aliases", type=Path, help="Closed package-specific bilingual aliases JSON.")
     for command in (build,):
         _add_figure_flags(command, default_images=True)
 
@@ -2312,6 +2326,7 @@ def main() -> int:
                 figure_index=args.figure_index,
                 figure_images=args.figure_crops,
                 embedding_command=args.embedding_command,
+                term_aliases=args.term_aliases,
             )
         elif args.command == "extend":
             result = extend_direct_reference(

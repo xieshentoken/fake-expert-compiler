@@ -6,7 +6,9 @@
 
 M0 原 `fixtures/legacy-synthetic.json` 的 7 个 gate hash 是历史 M4 字节锁，保持原值。历史校验先验证原 M4 ZIP 的固定 SHA-256 `ff2d2ba9c394bb27312c98bc8db51753c6d4a4f5506f1017624f65f2d190e777`，再逐项核验归档中的 7 个文件；当前仍未演进的 5 个门禁继续对源码逐字节核验。
 
-当前 `intake-v2` / direct-reference 1.4.1 代际的知识对象仍声明 v0.1。相对历史 M4，schema 增加可选 `figure_refs`、`value_basis` 和 Figure/Table/DataPoint 类型，原 required 列表与其他旧属性 shape 保持兼容。`semantic_promotion.py` 已扩展原生页角色与证据排除流程，因此不能再声称其源码与历史 M4 逐字节相同。回归同时验证旧有效输入可读、当前旧式有效 proposal 可接受，以及独立审核缺失时 promotion、ready publication 和执行越权仍被实际门禁阻止。Proposal 层对多余字段的既有容忍行为不构成审核或执行授权。
+当前 `intake-v3` / direct-reference 1.4.1 代际的知识对象仍声明 v0.1。相对历史 M4，schema 增加可选 `figure_refs`、`value_basis` 和 Figure/Table/DataPoint 类型，原 required 列表与其他旧属性 shape 保持兼容。`semantic_promotion.py` 已扩展原生页角色、证据排除和长章节分片流程。回归同时验证旧有效输入可读、当前旧式有效 proposal 可接受，以及独立审核缺失时 promotion、ready publication 和执行越权仍被实际门禁阻止。Proposal 层对多余字段的既有容忍行为不构成审核或执行授权。
+
+自动 intake workflow v0.1 和 v0.2 仍可只读查询状态。要从当前编译器开始新一次抽取，在新 workspace 重新运行 `plan` 生成 v0.3。显式 profile job v0.2 保持原有入口。
 
 `RELEASE_VERSION=1.2.0`、旧 CLI/job v0.2、知识对象 v0.1 和 AST v0.1 不变。原分词与单位限制保留在原协议；没有重算旧 runtime hash。新的 `science-runtime-compat-v0.1` 按已声明 compiler/catalog/runtime 联合选择旧实现，未知版本与错代绑定拒绝；支持矩阵和派生索引迁移见 [科学咨询运行时兼容](../../fake-expert/references/science-consultation.md#package-runtime-compatibility)。canonical 布局下对应文件在 `skills/fake-expert/references/`。
 

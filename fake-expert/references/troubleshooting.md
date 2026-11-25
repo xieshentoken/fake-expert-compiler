@@ -18,7 +18,7 @@
 | `source_missing` | source 路径不存在或不是普通文件 | 提供已有 PDF；不自动获取 |
 | `source_hash_mismatch` | PDF 内容与计划指纹不同 | 重新 plan，保留旧 job 作为审计记录 |
 | `source_profile_mismatch` | native profile 的 source 不是可解析未加密 PDF，或存在 native-text 不足的页面 | 选择显式 scan profile 并重新 plan；matching workpack 不能绕过此门禁 |
-| `automatic_intake_option_requires_explicit_profile` | 无 profile 的自动 plan 收到了只适用于旧 job 的参数 | 对 workpack、Gold、runtime receipt、structure selections、backend 或自定义 job 路径明确传 profile；不静默忽略 |
+| `automatic_intake_option_requires_explicit_profile` | 无 profile 的自动 plan 收到了只适用于旧 job 的参数 | 对 Gold、runtime receipt、backend 或自定义 job 路径明确传 profile；不静默忽略 |
 | `automatic_intake_options_require_automatic_route` | 旧显式 profile plan 收到了新自动 intake 的 OCR config/capability/renderer/阈值选择 | 使用无 profile 的自动 plan 或 intake plan；不向闭合旧 v0.2 job 塞入新字段 |
 | `intake_binding_drift_replan` | 自动 workflow 的 source、工具、文档、schema、renderer、配置、模型或资格已漂移 | 保留旧 workflow/候选，重新 plan；配置修复须在执行前明确选择 configure_environment 重绑 |
 | `ocr_environment_unavailable` | 所需 OCR 环境不可运行 | 按 checks 区分 interpreter/deps/model/renderer/qualification missing、stale 或 unusable；选择配置修复或可行降级 |
@@ -77,7 +77,7 @@
 
 - `numeric_review_required`: proposed figure values remain in the workpack. Use the existing independent semantic and visual Review route, then resume; a figure ID, origin label, boolean or presence-only inspection cannot authorize numbers.
 - `legacy_numeric_revalidation_required`: old packages remain readable. Rebuild from a correctly reviewed workpack to migrate untraced numbers; never patch the sealed old package.
-- `structure_review_required` after native extraction: inspect the retained IR and explicitly select actual source text boundaries using `plan --profile native-text --structure-selections`, or bind a validated external workpack through that explicit profile. New scoped children retain failed structure tasks under their reported `audit_path`; use the existing bounded reconstruct/heading-override route without rewriting the source. No chapter is invented.
+- `structure_review_required` after native extraction: inspect the retained IR and bind actual source-text boundaries with `plan --start-page START --end-page END --structure-selections` for a continuous native scope. The explicit `--profile native-text` route remains available for whole-source native jobs. Scoped children retain failed structure tasks at the reported `audit_path`.
 - `extraction_workpack_mismatch`: source/tool/render/checkpoint content drifted, or an unbound workspace contains drafts. Preserve the directory and replan into a fresh workspace.
 - Failed or interrupted extraction directories remain recoverable as `extraction-failed-*` / `extraction-incomplete-*`; no partial directory clears completion.
 - `authoring_packet_drift` / `authoring_response_binding_drift`: preserve the responses and prepare a fresh source-bound workpack, or explicitly rerun the configured command. Existing drafts require `--replace-drafts` for replacement.
@@ -85,7 +85,7 @@
 
 ## Scoped native intake and page dispositions
 
-- `intake_workflow_upgrade_required`: preserve the v0.1 workflow; status is read-only, explicitly plan v0.2 in a fresh workspace.
+- `intake_workflow_upgrade_required`: inspect v0.1 and v0.2 with read-only `intake status`. Run `plan` in a fresh workspace to get a v0.3 intake workflow.
 - `intake_selected_scope_invalid`: supply one valid original physical start/end pair.
 - `reused_workpack_scope_gap` / `reused_workpack_scope_overlap`: existing workpacks must cover the selected range exactly without overlap.
 - `reused_workpack_disposition_mismatch` / `reused_workpack_blank_proof_stale`: preserve the old workpack and rebuild incompatible page evidence in a fresh path.

@@ -32,7 +32,6 @@ from expert_skill_contract import (
 )
 from formula_execution import FORMULA_AST_SCHEMA, FormulaContractError, sha256_json as formula_sha256_json, validate_formula_ast
 from pdf_structure import (
-    detect_printed_page_label,
     figure_labels,
     normalize_text,
     stable_id,
@@ -1540,6 +1539,7 @@ def _visual_bundle_for_workpack(
     source_sha256: str,
     tasks: list[dict[str, Any]],
     *,
+    workpack: Path,
     render_profile: dict[str, Any] | None,
 ) -> dict[str, Any]:
     """Project bounded, candidate-only visual objects into the workpack.
@@ -1621,6 +1621,7 @@ def _visual_bundle_for_workpack(
         source_path,
         pages=pages,
         render_receipts=render_receipts,
+        render_assets={page: workpack / page_assets[page]["page_asset"] for page in pages},
         render_dpi=int((render_profile or {}).get("dpi", 150)),
         parser_receipt={"id": "pypdf-native-baseline", "version": "pypdf-6.10.0", "candidate_only": True},
         backend_receipt={"id": "reviewer-locator-confirmed-bbox", "version": "v0.1", "candidate_only": True},
@@ -1633,6 +1634,13 @@ def _attach_visual_ids_to_tasks(tasks: list[dict[str, Any]], bundle: Mapping[str
     objects = [row for row in bundle.get("objects", []) if isinstance(row, dict)]
     relations = [row for row in bundle.get("relations", []) if isinstance(row, dict)]
     grids = [row for row in bundle.get("table_grids", []) if isinstance(row, dict)]
+    layout_issues = {}
+    for row in bundle.get("conflicts", []):
+        detail = row.get("details", {})
+        if detail.get("reason") == "raster_table_boundaries_unconfirmed":
+            layout_issues.setdefault(row["physical_page"], []).append(
+                {"label": detail["label"], "reason": detail["reason"],
+                 "bbox_pdf_points": detail["caption_bbox"]})
     for task in tasks:
         page = task.get("page")
         kind = str(task.get("kind", ""))
@@ -1641,6 +1649,8 @@ def _attach_visual_ids_to_tasks(tasks: list[dict[str, Any]], bundle: Mapping[str
             matches = [row for row in matches if row.get("type") in {"figure", "diagram", "plot", "caption"}]
         elif kind.startswith("table"):
             matches = [row for row in matches if row.get("type") in {"table", "table_cell", "caption"}]
+            if page in layout_issues:
+                task["layout_issues"] = layout_issues[page]
         elif kind.startswith("equation") or kind.startswith("glyph") or kind.startswith("math"):
             matches = [row for row in matches if row.get("type") == "equation_display"]
         elif kind.startswith("page"):
@@ -1692,6 +1702,115 @@ def _attach_visual_ids_to_tasks(tasks: list[dict[str, Any]], bundle: Mapping[str
         task["bbox_sha256s"] = sorted(sha256_json(row.get("bbox")) for row in matches if isinstance(row.get("bbox"), list))
 
 
+def _resolve_focus_structure(ir, page_texts, retained, dispositions, source_hash, output=None, semantic_assurance=True):
+    segments = ir["document_map"].get("segments")
+    if not isinstance(segments, list) or not segments:
+        raise SemanticPromotionError("ir_segments_missing")
+    # Keep the original IR structure and physical scope, while omitting a
+    # separator whose entire scoped envelope has replayed blank proofs. A
+    # segment containing even one unconfirmed/content page keeps its locator gate.
+    segments = [
+        segment for segment in segments
+        if not (segment.get("physical_pages") and all(page in retained for page in segment["physical_pages"]))
+    ]
+    if not segments:
+        raise SemanticPromotionError("ir_segments_missing")
+    structure_status = "legacy-string-locator"
+    structure_resolution_sha256 = None
+    if (
+        isinstance(ir.get("heading_candidates"), list)
+        and isinstance(ir.get("heading_resolutions"), list)
+    ):
+        structure_status = "heading-locator-v0.2"
+        from native_page_disposition import structural_locator_overlay
+        locator_candidates, locator_resolutions = structural_locator_overlay(
+            segments, page_texts, dispositions, ir["heading_candidates"], ir["heading_resolutions"])
+        locations, ordered_segments, unresolved = _locate_headings_from_resolutions(
+            segments, page_texts, locator_candidates, locator_resolutions,
+        )
+        structure_resolution_sha256 = locator_bundle_sha256(
+            ir["heading_candidates"], ir["heading_resolutions"]
+        )
+        if unresolved:
+            if output is None:
+                raise SemanticPromotionError("heading_resolution_required")
+            task_path = _write_structure_resolution_tasks(output, source_hash, ir, unresolved)
+            if not semantic_assurance:
+                code = unresolved[0].get("failure_code") or "heading_locator_ambiguous"
+                raise SemanticPromotionError(f"{code}: structured_task={task_path}")
+            raise SemanticPromotionError(f"heading_resolution_required: structured_task={task_path}")
+        segments = ordered_segments
+    else:
+        locations = _locate_headings(segments, page_texts)
+    return segments, locations, structure_status, structure_resolution_sha256
+
+
+def _plan_focus_units(segments, locations, page_texts, scope_end, scan_mode,
+                      disposition_proofs, max_focus_characters, partition_native):
+    from native_focus import partition
+
+    for index, (segment, location) in enumerate(zip(segments, locations)):
+        next_location = locations[index + 1] if index + 1 < len(locations) else None
+        boundary_start = (location["page"], location["end"])
+        if scan_mode:
+            reviewed_pages = segment.get("physical_pages")
+            if (
+                not isinstance(reviewed_pages, list)
+                or not reviewed_pages
+                or any(not isinstance(page, int) for page in reviewed_pages)
+                or reviewed_pages != list(range(reviewed_pages[0], reviewed_pages[-1] + 1))
+                or location["page"] not in reviewed_pages
+            ):
+                raise SemanticPromotionError(
+                    f"scan_segment_page_envelope_invalid: segment={segment['id']}"
+                )
+            boundary_end = (
+                reviewed_pages[-1],
+                len(page_texts[reviewed_pages[-1]]),
+            )
+        else:
+            boundary_end = (
+                (next_location["page"], next_location["start"])
+                if next_location is not None
+                else (scope_end, len(page_texts[scope_end]))
+            )
+        focus = _focus_spans(
+            page_texts,
+            boundary_start[0],
+            boundary_start[1],
+            boundary_end[0],
+            boundary_end[1],
+        )
+        focus = [span for span in focus if span["page"] not in disposition_proofs]
+        total_focus = sum(span["end"] - span["start"] for span in focus)
+        if total_focus > max_focus_characters and (scan_mode or not partition_native):
+            raise SemanticPromotionError(
+                f"focus_unit_too_large: segment={segment['id']} characters={total_focus}"
+            )
+        batches = partition(focus, max_focus_characters) if total_focus > max_focus_characters else [focus]
+        for part, spans in enumerate(batches, 1):
+            start = (spans[0]["page"], spans[0]["start"]) if len(batches) > 1 else boundary_start
+            end = (spans[-1]["page"], spans[-1]["end"]) if len(batches) > 1 else boundary_end
+            yield segment, location, start, end, spans, part, len(batches)
+
+
+def preview_native_focus(source_path: Path, ir: dict[str, Any]) -> dict[str, Any]:
+    """Return only counts from the same pre-render partition used at build."""
+    from native_focus import DEFAULT_LIMIT, PROTOCOL, plan_digest
+
+    reader, source_hash, _ = _load_source(source_path)
+    _, start, end, scan_mode = _validate_ir_lineage(ir, source_hash, allow_scan_candidates=False)
+    dispositions = {row["physical_page"]: row["page_disposition_proof"]
+                    for row in ir["preflight"]["pages"] if row.get("page_disposition_proof")}
+    blank = set(ir["preflight"]["confirmed_blank_pages"])
+    page_texts = _page_texts_for_ir(reader, ir, start, end)
+    segments, locations, _, _ = _resolve_focus_structure(ir, page_texts, set(dispositions) | blank, dispositions, source_hash)
+    units = list(_plan_focus_units(segments, locations, page_texts, end, scan_mode, dispositions, DEFAULT_LIMIT, True))
+    return {"protocol": PROTOCOL, "unit_count": len(units), "split_segments": sum(part == 1 and parts > 1 for _, _, _, _, _, part, parts in units),
+            "focus_plan_sha256": plan_digest((segment["id"], spans) for segment, _, _, _, spans, _, _ in units),
+            "focus_characters": sum(span["end"] - span["start"] for _, _, _, _, spans, _, _ in units for span in spans)}
+
+
 def build_semantic_workpack(
     source_path: Path,
     ir_root: Path,
@@ -1704,6 +1823,7 @@ def build_semantic_workpack(
     allow_scan_candidates: bool = False,
     semantic_assurance: bool = True,
     figure_ocr: Mapping[str, Any] | None = None,
+    partition_native: bool = False,
 ) -> dict[str, Any]:
     if context_characters < 0 or max_focus_characters < 1:
         raise SemanticPromotionError("invalid_workpack_limits")
@@ -1746,43 +1866,12 @@ def build_semantic_workpack(
     if any(not text for page, text in page_texts.items() if page not in manual_scan_pages and page not in blank_proofs and page not in disposition_proofs):
         raise SemanticPromotionError("empty_native_text_in_eligible_scope")
 
-    segments = ir["document_map"].get("segments")
-    if not isinstance(segments, list) or not segments:
-        raise SemanticPromotionError("ir_segments_missing")
-    # Keep the original IR structure and physical scope, while omitting a
-    # separator whose entire scoped envelope has replayed blank proofs. A
-    # segment containing even one unconfirmed/content page keeps its locator gate.
-    segments = [
-        segment for segment in segments
-        if not (segment.get("physical_pages") and all(page in blank_proofs or page in disposition_proofs for page in segment["physical_pages"]))
-    ]
-    if not segments:
-        raise SemanticPromotionError("ir_segments_missing")
-    structure_status = "legacy-string-locator"
-    structure_resolution_sha256 = None
-    if (
-        isinstance(ir.get("heading_candidates"), list)
-        and isinstance(ir.get("heading_resolutions"), list)
-    ):
-        structure_status = "heading-locator-v0.2"
-        from native_page_disposition import structural_locator_overlay
-        locator_candidates, locator_resolutions = structural_locator_overlay(
-            segments, page_texts, disposition_proofs, ir["heading_candidates"], ir["heading_resolutions"])
-        locations, ordered_segments, unresolved = _locate_headings_from_resolutions(
-            segments, page_texts, locator_candidates, locator_resolutions,
-        )
-        structure_resolution_sha256 = locator_bundle_sha256(
-            ir["heading_candidates"], ir["heading_resolutions"]
-        )
-        if unresolved:
-            task_path = _write_structure_resolution_tasks(output, source_hash, ir, unresolved)
-            if not semantic_assurance:
-                code = unresolved[0].get("failure_code") or "heading_locator_ambiguous"
-                raise SemanticPromotionError(f"{code}: structured_task={task_path}")
-            raise SemanticPromotionError(f"heading_resolution_required: structured_task={task_path}")
-        segments = ordered_segments
-    else:
-        locations = _locate_headings(segments, page_texts)
+    segments, locations, structure_status, structure_resolution_sha256 = _resolve_focus_structure(
+        ir, page_texts, set(blank_proofs) | set(disposition_proofs), disposition_proofs,
+        source_hash, output, semantic_assurance,
+    )
+    focus_units = list(_plan_focus_units(segments, locations, page_texts, scope_end, scan_mode,
+                                   disposition_proofs, max_focus_characters, partition_native))
     candidates_by_segment = {
         row.get("segment_id"): row
         for row in ir["anchor_candidates"]
@@ -1819,6 +1908,7 @@ def build_semantic_workpack(
         source_path.expanduser().resolve(),
         source_hash,
         tasks,
+        workpack=output,
         render_profile=render_profile,
     )
     _attach_visual_ids_to_tasks(tasks, visual_bundle)
@@ -1839,44 +1929,8 @@ def build_semantic_workpack(
             title_by_id[ancestor["id"]] = str(ancestor.get("title", ancestor["id"]))
     units: list[dict[str, Any]] = []
     unit_files: list[str] = []
-    for index, (segment, location) in enumerate(zip(segments, locations)):
-        next_location = locations[index + 1] if index + 1 < len(locations) else None
-        boundary_start = (location["page"], location["end"])
-        if scan_mode:
-            reviewed_pages = segment.get("physical_pages")
-            if (
-                not isinstance(reviewed_pages, list)
-                or not reviewed_pages
-                or any(not isinstance(page, int) for page in reviewed_pages)
-                or reviewed_pages != list(range(reviewed_pages[0], reviewed_pages[-1] + 1))
-                or location["page"] not in reviewed_pages
-            ):
-                raise SemanticPromotionError(
-                    f"scan_segment_page_envelope_invalid: segment={segment['id']}"
-                )
-            boundary_end = (
-                reviewed_pages[-1],
-                len(page_texts[reviewed_pages[-1]]),
-            )
-        else:
-            boundary_end = (
-                (next_location["page"], next_location["start"])
-                if next_location is not None
-                else (scope_end, len(page_texts[scope_end]))
-            )
-        focus = _focus_spans(
-            page_texts,
-            boundary_start[0],
-            boundary_start[1],
-            boundary_end[0],
-            boundary_end[1],
-        )
-        focus = [span for span in focus if span["page"] not in disposition_proofs]
+    for segment, location, boundary_start, boundary_end, focus, part, parts in focus_units:
         total_focus = sum(span["end"] - span["start"] for span in focus)
-        if total_focus > max_focus_characters:
-            raise SemanticPromotionError(
-                f"focus_unit_too_large: segment={segment['id']} characters={total_focus}"
-            )
         context = _context_spans(
             page_texts,
             scope_start,
@@ -1901,6 +1955,7 @@ def build_semantic_workpack(
             [(span["page"], span["start"], span["end"], span["span_sha256"]) for span in focus],
         )
         candidate = candidates_by_segment[segment["id"]]
+        candidate_id = candidate["id"] if parts == 1 else stable_id("fc", candidate["id"], part)
         default_classification = "knowledge-candidate"
         if not focus:
             default_classification = "structural-only"
@@ -1910,8 +1965,11 @@ def build_semantic_workpack(
             "schema_version": UNIT_SCHEMA,
             "unit_id": unit_id,
             "segment_id": segment["id"],
-            "candidate_id": candidate["id"],
+            "candidate_id": candidate_id,
             "title": segment["title"],
+            **({"focus_partition": {"protocol": "native-focus-partition-v0.1",
+                                    "parent_candidate_id": candidate["id"],
+                                    "part": part, "parts": parts}} if parts > 1 else {}),
             "ancestor_path": ancestors,
             "default_classification": default_classification,
             "heading_locator": {
@@ -1963,7 +2021,7 @@ def build_semantic_workpack(
             {
                 "unit_id": unit_id,
                 "segment_id": segment["id"],
-                "candidate_id": candidate["id"],
+                "candidate_id": candidate_id,
                 "path": relative,
                 "default_classification": default_classification,
                 "focus_character_count": total_focus,
@@ -4788,6 +4846,8 @@ def promote_reviewed_workpack(
     }
     source_id = manifest["source"]["source_id"]
     scope = manifest["source"]["scope"]
+    from printed_page_labels import display_label, resolve as resolve_printed_labels
+    printed_labels = resolve_printed_labels(reader, scope["start_page"], scope["end_page"])
     page_texts = _page_texts_for_workpack(
         reader,
         root,
@@ -5062,8 +5122,7 @@ def promote_reviewed_workpack(
             "source_id": source_id,
             "pages": pages,
             "printed_page_labels": [
-                detect_printed_page_label(reader.pages[page - 1].extract_text() or "")
-                or str(reader.page_labels[page - 1])
+                display_label(printed_labels[page], page)
                 for page in pages
             ],
             "segment_id": segment_id,
@@ -5377,8 +5436,7 @@ def promote_reviewed_workpack(
     if not isinstance(created_at, str) or not created_at:
         raise SemanticPromotionError("review_plan_timestamp_missing")
     printed_scope_labels = [
-        detect_printed_page_label(reader.pages[page - 1].extract_text() or "")
-        or str(reader.page_labels[page - 1])
+        display_label(printed_labels[page], page)
         for page in range(scope["start_page"], scope["end_page"] + 1)
     ]
     source_record = {

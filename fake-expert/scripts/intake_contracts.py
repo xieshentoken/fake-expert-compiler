@@ -6,9 +6,28 @@ from pathlib import Path
 from typing import Any
 
 from native_blank_pages import native_ranges, summarize_page_diagnostics
+from compiler_version import LEGACY_INTAKE_COMPILER_VERSION, LEGACY_INTAKE_WORKFLOW_SCHEMA
 from scanned_pdf_ocr import validate_local_json_schema
 
 SCHEMAS = Path(__file__).resolve().parents[1] / "assets/schemas"
+
+
+def validate_historical_workflow(value: dict[str, Any]) -> None:
+    if value.get("schema_version") == "tkc.intake-workflow/v0.1":
+        schema = json.loads((SCHEMAS / "intake-workflow-v0.1.schema.json").read_text())
+    elif value.get("schema_version") == LEGACY_INTAKE_WORKFLOW_SCHEMA:
+        # v0.3 adds one closed top-level field. Validate the exact old shape
+        # without migrating it or duplicating the complete schema.
+        schema = json.loads((SCHEMAS / "intake-workflow.schema.json").read_text())
+        schema["required"].remove("native_focus")
+        schema["properties"].pop("native_focus")
+        schema["properties"]["schema_version"]["const"] = LEGACY_INTAKE_WORKFLOW_SCHEMA
+        schema["properties"]["protocol"]["const"] = "intake-workflow-v0.2"
+        schema["properties"]["compiler_version"]["const"] = LEGACY_INTAKE_COMPILER_VERSION
+        schema["$defs"]["identity"]["properties"]["intake_version"]["const"] = LEGACY_INTAKE_COMPILER_VERSION
+    else:
+        raise ValueError("intake_workflow_schema_invalid")
+    validate_local_json_schema(value, schema)
 
 
 def validate_definition(value: Any, definition: str | None = None) -> None:
@@ -59,6 +78,18 @@ def validate_workflow(value: dict[str, Any]) -> None:
             raise ValueError("intake_page_selection_state_invalid")
     if intake["selection"]!=expected_selection:
         raise ValueError("intake_selection_accounting_invalid")
+    focus = value["native_focus"]
+    if focus["structure_selections"] and (not focus["structure_selections"]["sha256"]
+            or value["reused_workpacks"] or not expected_selection["native_selected_scope"]
+            or not expected_selection["knowledge_candidate_pages"]):
+        raise ValueError("structure_selections_require_unbound_native_scope")
+    preview = focus["preview"]
+    if preview and ((preview["status"] == "ready" and (not preview["unit_count"] or preview["reason"] is not None
+                                                        or not preview["focus_plan_sha256"]))
+                    or (preview["status"] == "review_required" and (not preview["reason"] or preview["unit_count"]
+                                                                   or preview["focus_plan_sha256"] is not None))
+                    or preview["split_segments"] > preview["unit_count"]):
+        raise ValueError("native_focus_preview_invalid")
     if intake["page_summary"] != summary or intake["confirmed_blank_pages"] != summary["pages"]["confirmed_blank"] or intake["native_ranges"] != ranges:
         raise ValueError("intake_page_summary_mismatch")
     included = {page for start, end in ranges for page in range(start, end + 1)}

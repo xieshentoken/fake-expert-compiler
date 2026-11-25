@@ -955,6 +955,8 @@ def compile_pdf_intermediate_representation(
     heading_locator_overrides: Path | None = None,
     structure_selections: Path | None = None,
     page_dispositions: Path | dict | None = None,
+    *,
+    include_render_receipts: bool = True,
 ) -> dict[str, Any]:
     try:
         from pypdf import PdfReader, __version__ as pypdf_version
@@ -1018,6 +1020,13 @@ def compile_pdf_intermediate_representation(
         page_texts[physical_page] = text
         raw_page_texts[physical_page] = raw_text
         page_sizes[physical_page] = page_dimensions(reader.pages[physical_page - 1])
+
+    from printed_page_labels import resolve as resolve_printed_labels
+    printed_labels = resolve_printed_labels(reader, start_page, actual_end, raw_page_texts)
+    for page, record in page_records.items():
+        label = printed_labels[page]
+        record["printed_page_label_candidate"] = label
+        record["pdf_label_matches_printed_candidate"] = None if label is None else record["pdf_page_label"] == label
 
     page_values = list(page_records.values())
     usable_count = sum(page["native_text"]["status"] == "usable" or bool(page.get("page_disposition_proof")) for page in page_values)
@@ -1094,7 +1103,7 @@ def compile_pdf_intermediate_representation(
 
     render_profile: dict[str, Any] | None = None
     render_receipts: list[dict[str, Any]] = []
-    if pdftoppm is not None:
+    if pdftoppm is not None and include_render_receipts:
         try:
             render_profile, render_receipts = build_render_receipts(
                 source_path,

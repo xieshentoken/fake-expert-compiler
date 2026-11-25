@@ -220,7 +220,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 skills/fake-expert/scripts/fake_expert.py resu
 
 ## 选择原物理范围与只读复用
 
-自动 intake v0.2 支持在原 PDF 上选择一个连续范围，不裁剪、不改写、不重编号：
+自动 intake v0.3 支持在原 PDF 上选择一个连续范围，不裁剪、不改写、不重编号：
 
 ```bash
 python3 scripts/fake_expert.py plan --source /absolute/path/to/book.pdf \
@@ -243,5 +243,11 @@ inventory。完整包直接构建，零重提取、零重复 authoring；旧纯�
 包含不兼容页面证明的旧包明确要求重建。多包按各自物理范围建立子包。
 不完整包保持只读，返回已有 workpack 和 `author_existing_workpack_then_replan_fresh_workflow`；
 在该包原有 authoring 路径完成后显式重新 plan，不能修改已冻结 workflow 的 inventory。
-错源、范围缺失/重叠、收据或资源漂移均拒绝。旧 intake v0.1 只读 `status`，执行报
+对尚未提取的连续原生范围，`plan --structure-selections` 可绑定本书正文标题的
+原页、字符跨度和 SHA-256，不能与 `--workpack` 同用。
+`native_focus.preview` 报告撰写单元数、分片章节数和正文跨度哈希。超过 20,000
+字符时优先在物理页边界分片；单页仍超限时在句段或词边界分片。工作包保留真实标题
+和父章节身份，开始撰写前核对计划与实际跨度。
+
+错源、范围缺失/重叠、收据或资源漂移均拒绝。旧 intake v0.1/v0.2 只读 `status`，执行报
 `intake_workflow_upgrade_required`，须保留原任务并在新目录重建；旧显式 profile/v0.2 job 接口不变。

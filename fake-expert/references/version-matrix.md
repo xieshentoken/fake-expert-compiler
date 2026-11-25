@@ -8,15 +8,16 @@ maintain its own copy. Update this file and `scripts/compiler_version.py` togeth
 
 | Constant | Value | Meaning |
 |---|---|---|
-| `INTAKE_COMPILER_VERSION` | `1.2.0-intake-v2` | Local automatic intake/workflow candidate; not a formal release or book certification |
+| `INTAKE_COMPILER_VERSION` | `1.2.0-intake-v3` | Local automatic intake with source-bound structure selection and focus preview |
 | `INTAKE_REPORT_SCHEMA` | `tkc.intake-report/v0.2` | Full original physical-page ledger, route counts and bounded OCR advice |
-| `INTAKE_WORKFLOW_SCHEMA` | `tkc.intake-workflow/v0.2` | Closed persistent choices, bound configuration and candidate-only execution state |
-| `INTAKE_WORKFLOW_PROTOCOL` | `intake-workflow-v0.2` | Original-source native children and bounded qualified scan chunks |
+| `INTAKE_WORKFLOW_SCHEMA` | `tkc.intake-workflow/v0.3` | Closed choices, native focus plan and candidate-only execution state |
+| `INTAKE_WORKFLOW_PROTOCOL` | `intake-workflow-v0.3` | Original-source native children and bounded qualified scan chunks |
+| `LEGACY_INTAKE_WORKFLOW_SCHEMA` | `tkc.intake-workflow/v0.2` | Read-only historical status for `1.2.0-intake-v2`; replan for execution |
 | `OCR_LOCAL_CONFIG_SCHEMA` | `tkc.ocr-local-config/v0.1` | Explicit local backend/interpreter/model/worker/qualification paths; no install or model call |
 | `NATIVE_PAGE_DIAGNOSTIC_SCHEMA` | `tkc.native-page-diagnostic/v0.1` | Native/confirmed-blank/needs-OCR/review-required with stable reasons and proof/null |
 | `NATIVE_BLANK_PAGE_PROTOCOL` | `native-blank-page-v0.1` | Compatibility proof for nonpainting streams plus a full strict-white render |
 | `NATIVE_WHITE_VECTOR_BLANK_PROTOCOL` | `native-white-vector-blank-v0.1` | Restricted opaque Device-white rectangles plus the same full-render proof |
-| `SCOPED_NATIVE_CHILD_SCHEMA` | `tkc.scoped-native-child/v0.1` | New bounded child contract over the unchanged source SHA and original physical pages |
+| `SCOPED_NATIVE_CHILD_SCHEMA` | `tkc.scoped-native-child/v0.2` | Bounded native child with frozen focus preview and structure input |
 
 The existing `tkc.fake-expert-job/v0.2` schema and explicit-profile commands are not
 extended with intake fields. Source/tool/document/schema/config/model drift requires

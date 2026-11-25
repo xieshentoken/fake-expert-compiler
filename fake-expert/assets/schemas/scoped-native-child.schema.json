@@ -1,5 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "tkc.scoped-native-child/v0.1",
+  "$id": "tkc.scoped-native-child/v0.2",
   "$ref": "intake-workflow.schema.json#/$defs/native_child_record"
 }

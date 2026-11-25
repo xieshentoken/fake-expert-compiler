@@ -1958,7 +1958,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.profile is None:
                 if not check_document_contract()["passed"]:
                     raise FakeExpertError("document_contract_invalid")
-                explicit_only = [name for name in ("structure_selections", "backend", "runtime_receipt", "gold_revision", "job") if getattr(args, name, None) is not None]
+                explicit_only = [name for name in ("backend", "runtime_receipt", "gold_revision", "job") if getattr(args, name, None) is not None]
                 if args.target_stage != "draft" or args.gold_mode != "none":
                     explicit_only.extend(["target_stage", "gold_mode"])
                 if explicit_only:

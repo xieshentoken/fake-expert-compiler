@@ -22,17 +22,18 @@
     "state",
     "authorization",
     "page_dispositions",
-    "reused_workpacks"
+    "reused_workpacks",
+    "native_focus"
   ],
   "properties": {
     "schema_version": {
-      "const": "tkc.intake-workflow/v0.2"
+      "const": "tkc.intake-workflow/v0.3"
     },
     "protocol": {
-      "const": "intake-workflow-v0.2"
+      "const": "intake-workflow-v0.3"
     },
     "compiler_version": {
-      "const": "1.2.0-intake-v2"
+      "const": "1.2.0-intake-v3"
     },
     "workflow_id": {
       "type": "string",
@@ -181,6 +182,9 @@
           "files"
         ]
       }
+    },
+    "native_focus": {
+      "$ref": "#/$defs/native_focus"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -993,7 +997,7 @@
           "const": "1.2.0"
         },
         "intake_version": {
-          "const": "1.2.0-intake-v2"
+          "const": "1.2.0-intake-v3"
         },
         "build_fingerprint": {
           "type": "string",
@@ -2055,7 +2059,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "tkc.scoped-native-child/v0.1"
+          "const": "tkc.scoped-native-child/v0.2"
         },
         "bindings": {
           "type": "object",
@@ -2065,7 +2069,8 @@
             "physical_pages",
             "workflow_bindings",
             "package",
-            "minimum_native_characters"
+            "minimum_native_characters",
+            "native_focus"
           ],
           "properties": {
             "source_sha256": {
@@ -2090,6 +2095,9 @@
             "minimum_native_characters": {
               "type": "integer",
               "minimum": 1
+            },
+            "native_focus": {
+              "$ref": "#/$defs/native_focus"
             }
           }
         },
@@ -2104,6 +2112,82 @@
             {
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        }
+      }
+    },
+    "native_focus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "structure_selections",
+        "preview"
+      ],
+      "properties": {
+        "protocol": {
+          "const": "native-focus-partition-v0.1"
+        },
+        "structure_selections": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/config_record"
+            }
+          ]
+        },
+        "preview": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "unit_count",
+                "split_segments",
+                "focus_characters",
+                "reason",
+                "focus_plan_sha256"
+              ],
+              "properties": {
+                "status": {
+                  "enum": [
+                    "ready",
+                    "review_required"
+                  ]
+                },
+                "unit_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "split_segments": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "focus_characters": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "focus_plan_sha256": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
             }
           ]
         }

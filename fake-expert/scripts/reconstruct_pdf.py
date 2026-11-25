@@ -88,6 +88,7 @@ def parse_args() -> argparse.Namespace:
         help="DPI for deterministic PDF-IR render receipts (36-1200).",
     )
     parser.add_argument("--page-dispositions",type=Path,help="Explicit operator page-disposition receipt; retains original physical pages.")
+    parser.add_argument("--structure-selections", type=Path, help="Source-bound heading spans inside the selected physical range.")
     parser.add_argument("--json", action="store_true", dest="json_output")
     return parser.parse_args()
 
@@ -108,6 +109,7 @@ def main() -> int:
             args.docling_allow_network,
             args.heading_overrides,
             args.heading_locator_overrides,
+            structure_selections=args.structure_selections,
             page_dispositions=args.page_dispositions,
         )
         write_intermediate_representation(args.output, result)

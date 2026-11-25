@@ -14,11 +14,12 @@ import tempfile
 import uuid
 from typing import Any
 from compiler_version import SCOPED_NATIVE_CHILD_SCHEMA
+from native_focus import plan_digest
 
 from direct_reference_skill import build_direct_reference, validate_direct_reference
-from pdf_structure import compile_pdf_intermediate_representation, write_intermediate_representation
+from pdf_structure import PdfPipelineError, compile_pdf_intermediate_representation, write_intermediate_representation
 from semantic_authoring import prepare
-from semantic_promotion import build_semantic_workpack, validate_semantic_workpack
+from semantic_promotion import SemanticPromotionError, build_semantic_workpack, preview_native_focus, validate_semantic_workpack
 
 SCHEMA = SCOPED_NATIVE_CHILD_SCHEMA
 
@@ -41,10 +42,31 @@ def _write(path: Path, value: dict[str, Any]) -> None:
     temporary.replace(path)
 
 
+def preview(source, scope, renderer, minimum_characters, page_dispositions, selection):
+    try:
+        ir = compile_pdf_intermediate_representation(
+            source, *scope, minimum_characters, pdftoppm=renderer, page_dispositions=page_dispositions,
+            structure_selections=selection, include_render_receipts=False,
+        )
+        counts = preview_native_focus(source, ir)
+    except (PdfPipelineError, SemanticPromotionError) as error:
+        if selection and str(error).startswith("structure_selection"):
+            raise ValueError(str(error)) from error
+        return {"status": "review_required", "reason": str(error), "unit_count": 0,
+                "split_segments": 0, "focus_characters": 0, "focus_plan_sha256": None}
+    return {"status": "ready", "reason": None,
+            **{k: counts[k] for k in ("unit_count", "split_segments", "focus_characters", "focus_plan_sha256")}}
+
+
 def run_native_child(source: Path, scope: list[int], root: Path, *, bindings: dict[str, Any],
-                     package: dict[str, Any], renderer: str, minimum_characters: int, page_dispositions=None, reused_workpack=None) -> dict[str, Any]:
+                     package: dict[str, Any], renderer: str, minimum_characters: int,
+                     native_focus: dict[str, Any], page_dispositions=None, reused_workpack=None) -> dict[str, Any]:
     expected = {"source_sha256": _digest(source), "physical_pages": scope, "workflow_bindings": bindings,
-                "package": package, "minimum_native_characters": minimum_characters}
+                "package": package, "minimum_native_characters": minimum_characters, "native_focus": native_focus}
+    selection = native_focus["structure_selections"]
+    selection_path = Path(selection["path"]) if selection else None
+    if selection_path and _digest(selection_path) != selection["sha256"]:
+        raise ValueError("native_structure_selections_drift")
     from intake_workpack_reuse import verify_binding
     workpack = verify_binding(source,reused_workpack) if reused_workpack else root / "workpack"
     record_path = root / "child.json"
@@ -60,11 +82,20 @@ def run_native_child(source: Path, scope: list[int], root: Path, *, bindings: di
                 try:
                     if not reused_workpack:
                         ir = compile_pdf_intermediate_representation(source, scope[0], scope[1], minimum_characters,
-                                                                     "all", "pypdf", renderer, page_dispositions=page_dispositions)
+                                                                     "all", "pypdf", renderer, page_dispositions=page_dispositions,
+                                                                     structure_selections=selection_path)
                         if not ir["preflight"]["eligible_for_current_compiler"]:
                             raise ValueError("native_child_scope_not_eligible")
                         write_intermediate_representation(stage / "ir", ir)
-                        build_semantic_workpack(source, stage / "ir", stage / "workpack", pdftoppm=Path(renderer))
+                        manifest = build_semantic_workpack(source, stage / "ir", stage / "workpack",
+                                                           pdftoppm=Path(renderer), partition_native=True)
+                        forecast = native_focus["preview"]
+                        if forecast and forecast["status"] == "ready":
+                            rows = manifest["units"]
+                            units = (json.loads((stage / "workpack" / row["path"]).read_text()) for row in rows)
+                            actual_plan = plan_digest((unit["segment_id"], unit["focus_spans"]) for unit in units)
+                            if actual_plan != forecast["focus_plan_sha256"]:
+                                raise ValueError("native_focus_preview_drift")
                 except Exception as error:
                     audit = root.parent.parent / "audit" / f"{root.name}-failed-{uuid.uuid4().hex[:12]}"
                     audit.parent.mkdir(parents=True, exist_ok=True)

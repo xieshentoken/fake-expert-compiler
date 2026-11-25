@@ -19,6 +19,12 @@ refuses a non-PDF, encrypted PDF, invalid page range, non-empty output directory
 unavailable selected parser, or failed render. It renders each scoped physical page
 only into a temporary directory, records its PNG hash, then removes the image.
 
+`--structure-selections` accepts the same source-bound selection file as
+automatic intake, scoped to the requested physical pages. Printed folios are
+inferred from a visible candidate with nearby sequence support. In the IR,
+unconfirmed folios are null. String-only Draft anchor fields use an explicitly
+labelled physical-page fallback. No entry is renumbered.
+
 Before intake on a new host, run the read-only prerequisite check:
 
 ```bash

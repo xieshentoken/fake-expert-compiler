@@ -34,7 +34,7 @@ from numeric_evidence import untraced_numbers
 from formula_numeric_evidence import create_native_binding
 from compiler_version import SEMANTIC_AUTHORING_PROTOCOL
 from expert_skill_contract import FIGURE_KNOWLEDGE_TYPES, KNOWLEDGE_TYPES, load_json, load_jsonl
-from pdf_structure import normalize_text
+from pdf_structure import normalize_text, sha256_file
 from semantic_promotion import (
     DRAFT_SCHEMA,
     NUMBER_PATTERN,
@@ -104,6 +104,27 @@ def _caption_by_figure(root: Path, visual_objects: Mapping[str, dict[str, Any]])
         if isinstance(text, str) and text:
             captions[str(relation.get("target_visual_object_id"))] = text
     return captions
+
+
+def _visual_review_entries(root, unit, tasks, objects):
+    rows = {}
+    for task_id in unit.get("visual_task_ids", []):
+        task = tasks.get(task_id, {})
+        asset = task.get("page_asset")
+        for object_id in task.get("visual_object_ids", []):
+            obj = objects.get(object_id, {})
+            attributes = obj.get("attributes", {})
+            if attributes.get("region_review_reason"):
+                rows[object_id] = {"reason": attributes["region_review_reason"],
+                                   "label": obj["label"], "page": obj["physical_page"],
+                                   "bbox_pdf_points": attributes["review_region_pdf_points"],
+                                   "page_render": str(root / asset) if asset else None,
+                                   "render_sha256": obj["canonical_render_sha256"]}
+        for issue in task.get("layout_issues", []):
+            key = f"{task['page']}:{issue['label']}:{issue['reason']}"
+            rows[key] = {**issue, "page": task["page"], "page_render": str(root / asset) if asset else None,
+                         "render_sha256": task.get("page_asset_sha256")}
+    return list(rows.values())
 
 
 def _figure_entries(root: Path, manifest: Mapping[str, Any], unit: Mapping[str, Any], tasks: Mapping[str, dict[str, Any]], visual_objects: Mapping[str, dict[str, Any]]) -> list[dict[str, Any]]:
@@ -176,9 +197,9 @@ def _prompt(packet: Mapping[str, Any]) -> str:
         "1. Every object needs at least one `evidence` quote: an exact, contiguous copy of",
         "   FOCUS TEXT (not CONTEXT) that supports the statement. Keep quotes short (< 300 chars).",
         "2. Write `statement` in your own words; never copy 20+ consecutive words of the source.",
-        "3. Every number in a statement must appear in its evidence quotes, unless you read it",
-        "   from a figure or table image: then put that figure's id in `figures`. Types",
-        "   `Figure`, `Table`, `DataPoint` always need `figures`; their evidence is usually the caption.",
+        "3. Numbers need text evidence. A value read only from an image must identify the figure",
+        "   in `figures` and stays a pending proposal for independent semantic and visual review.",
+        "   Types `Figure`, `Table`, `DataPoint` always need `figures`.",
         "4. Open the crop/page images listed under FIGURES before stating anything about them.",
         "5. `Equation` objects need `formula` = {\"source_notation\": ..., \"normalized_notation\": ...}.",
         "6. Use `valid_when` / `fails_when` / `assumptions` for stated conditions and limits.",
@@ -190,6 +211,9 @@ def _prompt(packet: Mapping[str, Any]) -> str:
     ]
     if packet.get("ancestor_path"):
         lines.append(f"Parent sections: {' > '.join(packet['ancestor_path'])}")
+    if packet.get("focus_partition"):
+        part = packet["focus_partition"]
+        lines.append(f"Authoring part {part['part']} of {part['parts']} of this source section.")
     lines += ["", "## FOCUS TEXT (quote evidence only from here)"]
     for span in packet["focus_text"]:
         lines += [f"[page {span['page']}]", span["text"], ""]
@@ -211,6 +235,13 @@ def _prompt(packet: Mapping[str, Any]) -> str:
                 lines.append(f"  crop image: {figure['crop_path']}")
             if figure.get("page_render_path"):
                 lines.append(f"  full page image: {figure['page_render_path']}")
+        lines.append("")
+    if packet.get("visual_review"):
+        lines.extend(["## VISUAL REGIONS TO INSPECT", "Candidate locations only. Do not invent missing text or values."])
+        for row in packet["visual_review"]:
+            lines.append(f"- Page {row['page']}, {row['label']}: {row['reason']}. Render: {row['page_render']}")
+            if row.get("bbox_pdf_points"):
+                lines.append(f"  Suggested region (PDF points): {row['bbox_pdf_points']}")
         lines.append("")
     lines += [
         "## RESPONSE FORMAT",
@@ -246,10 +277,14 @@ def prepare(workpack: Path, output: Path | None = None) -> dict[str, Any]:
                 for span in unit.get("context_spans", [])
             ],
             "figures": _figure_entries(root, manifest, unit, tasks, visual_objects),
+            **({"focus_partition": unit["focus_partition"]} if unit.get("focus_partition") else {}),
             "allowed_types": sorted(KNOWLEDGE_TYPES),
             "response_contract": RESPONSE_CONTRACT,
             "candidate_only": True,
         }
+        review = _visual_review_entries(root, unit, tasks, visual_objects)
+        if review:
+            packet["visual_review"] = review
         unit_root = packets_root / unit_id
         _write_json(unit_root / "packet.json", packet)
         prompt = _prompt(packet)
@@ -576,6 +611,55 @@ def _ingest_unit(unit: Mapping[str, Any], response: Mapping[str, Any], tasks: Ma
     return draft, problems
 
 
+def _read_response(response_path: Path, unit_id: str) -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        response = json.loads(response_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None, "response_invalid_json"
+    if not isinstance(response, dict) or response.get("unit_id") not in (None, unit_id):
+        return None, "response_unit_mismatch"
+    if not isinstance(response.get("objects", []), list) or any(not isinstance(response.get(key, []), list) for key in ("relations", "gaps")):
+        return None, "response_shape_invalid"
+    malformed = any(isinstance(obj, dict) and (
+        not isinstance(obj.get("evidence", []), list)
+        or any(not isinstance(q, str) for q in obj.get("evidence", []))
+        or any(not isinstance(obj.get(field, []), list) for field in ("figures", "assumptions", "valid_when", "fails_when"))
+        or (obj.get("formula") is not None and not isinstance(obj["formula"], dict)))
+        for obj in response.get("objects", []))
+    if malformed:
+        return None, "response_shape_invalid"
+    return response, None
+
+
+def lint(workpack: Path, *, units_filter: Iterable[str] = (), responses: Path | None = None,
+         source: Path | None = None) -> dict[str, Any]:
+    """Apply ingest diagnostics in memory without changing drafts or reports."""
+    root, manifest, units, tasks, _ = _load_workpack(workpack)
+    selected = set(units_filter) or set(units)
+    if selected - set(units) or any(not unit or Path(unit).name != unit for unit in selected):
+        raise AuthoringError("authoring_unknown_unit")
+    if source is not None and sha256_file(source) != manifest.get("source", {}).get("sha256"):
+        raise AuthoringError("authoring_source_binding_drift")
+    response_root = (responses or root / AUTHORING_DIRECTORY / "responses").expanduser().resolve()
+    rows = []
+    for unit_id in sorted(selected):
+        path = response_root / f"{unit_id}.json"
+        if not path.is_file():
+            rows.append({"unit_id": unit_id, "status": "response_missing", "problems": []})
+            continue
+        response, problem = _read_response(path, unit_id)
+        if problem:
+            rows.append({"unit_id": unit_id, "status": problem, "problems": []})
+            continue
+        draft, problems = _ingest_unit(units[unit_id], response, tasks, "lint-only", source=source)
+        diagnostics = [{k: v for k, v in problem.items() if k != "proposal"} for problem in problems]
+        rows.append({"unit_id": unit_id, "status": "needs_attention" if diagnostics else "checked",
+                     "disposition": draft["candidate_disposition"]["action"],
+                     "object_count": len(draft["objects"]), "problems": diagnostics})
+    return {"status": "passed" if rows and all(r["status"] == "checked" and r["disposition"] != "reject" for r in rows)
+            else "needs_attention", "units": rows, "writes": False}
+
+
 def ingest(workpack: Path, proposer_instance: str, *, responses: Path | None = None, replace_drafts: bool = False, source: Path | None = None) -> dict[str, Any]:
     if not proposer_instance.strip():
         raise AuthoringError("proposer_instance_required")
@@ -590,25 +674,9 @@ def ingest(workpack: Path, proposer_instance: str, *, responses: Path | None = N
         if not response_path.is_file():
             missing.append(unit_id)
             continue
-        try:
-            response = json.loads(response_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            unit_reports.append({"unit_id": unit_id, "status": "response_invalid_json"})
-            continue
-        if not isinstance(response, dict) or response.get("unit_id") not in {None, unit_id}:
-            unit_reports.append({"unit_id": unit_id, "status": "response_unit_mismatch"})
-            continue
-        if not isinstance(response.get("objects", []), list) or any(not isinstance(response.get(key, []), list) for key in ("relations", "gaps")):
-            unit_reports.append({"unit_id": unit_id, "status": "response_shape_invalid"})
-            continue
-        malformed = any(isinstance(obj, dict) and (
-            not isinstance(obj.get("evidence", []), list)
-            or any(not isinstance(q, str) for q in obj.get("evidence", []))
-            or any(not isinstance(obj.get(field, []), list) for field in ("figures", "assumptions", "valid_when", "fails_when"))
-            or (obj.get("formula") is not None and not isinstance(obj["formula"], dict)))
-            for obj in response.get("objects", []))
-        if malformed:
-            unit_reports.append({"unit_id":unit_id,"status":"response_shape_invalid"})
+        response, problem = _read_response(response_path, unit_id)
+        if problem:
+            unit_reports.append({"unit_id": unit_id, "status": problem})
             continue
         draft_path = drafts_root / f"{unit_id}.json"
         if draft_path.exists() and not replace_drafts:
@@ -670,7 +738,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ingest_parser.add_argument("--proposer-instance", required=True)
     ingest_parser.add_argument("--replace-drafts", action="store_true")
     ingest_parser.add_argument("--source", type=Path, help="Source PDF for post-ingest validation.")
-    for item in (prepare_parser, run_parser, ingest_parser):
+    lint_parser = sub.add_parser("lint", help="Apply ingest checks to responses without writing drafts.")
+    lint_parser.add_argument("--workpack", required=True, type=Path)
+    lint_parser.add_argument("--responses", type=Path)
+    lint_parser.add_argument("--unit", action="append", default=[])
+    lint_parser.add_argument("--source", type=Path)
+    for item in (prepare_parser, run_parser, ingest_parser, lint_parser):
         item.add_argument("--json", action="store_true", dest="json_output")
     return parser.parse_args(argv)
 
@@ -682,11 +755,16 @@ def main(argv: list[str] | None = None) -> int:
             result = prepare(args.workpack, args.output)
         elif args.command == "run":
             result = run(args.workpack, args.author_command, args.proposer_instance, timeout=args.timeout, units_filter=args.unit, rerun=args.rerun, replace_drafts=args.replace_drafts, source=args.source)
+        elif args.command == "lint":
+            result = lint(args.workpack, units_filter=args.unit, responses=args.responses, source=args.source)
         else:
             result = ingest(args.workpack, args.proposer_instance, responses=args.responses, replace_drafts=args.replace_drafts, source=args.source)
     except (AuthoringError, SemanticPromotionError, OSError, KeyError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
+    if args.command == "lint":
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result["status"] == "passed" else 1
     if args.json_output:
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     else:

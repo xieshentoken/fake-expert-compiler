@@ -10,18 +10,20 @@ from pathlib import Path
 import tempfile
 from typing import Any
 
-from compiler_version import INTAKE_COMPILER_VERSION, INTAKE_WORKFLOW_PROTOCOL, INTAKE_WORKFLOW_SCHEMA
+from compiler_version import INTAKE_COMPILER_VERSION, INTAKE_WORKFLOW_PROTOCOL, INTAKE_WORKFLOW_SCHEMA, LEGACY_INTAKE_WORKFLOW_SCHEMA
+from native_focus import PROTOCOL as NATIVE_FOCUS_PROTOCOL
 from native_intake import inspect_source
 from ocr_availability import availability_summary, inspect_ocr, inspect_renderer, load_config, resolve_config_path
 from pdf_parser_adapters import sha256_json
-from scoped_native_workflow import run_native_child
+from scoped_native_workflow import preview as preview_native_child, run_native_child
 
 SCRIPTS = Path(__file__).resolve().parent
 WORKFLOW_FILE = "intake-workflow.json"
 CHOICES = ("configure_environment", "native_ranges", "inspection_only", "review_source")
 TOP_KEYS = {"schema_version", "protocol", "compiler_version", "workflow_id", "workflow_sha256", "workspace",
             "source", "intake", "ocr_config", "availability", "capability", "renderer", "minimum_native_characters",
-            "package", "bindings", "choice", "route", "state", "authorization", "page_dispositions", "reused_workpacks"}
+            "package", "bindings", "choice", "route", "state", "authorization", "page_dispositions", "reused_workpacks", "native_focus"}
+READ_ONLY_SCHEMAS = {"tkc.intake-workflow/v0.1", LEGACY_INTAKE_WORKFLOW_SCHEMA}
 
 
 def _digest(path: Path) -> str:
@@ -155,6 +157,16 @@ def plan(args: argparse.Namespace) -> dict[str, Any]:
     reused = bind_workpacks(source, supplied, report, getattr(args,"page_dispositions",None)) if report["status"] != "rejected" else []
     if report["status"] == "rejected":
         return report
+    selection = _config_record(getattr(args, "structure_selections", None))
+    native = report["selection"]["native_selected_scope"] and bool(report["selection"]["knowledge_candidate_pages"])
+    if selection and (not selection["sha256"] or not native or reused):
+        raise ValueError("structure_selections_require_unbound_native_scope")
+    focus = {"protocol": NATIVE_FOCUS_PROTOCOL, "structure_selections": selection, "preview": None}
+    if native and not reused:
+        focus["preview"] = preview_native_child(source, report["selection"]["physical_pages"], renderer, minimum,
+                                                 getattr(args, "page_dispositions", None), Path(selection["path"]) if selection else None)
+        if selection and _digest(Path(selection["path"])) != selection["sha256"]:
+            raise ValueError("native_structure_selections_drift")
     package = {"name": args.name, "display_name": args.display_name, "domain": args.domain,
                "version": args.version, "created_at": args.created_at, "figures": getattr(args, "figures", None) or "index+images"}
     config_record = _config_record(config)
@@ -166,7 +178,8 @@ def plan(args: argparse.Namespace) -> dict[str, Any]:
               "bindings": {"base": _base_bindings(report["source"], renderer),
                            "ocr": _ocr_bindings(config_record, report["ocr_availability"])},
               "choice": None, "route": "waiting", "state": {"status": "planned", "code": "intake_planned", "children": [], "scan_attempts": []},
-              "authorization": None, "page_dispositions": _config_record(getattr(args,"page_dispositions",None)), "reused_workpacks": reused}
+              "authorization": None, "page_dispositions": _config_record(getattr(args,"page_dispositions",None)),
+              "reused_workpacks": reused, "native_focus": focus}
     _set_route(record)
     workspace.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=f".{workspace.name}-intake-", dir=workspace.parent) as temporary:
@@ -181,7 +194,7 @@ def load(path: Path) -> dict[str, Any]:
     if path.is_symlink():
         raise ValueError("intake_workflow_symlink_forbidden")
     record = json.loads(path.read_text())
-    if isinstance(record,dict) and record.get("schema_version")=="tkc.intake-workflow/v0.1":
+    if isinstance(record, dict) and record.get("schema_version") in READ_ONLY_SCHEMAS:
         raise ValueError("intake_workflow_upgrade_required")
     if not isinstance(record, dict) or set(record) != TOP_KEYS or record.get("schema_version") != INTAKE_WORKFLOW_SCHEMA or record.get("protocol") != INTAKE_WORKFLOW_PROTOCOL:
         raise ValueError("intake_workflow_schema_invalid")
@@ -207,6 +220,9 @@ def _drift(record: dict[str, Any], *, allow_ocr_rebind: bool = False) -> list[st
                 issues.append("ocr_config_qualification_model_or_interpreter_drift")
         if record["page_dispositions"] and _digest(Path(record["page_dispositions"]["path"])) != record["page_dispositions"]["sha256"]:
             issues.append("page_disposition_receipt_drift")
+        selection = record["native_focus"]["structure_selections"]
+        if selection and _digest(Path(selection["path"])) != selection["sha256"]:
+            issues.append("native_structure_selections_drift")
         from intake_workpack_reuse import verify_binding
         for binding in record["reused_workpacks"]:
             verify_binding(Path(record["source"]["path"]), binding)
@@ -225,6 +241,7 @@ def summary(record: dict[str, Any]) -> dict[str, Any]:
             "page_summary": record["intake"]["page_summary"], "page_ledger": record["intake"]["page_ledger"],
             "confirmed_blank_pages": record["intake"]["confirmed_blank_pages"],
             "selection": record["intake"]["selection"], "reused_workpacks": record["reused_workpacks"],
+            "native_focus": record["native_focus"],
             "native_ranges": record["intake"]["native_ranges"], "partial": partial or bool(record["intake"]["selection"]["outside_pages"]),
             "omitted_pages": record["intake"]["omitted_pages_for_native_only"] if partial else [],
             "ocr_availability": record["availability"], "batch_advice": record["intake"]["batch_advice"],
@@ -241,10 +258,9 @@ def status(path: Path) -> dict[str, Any]:
     if path.is_symlink():
         raise ValueError("intake_workflow_symlink_forbidden")
     legacy=json.loads(path.read_text())
-    if isinstance(legacy,dict) and legacy.get("schema_version")=="tkc.intake-workflow/v0.1":
-        from scanned_pdf_ocr import validate_local_json_schema
-        schema=json.loads((SCRIPTS.parent/"assets/schemas/intake-workflow-v0.1.schema.json").read_text())
-        validate_local_json_schema(legacy,schema)
+    if isinstance(legacy, dict) and legacy.get("schema_version") in READ_ONLY_SCHEMAS:
+        from intake_contracts import validate_historical_workflow
+        validate_historical_workflow(legacy)
         if legacy.get("workflow_sha256") != sha256_json({k:v for k,v in legacy.items() if k!="workflow_sha256"}):
             raise ValueError("intake_workflow_hash_mismatch")
         return {"status":"read-only","code":"intake_workflow_upgrade_required","schema_version":legacy["schema_version"],
@@ -403,10 +419,13 @@ def run(path: Path, *, authorize_ocr: bool = False, exclusive_model: bool = Fals
         children = []
         for start, end in ranges:
             try:
+                focus = record["native_focus"] if [start, end] == record["intake"]["selection"]["physical_pages"] else {
+                    "protocol": NATIVE_FOCUS_PROTOCOL, "structure_selections": None, "preview": None}
                 child = run_native_child(Path(record["source"]["path"]), [start, end],
                                          Path(record["workspace"]) / "children" / f"pages-{start:04d}-{end:04d}",
                                          bindings=record["bindings"], package=record["package"], renderer=record["renderer"],
                                          minimum_characters=record["minimum_native_characters"],
+                                         native_focus=focus,
                                          page_dispositions=Path(record["page_dispositions"]["path"]) if record["page_dispositions"] else None,
                                          reused_workpack=next((binding for binding in record["reused_workpacks"] if binding["physical_pages"]==[start,end]),None))
             except (OSError, ValueError, RuntimeError) as error:
@@ -438,6 +457,7 @@ def add_cli(subparsers: Any) -> None:
         command.add_argument("--pdftoppm", default="pdftoppm")
         command.add_argument("--minimum-native-characters", type=int, default=40)
         if name == "plan":
+            command.add_argument("--structure-selections", type=Path)
             command.add_argument("--workpack",type=Path,action="append",default=[])
             command.add_argument("--workspace", required=True, type=Path)
             command.add_argument("--name", default="reference")
@@ -477,6 +497,6 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
 def is_workflow(path: Path) -> bool:
     try:
         value = json.loads(path.read_text())
-        return isinstance(value, dict) and value.get("schema_version") in {INTAKE_WORKFLOW_SCHEMA,"tkc.intake-workflow/v0.1"}
+        return isinstance(value, dict) and value.get("schema_version") in {INTAKE_WORKFLOW_SCHEMA, *READ_ONLY_SCHEMAS}
     except (OSError, ValueError):
         return False

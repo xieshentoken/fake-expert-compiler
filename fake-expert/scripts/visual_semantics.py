@@ -2048,7 +2048,7 @@ def _make_render_context(source: Path, source_sha256: str, page: int, page_obj: 
     return {"width": width, "height": height, "rotation": int(receipt.get("rotation", rotation)) % 360, "page_geometry": page_geometry, "render": receipt}, b""
 
 
-def _extract_visual_page(source_path: Path, *, pages: Sequence[int] | None = None, pdftoppm: Path | None = None, render_receipts: Mapping[int, Mapping[str, Any]] | None = None, confirmed_locators: Sequence[Mapping[str, Any]] | None = None, parser_receipt: Mapping[str, Any] | None = None, backend_receipt: Mapping[str, Any] | None = None, model_receipt: Mapping[str, Any] | None = None, config_receipt: Mapping[str, Any] | None = None, render_dpi: int = 150, _reader: Any = None, _source_hash: str | None = None) -> dict[str, Any]:
+def _extract_visual_page(source_path: Path, *, pages: Sequence[int] | None = None, pdftoppm: Path | None = None, render_receipts: Mapping[int, Mapping[str, Any]] | None = None, render_assets: Mapping[int, Path] | None = None, confirmed_locators: Sequence[Mapping[str, Any]] | None = None, parser_receipt: Mapping[str, Any] | None = None, backend_receipt: Mapping[str, Any] | None = None, model_receipt: Mapping[str, Any] | None = None, config_receipt: Mapping[str, Any] | None = None, render_dpi: int = 150, _reader: Any = None, _source_hash: str | None = None) -> dict[str, Any]:
     config_receipt = {**(config_receipt or {"id": "native-label-locator-v0.1", "candidate_only": True}),
                       "figure_crop_protocol": FIGURE_CROP_PROTOCOL, "native_geometry_protocol": NATIVE_GEOMETRY_PROTOCOL}
     """Build candidate visual objects/relations/grids/conflicts for bounded pages.
@@ -2092,6 +2092,9 @@ def _extract_visual_page(source_path: Path, *, pages: Sequence[int] | None = Non
         page_boxes = _text_boxes(page_obj, height, media_left=media_left, media_bottom=media_bottom)
         drawing_boxes = _page_drawings(page_obj, width, height, media_left=media_left, media_bottom=media_bottom)
         xobject_candidates = _page_xobject_candidates(page_obj, width, height, reader, media_left=media_left, media_bottom=media_bottom)
+        whole_page_raster = any(row["kind"] == "image"
+            and (row["bbox"][2] - row["bbox"][0]) * (row["bbox"][3] - row["bbox"][1]) >= width * height * .72
+            for row in xobject_candidates)
         text = _candidate_text(page_boxes)
         page_locators = [row for row in locator_rows if int(row.get("physical_page", page_number)) == page_number]
         created: list[dict[str, Any]] = []
@@ -2225,9 +2228,39 @@ def _extract_visual_page(source_path: Path, *, pages: Sequence[int] | None = Non
                         )
                         created.append(panel)
                         relations.append(build_visual_relation(source_sha256=source_hash, relation_type="contains", source_visual_object_id=figure["visual_object_id"], target_visual_object_id=panel["visual_object_id"], physical_page=page_number, evidence_hashes=[figure["input_sha256"], panel["input_sha256"]]))
+            raster_tables = {}
+            if whole_page_raster and table_labels and page_geometry.get("rotation") == 0:
+                from raster_table_geometry import horizontal_rules, ruled_candidate
+                payload = render_bytes
+                if not payload and render_assets and page_number in render_assets:
+                    payload = render_assets[page_number].read_bytes()
+                    if sha256_bytes(payload) != receipt["render_sha256"]:
+                        raise VisualSemanticsError("visual_render_asset_hash_mismatch")
+                if payload:
+                    try:
+                        raster_rules = horizontal_rules(_decode_png_rgb(payload), width, height)
+                    except (ValueError, VisualSemanticsError):
+                        raster_rules = []
+                    for label, box, _, _ in table_labels:
+                        next_caption = min((b[1] for _, b, _, _ in table_labels if b[1] > box[3]), default=height)
+                        found = ruled_candidate(box, raster_rules, width, height, next_caption)
+                        if found:
+                            raster_tables[(label, tuple(box))] = found
             for label, label_box, raw, locator_provenance in table_labels:
                 locator_attributes = {"locator_provenance": locator_provenance}
-                table_box, table_geometry = _ruling_table_candidate(label_box, drawing_boxes, width, height)
+                if whole_page_raster:
+                    owned = [entry for entry in raster_tables if entry[0] == label]
+                    detected = raster_tables.get((label, tuple(label_box)))
+                    if detected is None or len(owned) != 1:
+                        conflicts.append(build_visual_conflict(
+                            source_sha256=source_hash, physical_page=page_number, conflict_type="missing",
+                            details={"candidate": "table", "label": f"Table {label}",
+                                     "reason": "raster_table_boundaries_unconfirmed",
+                                     "caption_bbox": list(label_box)}))
+                        continue
+                    table_box, table_geometry = detected
+                else:
+                    table_box, table_geometry = _ruling_table_candidate(label_box, drawing_boxes, width, height)
                 if table_box is None:
                     table_box, table_geometry = ruled_table_candidate(label_box, table_rules, page_boxes, width, height)
                 if table_box is None:
@@ -2290,7 +2323,14 @@ def _extract_visual_page(source_path: Path, *, pages: Sequence[int] | None = Non
                         conflict_type="locator", details={"candidate":"equation_display", "label":label,
                         "code":str(error),"reason":"equation_bbox_unavailable", "bbox_sha256":sha256_json(label_box)}))
                     continue
-                equation = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="equation_display", subtype="numbered-equation", page_width=width, page_height=height, bbox=label_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=crop_commitment_sha256(render_bytes, label_box, page_width=width, page_height=height, dpi=int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256": receipt["render_sha256"], "bbox": label_box}), label=f"({label})", content_sha256=sha256_json(raw), page_geometry=page_geometry, attributes={"locator_provenance": locator_provenance}, parser_receipt=parser_receipt or {"id": "pypdf-native-baseline", "version": "pypdf-6.10.0", "candidate_only": True}, backend_receipt=backend_receipt or {"id": "reviewer-locator-confirmed-bbox", "candidate_only": True}, model_receipt=model_receipt or {"id": "none", "available": False, "download": False}, config_receipt=config_receipt or {"id": "native-equation-label-locator-v0.1", "candidate_only": True})
+                equation_attributes = {"locator_provenance": locator_provenance}
+                if whole_page_raster and re.fullmatch(r"\(\s*" + re.escape(label) + r"\s*\)", raw.strip()):
+                    equation_attributes["region_review_reason"] = "equation_number_only_in_text"
+                    equation_attributes["review_region_pdf_points"] = [
+                        round(min(label_box[0], width * .12), 4), round(max(0, label_box[1] - 12), 4),
+                        round(min(width, label_box[2] + 4), 4), round(min(height, label_box[3] + 12), 4),
+                    ]
+                equation = build_visual_object(source_sha256=source_hash, physical_page=page_number, object_type="equation_display", subtype="numbered-equation", page_width=width, page_height=height, bbox=label_box, render_sha256=receipt["render_sha256"], render_dpi=int(receipt["dpi"]), crop_sha256=crop_commitment_sha256(render_bytes, label_box, page_width=width, page_height=height, dpi=int(receipt["dpi"])) if render_bytes else sha256_json({"render_sha256": receipt["render_sha256"], "bbox": label_box}), label=f"({label})", content_sha256=sha256_json(raw), page_geometry=page_geometry, attributes=equation_attributes, parser_receipt=parser_receipt or {"id": "pypdf-native-baseline", "version": "pypdf-6.10.0", "candidate_only": True}, backend_receipt=backend_receipt or {"id": "reviewer-locator-confirmed-bbox", "candidate_only": True}, model_receipt=model_receipt or {"id": "none", "available": False, "download": False}, config_receipt=config_receipt or {"id": "native-equation-label-locator-v0.1", "candidate_only": True})
                 created.append(equation)
             marker_rows = _concise_plot_marker_rows(page_boxes)
             if marker_rows and drawing_boxes:
@@ -2405,7 +2445,7 @@ def _extract_visual_page(source_path: Path, *, pages: Sequence[int] | None = Non
 
 def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None = None,
         pdftoppm: Path | None = None, render_receipts: Mapping[int, Mapping[str, Any]] | None = None,
-        confirmed_locators: Sequence[Mapping[str, Any]] | None = None,
+        render_assets: Mapping[int, Path] | None = None, confirmed_locators: Sequence[Mapping[str, Any]] | None = None,
         parser_receipt: Mapping[str, Any] | None = None, backend_receipt: Mapping[str, Any] | None = None,
         model_receipt: Mapping[str, Any] | None = None, config_receipt: Mapping[str, Any] | None = None,
         render_dpi: int = 150) -> dict[str, Any]:
@@ -2424,7 +2464,7 @@ def extract_visual_candidates(source_path: Path, *, pages: Sequence[int] | None 
     for page in selected:
         try:
             bundle = _extract_visual_page(source,pages=[page],pdftoppm=pdftoppm,
-                render_receipts=render_receipts,confirmed_locators=confirmed_locators,
+                render_receipts=render_receipts,render_assets=render_assets,confirmed_locators=confirmed_locators,
                 parser_receipt=parser_receipt,backend_receipt=backend_receipt,model_receipt=model_receipt,
                 config_receipt=config_receipt,render_dpi=render_dpi,_reader=reader,_source_hash=source_hash)
         except VisualSemanticsError as error:
