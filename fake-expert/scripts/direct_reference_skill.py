@@ -35,6 +35,8 @@ from compiler_version import (
     PORTABLE_REFERENCE_RUNTIME_SHA256,
     REFERENCE_SEARCH_RUNTIME_SHA256,
     REFERENCE_SEARCH_RUNTIME_VERSION,
+    REFERENCE_SEARCH_V04_COMPILER_VERSION,
+    REFERENCE_SEARCH_V04_RUNTIME_SHA256,
 )
 from expert_skill_contract import (
     SCHEMA_ID,
@@ -54,6 +56,7 @@ import reference_alias_profiles
 import reference_search
 import reference_search_v130
 import reference_search_v140
+import reference_search_v141
 from numeric_evidence import NumericEvidenceError, checked_untraced_numbers, reviewed_figure_basis, check_legacy_numeric
 from reference_tier import _runtime_guide, build_runtime_catalog
 from scanned_pdf_ocr import ScanOcrError, build_scan_evidence_locator
@@ -79,6 +82,13 @@ RFC3339_RE = re.compile(
 )
 SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+SEARCH_RUNTIMES = {
+    DIRECT_REFERENCE_COMPILER_VERSION: (reference_search, REFERENCE_SEARCH_RUNTIME_SHA256),
+    REFERENCE_SEARCH_V04_COMPILER_VERSION: (reference_search_v141, REFERENCE_SEARCH_V04_RUNTIME_SHA256),
+    PREVIOUS_DIRECT_REFERENCE_COMPILER_VERSION: (reference_search_v140, PREVIOUS_REFERENCE_SEARCH_RUNTIME_SHA256),
+    OPUS_DIRECT_REFERENCE_COMPILER_VERSION: (reference_search_v130, OPUS_REFERENCE_SEARCH_RUNTIME_SHA256),
+}
+REVIEWED_FIGURE_VALUE_COMPILERS = {DIRECT_REFERENCE_COMPILER_VERSION, REFERENCE_SEARCH_V04_COMPILER_VERSION}
 FAKE_NAME_RE = re.compile(r"^fake-[a-z0-9]+(?:-[a-z0-9]+)*$")
 GOLD_MODES = {"none", "reuse", "create", "update"}
 DIRECT_REFERENCE_PATH = "references/runtime/direct-reference.json"
@@ -1005,9 +1015,7 @@ filesystem, network, or permission policy.
 """
 
 
-def _runtime_self_check(root: Path, catalog: dict[str, Any], *, legacy: bool = False, opus: bool = False) -> dict[str, Any]:
-    if not legacy:
-        return _search_runtime_self_check(root, catalog, runtime=reference_search_v130 if opus else reference_search)
+def _legacy_runtime_self_check(root: Path, catalog: dict[str, Any]) -> dict[str, Any]:
     runtime_target = root / "scripts/query_reference.py"
     base_runtime_target = root / "scripts/portable_reference_runtime.py"
     checks = []
@@ -1057,7 +1065,8 @@ def _runtime_self_check(root: Path, catalog: dict[str, Any], *, legacy: bool = F
 def _search_runtime_self_check(root: Path, catalog: dict[str, Any], *, runtime=reference_search) -> dict[str, Any]:
     checks = []
     for entry in catalog["objects"]:
-        response = runtime.query_package(catalog, entry["title"], limit=25, **({"lookup_title":True,"lookup_object_id":entry["id"]} if runtime is reference_search else {}))
+        lookup = {"lookup_title": True, "lookup_object_id": entry["id"]} if runtime in (reference_search, reference_search_v141) else {}
+        response = runtime.query_package(catalog, entry["title"], limit=25, **lookup)
         checks.append(
             {
                 "code": "title_retrieves_object",
@@ -1483,6 +1492,7 @@ def build_direct_reference(
     figure_images: bool = False,
     embedding_command: str | None = None,
     term_aliases: Path | None = None,
+    term_alias_extensions: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     if figure_images and not figure_index:
         raise DirectReferenceError("figure_crops_require_figure_index")
@@ -1502,8 +1512,11 @@ def build_direct_reference(
         gold_revision,
         {material["source"]["sha256"]},
     )
+    if term_aliases is not None and term_alias_extensions is not None:
+        raise DirectReferenceError("multiple_reference_alias_inputs")
     try:
-        alias_extensions = reference_alias_profiles.load_extensions(term_aliases) if term_aliases else []
+        alias_extensions = reference_alias_profiles.load_extensions(term_aliases) if term_aliases else term_alias_extensions or []
+        reference_alias_profiles.merged_aliases(alias_extensions)
     except (OSError, ValueError, TypeError) as error:
         raise DirectReferenceError(f"reference_alias_profile_invalid:{error}") from error
     output = _ensure_empty_output(output)
@@ -1747,13 +1760,11 @@ def validate_direct_reference(root: Path) -> list[str]:
     compiler_version = manifest.get("build", {}).get("compiler_version")
     # 1.1.0 packages keep validating against their original runtime pins.
     legacy = compiler_version == LEGACY_DIRECT_REFERENCE_COMPILER_VERSION
-    if manifest.get("build", {}).get("compiler") != "fake-expert" or compiler_version not in {
-        DIRECT_REFERENCE_COMPILER_VERSION,
-        PREVIOUS_DIRECT_REFERENCE_COMPILER_VERSION,
-        LEGACY_DIRECT_REFERENCE_COMPILER_VERSION,
-        OPUS_DIRECT_REFERENCE_COMPILER_VERSION,
-    }:
+    runtime, runtime_sha = SEARCH_RUNTIMES.get(compiler_version, (reference_search, REFERENCE_SEARCH_RUNTIME_SHA256))
+    if manifest.get("build", {}).get("compiler") != "fake-expert" or not (legacy or compiler_version in SEARCH_RUNTIMES):
         errors.append("direct_reference_compiler_identity_invalid")
+    if not legacy and catalog.get("runtime_version") != runtime.RUNTIME_VERSION:
+        errors.append("runtime_version_mismatch")
     if manifest.get("capabilities") != {
         "reference": True,
         "decision_support": False,
@@ -1909,13 +1920,13 @@ def validate_direct_reference(root: Path) -> list[str]:
         errors.append("workpack_bindings_missing")
     else:
         for binding in bindings:
-            if compiler_version==DIRECT_REFERENCE_COMPILER_VERSION and isinstance(binding,dict) and not {"page_disposition_protocol","page_dispositions","native_minimum_characters"}<=set(binding):
+            if compiler_version in REVIEWED_FIGURE_VALUE_COMPILERS and isinstance(binding,dict) and not {"page_disposition_protocol","page_dispositions","native_minimum_characters"}<=set(binding):
                 errors.append("page_disposition_binding_required")
                 continue
             if not isinstance(binding, dict) or set(binding) not in (expected_binding_fields, expected_binding_fields | {"page_disposition_protocol","page_dispositions"}, expected_binding_fields | {"page_disposition_protocol","page_dispositions","native_minimum_characters"}):
                 errors.append("workpack_binding_invalid")
                 continue
-            if compiler_version==DIRECT_REFERENCE_COMPILER_VERSION and (not {"page_disposition_protocol","page_dispositions","native_minimum_characters"}<=set(binding) or type(binding.get("native_minimum_characters")) is not int or binding["native_minimum_characters"]<1):
+            if compiler_version in REVIEWED_FIGURE_VALUE_COMPILERS and (not {"page_disposition_protocol","page_dispositions","native_minimum_characters"}<=set(binding) or type(binding.get("native_minimum_characters")) is not int or binding["native_minimum_characters"]<1):
                 errors.append("page_disposition_binding_required")
                 continue
             if "page_dispositions" in binding:
@@ -2090,9 +2101,8 @@ def validate_direct_reference(root: Path) -> list[str]:
     if catalog.get("package_id") != package_id or not self_check.get("passed"):
         errors.append("runtime_self_check_invalid")
     try:
-        expected_check = (_search_runtime_self_check(root,catalog,runtime=reference_search_v140)
-                          if compiler_version==PREVIOUS_DIRECT_REFERENCE_COMPILER_VERSION else
-                          _runtime_self_check(root,catalog,legacy=legacy,opus=compiler_version==OPUS_DIRECT_REFERENCE_COMPILER_VERSION))
+        expected_check = (_legacy_runtime_self_check(root, catalog) if legacy else
+                          _search_runtime_self_check(root, catalog, runtime=runtime))
         if self_check != expected_check:
             errors.append("runtime_self_check_invalid")
     except (DirectReferenceError, OSError, KeyError, TypeError, ValueError):
@@ -2108,7 +2118,8 @@ def validate_direct_reference(root: Path) -> list[str]:
         else:
             runtime_mismatch = (
                 sha256_file(root / "scripts/query_reference.py")
-                != (OPUS_REFERENCE_SEARCH_RUNTIME_SHA256 if compiler_version == OPUS_DIRECT_REFERENCE_COMPILER_VERSION else PREVIOUS_REFERENCE_SEARCH_RUNTIME_SHA256 if compiler_version == PREVIOUS_DIRECT_REFERENCE_COMPILER_VERSION else REFERENCE_SEARCH_RUNTIME_SHA256)
+                != runtime_sha
+                or sha256_file(Path(runtime.__file__)) != runtime_sha
             )
     except OSError:
         runtime_mismatch = True
@@ -2140,11 +2151,11 @@ def _validate_figure_index(
         if basis is not None and (
             not isinstance(basis, dict)
             or (set(basis) != {"source", "untraced_values", "protocol", "review_binding_sha256"}
-                if manifest.get("build", {}).get("compiler_version") == DIRECT_REFERENCE_COMPILER_VERSION
+                if manifest.get("build", {}).get("compiler_version") in REVIEWED_FIGURE_VALUE_COMPILERS
                 else set(basis) != {"source", "untraced_values"})
             or (basis.get("source") != "figure-reviewed" or basis.get("protocol") not in {"numeric-evidence-v0.1", "numeric-evidence-v0.2"}
                 or not SHA256_RE.fullmatch(str(basis.get("review_binding_sha256", "")))
-                if manifest.get("build", {}).get("compiler_version") == DIRECT_REFERENCE_COMPILER_VERSION
+                if manifest.get("build", {}).get("compiler_version") in REVIEWED_FIGURE_VALUE_COMPILERS
                 else basis.get("source") != "figure-unreviewed")
             or not basis.get("untraced_values")
             or not obj.get("figure_refs")

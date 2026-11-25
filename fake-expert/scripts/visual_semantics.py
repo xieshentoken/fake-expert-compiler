@@ -99,6 +99,7 @@ PLOT_MARKER_RE = re.compile(r"(?:\b(?:plot|axis|legend|series|tick)\b|坐标图|
 PLOT_MARKER_LABEL_MAX_CHARS = 64
 NUMBER_RE = re.compile(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?")
 EQUATION_LABEL_TOKEN_RE = re.compile(r"(?:\d+(?:[.-][A-Za-z0-9]+)*|[IVXLCDM]+(?:[.-][A-Za-z0-9]+)*|[A-Z](?:[.-][A-Za-z0-9]+)+|[A-Z])", re.I)
+RASTER_EQUATION_LABEL_RE = re.compile(r"[0-9]+(?:[.-][0-9]+)*")
 
 
 class VisualSemanticsError(RuntimeError):
@@ -2313,9 +2314,20 @@ def _extract_visual_page(source_path: Path, *, pages: Sequence[int] | None = Non
                             and fragment["bbox"][0] >= width*0.7):
                         precise_equations[match[1]] = (match[1], fragment["bbox"], fragment_text,
                             {"method":NATIVE_GEOMETRY_PROTOCOL,"fragment_hashes":[fragment["fragment_sha256"]],"fragments":[fragment]})
+            if whole_page_raster:
+                for label, _, raw, _ in equation_labels:
+                    if label in precise_equations and any(cue in raw for cue in ("=", "∫", "→")):
+                        precise = precise_equations[label]
+                        precise_equations[label] = (precise[0], precise[1], raw, precise[3])
             equation_labels = [r for r in equation_labels if r[0] not in precise_equations]
             equation_labels.extend(precise_equations.values())
             for label, label_box, raw, locator_provenance in equation_labels:
+                number_only = whole_page_raster and re.fullmatch(r"\(\s*" + re.escape(label) + r"\s*\)", raw.strip())
+                if number_only and (
+                    not RASTER_EQUATION_LABEL_RE.fullmatch(label)
+                    or (label.isdigit() and label_box[0] < width * .85)
+                ):
+                    continue
                 try:
                     normalize_bbox(label_box, width, height)
                 except VisualSemanticsError as error:
@@ -2324,7 +2336,7 @@ def _extract_visual_page(source_path: Path, *, pages: Sequence[int] | None = Non
                         "code":str(error),"reason":"equation_bbox_unavailable", "bbox_sha256":sha256_json(label_box)}))
                     continue
                 equation_attributes = {"locator_provenance": locator_provenance}
-                if whole_page_raster and re.fullmatch(r"\(\s*" + re.escape(label) + r"\s*\)", raw.strip()):
+                if number_only:
                     equation_attributes["region_review_reason"] = "equation_number_only_in_text"
                     equation_attributes["review_region_pdf_points"] = [
                         round(min(label_box[0], width * .12), 4), round(max(0, label_box[1] - 12), 4),

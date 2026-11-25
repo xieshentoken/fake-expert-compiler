@@ -52,6 +52,8 @@ PYTHONDONTWRITEBYTECODE=1 python3 scripts/fake_expert.py compile \
 仍使用原 v0.2 job。自动 plan 支持 `--start-page/--end-page` 与 `--structure-selections` 组合，
 预报原生正文的撰写单元数量，超长单元沿原物理页或句段拆分并保留所属章节。
 `--workpack` 可重复绑定所选范围的既有原生 workpack，不与新结构选择混用。
+`--term-aliases PATH` 将双语词表和哈希绑定到自动原生 Draft。复用 workpack
+时可指定词表，编译与恢复沿用同一绑定。
 `--page-dispositions` 绑定操作人收据；范围外账本保留且不强迫选中范围 OCR。旧 intake v0.1/v0.2 可只读查看，继续执行须在新 workspace 重建 v0.3。工作流与子任务的用法见
 `references/quickstart.md`。
 

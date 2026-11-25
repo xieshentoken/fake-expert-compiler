@@ -224,6 +224,33 @@
         "created_at": {
           "type": "string"
         },
+        "term_aliases": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "extensions"],
+          "properties": {
+            "path": {"type": "string", "minLength": 1},
+            "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "extensions": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["term", "aliases"],
+                "properties": {
+                  "term": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"},
+                  "aliases": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 24,
+                    "items": {"type": "string", "minLength": 1, "maxLength": 120}
+                  }
+                }
+              }
+            }
+          }
+        },
         "figures": {
           "enum": [
             "none",

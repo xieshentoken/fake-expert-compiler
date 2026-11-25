@@ -87,6 +87,7 @@
 
 - `intake_workflow_upgrade_required`: inspect v0.1 and v0.2 with read-only `intake status`. Run `plan` in a fresh workspace to get a v0.3 intake workflow.
 - `intake_selected_scope_invalid`: supply one valid original physical start/end pair.
+- `term_aliases_binding_drift` indicates the planned vocabulary changed or is unavailable. Restore the original input to resume, or choose a fresh workspace and plan with the new vocabulary.
 - `reused_workpack_scope_gap` / `reused_workpack_scope_overlap`: existing workpacks must cover the selected range exactly without overlap.
 - `reused_workpack_disposition_mismatch` / `reused_workpack_blank_proof_stale`: preserve the old workpack and rebuild incompatible page evidence in a fresh path.
 - `reused_workpack_inventory_drift`: bound input changed; finish its existing authoring flow, then explicitly replan rather than rewriting the frozen workflow.

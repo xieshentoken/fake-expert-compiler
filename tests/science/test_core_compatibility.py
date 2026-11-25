@@ -18,7 +18,8 @@ class CoreGenerationCompatibilityTests(unittest.TestCase):
     def test_current_generation_is_declared_and_schema_extension_is_additive(self):
         self.assertEqual(versions.LEGACY_INTAKE_COMPILER_VERSION, "1.2.0-intake-v2")
         self.assertEqual(versions.INTAKE_COMPILER_VERSION, "1.2.0-intake-v3")
-        self.assertEqual(versions.DIRECT_REFERENCE_COMPILER_VERSION, "1.4.1-direct-reference")
+        self.assertEqual(versions.DIRECT_REFERENCE_COMPILER_VERSION, "1.4.2-direct-reference")
+        self.assertEqual(versions.REFERENCE_SEARCH_V04_COMPILER_VERSION, "1.4.1-direct-reference")
         self.assertEqual(versions.SCIENCE_RUNTIME_COMPAT_PROTOCOL, "science-runtime-compat-v0.1")
         current = json.loads((SKILL_ROOT / "assets/schemas/knowledge-object.schema.json").read_text())
         self.assertFalse(current["additionalProperties"])

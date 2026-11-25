@@ -15,6 +15,7 @@ from native_focus import PROTOCOL as NATIVE_FOCUS_PROTOCOL
 from native_intake import inspect_source
 from ocr_availability import availability_summary, inspect_ocr, inspect_renderer, load_config, resolve_config_path
 from pdf_parser_adapters import sha256_json
+from reference_alias_profiles import bind_extensions
 from scoped_native_workflow import preview as preview_native_child, run_native_child
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -158,6 +159,10 @@ def plan(args: argparse.Namespace) -> dict[str, Any]:
     if report["status"] == "rejected":
         return report
     selection = _config_record(getattr(args, "structure_selections", None))
+    alias_path = getattr(args, "term_aliases", None)
+    if alias_path and not report["selection"]["knowledge_candidate_pages"]:
+        raise ValueError("term_aliases_require_native_knowledge_pages")
+    alias_binding = bind_extensions(alias_path) if alias_path else None
     native = report["selection"]["native_selected_scope"] and bool(report["selection"]["knowledge_candidate_pages"])
     if selection and (not selection["sha256"] or not native or reused):
         raise ValueError("structure_selections_require_unbound_native_scope")
@@ -169,6 +174,8 @@ def plan(args: argparse.Namespace) -> dict[str, Any]:
             raise ValueError("native_structure_selections_drift")
     package = {"name": args.name, "display_name": args.display_name, "domain": args.domain,
                "version": args.version, "created_at": args.created_at, "figures": getattr(args, "figures", None) or "index+images"}
+    if alias_binding:
+        package["term_aliases"] = alias_binding
     config_record = _config_record(config)
     record = {"schema_version": INTAKE_WORKFLOW_SCHEMA, "protocol": INTAKE_WORKFLOW_PROTOCOL,
               "compiler_version": INTAKE_COMPILER_VERSION, "workflow_id": "itw-" + sha256_json({"source": report["source"], "workspace": str(workspace.resolve()), "package": package})[:24],
@@ -223,6 +230,14 @@ def _drift(record: dict[str, Any], *, allow_ocr_rebind: bool = False) -> list[st
         selection = record["native_focus"]["structure_selections"]
         if selection and _digest(Path(selection["path"])) != selection["sha256"]:
             issues.append("native_structure_selections_drift")
+        alias_binding = record["package"].get("term_aliases")
+        if alias_binding:
+            try:
+                current_aliases = bind_extensions(Path(alias_binding["path"]))
+            except (OSError, ValueError):
+                current_aliases = None
+            if current_aliases != alias_binding:
+                issues.append("term_aliases_binding_drift")
         from intake_workpack_reuse import verify_binding
         for binding in record["reused_workpacks"]:
             verify_binding(Path(record["source"]["path"]), binding)
@@ -242,6 +257,7 @@ def summary(record: dict[str, Any]) -> dict[str, Any]:
             "confirmed_blank_pages": record["intake"]["confirmed_blank_pages"],
             "selection": record["intake"]["selection"], "reused_workpacks": record["reused_workpacks"],
             "native_focus": record["native_focus"],
+            **({"term_aliases_sha256": record["package"]["term_aliases"]["sha256"]} if "term_aliases" in record["package"] else {}),
             "native_ranges": record["intake"]["native_ranges"], "partial": partial or bool(record["intake"]["selection"]["outside_pages"]),
             "omitted_pages": record["intake"]["omitted_pages_for_native_only"] if partial else [],
             "ocr_availability": record["availability"], "batch_advice": record["intake"]["batch_advice"],
@@ -458,6 +474,7 @@ def add_cli(subparsers: Any) -> None:
         command.add_argument("--minimum-native-characters", type=int, default=40)
         if name == "plan":
             command.add_argument("--structure-selections", type=Path)
+            command.add_argument("--term-aliases", type=Path, help="Package-specific bilingual aliases for native Drafts.")
             command.add_argument("--workpack",type=Path,action="append",default=[])
             command.add_argument("--workspace", required=True, type=Path)
             command.add_argument("--name", default="reference")

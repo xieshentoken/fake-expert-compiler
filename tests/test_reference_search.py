@@ -103,6 +103,54 @@ class RankingTests(unittest.TestCase):
         cat = catalog([object_entry("ko-k", "k", "The symbol used for conductivity.")])
         self.assertEqual(rs.query_catalog(cat, "k")["matched_object_ids"], ["ko-k"])
 
+    def test_compound_aliases_report_each_objects_supported_concept(self) -> None:
+        aliases = [
+            {"term": "diffusion", "aliases": ["water diffusion", "水扩散"]},
+            {"term": "plasticization", "aliases": ["plasticization", "增塑"]},
+            {"term": "hydrolysis", "aliases": ["hydrolysis", "水解"]},
+            {"term": "debonding", "aliases": ["interfacial debonding", "界面脱粘"]},
+        ]
+        cat = catalog([object_entry("ko-" + a["term"], a["aliases"][0], a["aliases"][0]) for a in aliases])
+        cat["policy"]["term_aliases"] = aliases
+        for row in cat["objects"]:
+            row["terms"], row["length"] = rs._weighted_terms(row, rs.OBJECT_FIELD_WEIGHTS, aliases)
+        query = "水扩散、增塑、水解、界面脱粘"
+        result = rs.query_catalog(cat, query, limit=4)
+        self.assertEqual(len(result["matched_object_ids"]), 4)
+        self.assertEqual(result["retrieval"]["unmatched_concepts"], [])
+        for row in result["results"]:
+            self.assertEqual(row["matched_concepts"], [row["id"].replace("ko-", "concept_")])
+        self.assertEqual(len(rs.query_catalog(cat, query, limit=2)["retrieval"]["unmatched_concepts"]), 2)
+        cat["objects"].pop()
+        partial = rs.query_catalog(cat, query)
+        self.assertEqual(partial["retrieval"]["unmatched_concepts"], ["concept_debonding"])
+        self.assertIn("partial_concept_coverage", partial["reason_codes"])
+        self.assertEqual(rs.query_catalog(cat, "界面脱粘")["behavior"], "abstain")
+
+    def test_long_query_uses_indexed_terms_without_discarding_required_conditions(self) -> None:
+        cat = catalog([
+            object_entry("ko-hydrolysis", "Epoxy hydrolysis", "Water induces epoxy hydrolysis."),
+            object_entry("ko-plasticization", "Water plasticization", "Water plasticization occurs in polymer chains."),
+        ])
+        query = "What are the mechanisms of water diffusion, plasticization, hydrolysis and interfacial debonding in epoxy aluminium joints exposed to high relative humidity?"
+        response = rs.query_catalog(cat, query)
+        self.assertEqual(set(response["matched_object_ids"]), {"ko-hydrolysis", "ko-plasticization"})
+        self.assertEqual(rs.query_catalog(cat, query + " at 300 K")["behavior"], "abstain")
+        self.assertEqual(rs.query_catalog(cat, query + " rated temperature")["behavior"], "abstain")
+        self.assertEqual(rs.query_catalog(cat, query + " maximum rated temperature")["behavior"], "abstain")
+        self.assertEqual(rs.query_catalog(cat, "What causes water to enter sealed ceramic cavities under salt spray?")["behavior"], "abstain")
+
+    def test_title_phrase_and_equation_intent_outrank_incidental_mentions(self) -> None:
+        claim = object_entry("ko-claim", "Young modulus and peel angle",
+            "Peel angle, Young modulus, contact angle, and Equation 9.3 are distinct factors. "
+            "Young modulus and peel angle differ. The equation is only a reference.")
+        equation = object_entry("ko-equation", "Young's Equation for Solid-Liquid-Vapour Equilibrium",
+                                "The contact angle relates interface energies.")
+        equation["type"] = "Equation"
+        cat = catalog([claim, equation])
+        self.assertEqual(rs.query_catalog(cat, "Young equation contact angle")["matched_object_ids"][0], "ko-equation")
+        self.assertEqual(rs.query_catalog(cat, "Young modulus and peel angle")["matched_object_ids"][0], "ko-claim")
+
 
 class GuardTests(unittest.TestCase):
     def test_decision_intent_abstains(self) -> None:
@@ -118,6 +166,22 @@ class GuardTests(unittest.TestCase):
 
     def test_out_of_scope_terms(self) -> None:
         self.assertEqual(rs.query_catalog(HEAT, "unrelated question")["reason_codes"], ["outside_package_scope"])
+
+    def test_book_recommendation_lookup_is_marked_and_personal_requests_abstain(self) -> None:
+        title = "Recommended surface treatment for aluminium"
+        cat = catalog([object_entry("ko-ref", title, title + " adhesive joints.")])
+        for q in (f"What is the {title} according to the book?", "What does the book recommend for aluminium surface treatment?"):
+            result = rs.query_package(cat, q)
+            self.assertEqual(result["matched_object_ids"], ["ko-ref"], q)
+            self.assertIn("descriptive_recommendation_reference_only", result["reason_codes"])
+        for q in (f"What is the {title}?", f"What is the {title} for my joint?",
+                  f"What is the {title} in the book for our joint?",
+                  "Can I use the surface treatment recommended in the book?",
+                  "Would it work to apply the surface treatment recommended in the book?",
+                  "What does the book recommend that I use for aluminium?",
+                  f"What is the safest {title} in the book?", f"Certify the {title} in the book"):
+            self.assertEqual(rs.query_package(cat, q)["reason_codes"], ["decision_capability_unavailable"], q)
+        self.assertEqual(rs.query_package(cat, title, lookup_title=True)["matched_object_ids"], ["ko-ref"])
 
 
 class EmbeddingFusionTests(unittest.TestCase):

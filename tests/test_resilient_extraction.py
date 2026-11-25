@@ -18,6 +18,9 @@ from pdf_structure import normalize_text
 from printed_page_labels import from_page_texts
 from raster_table_geometry import horizontal_rules, ruled_candidate
 from reference_alias_profiles import merged_aliases
+from semantic_authoring import _visual_review_entries
+from semantic_promotion import _attach_visual_ids_to_tasks
+from visual_semantics import build_visual_conflict
 import reference_search
 import test_direct_reference_skill as direct_tests
 from test_reference_search import catalog, object_entry
@@ -112,6 +115,12 @@ class ResilientNativeWorkflowTests(TempDirTestCase):
         c.drawString(25, 330, "The controlled input is measured in a bounded fixture.")
         c.drawString(25, 310, "The output is preserved with the original conditions.")
         c.drawString(235, 215, "(1.2)")
+        c.drawString(235, 195, "(10-4)")
+        c.drawString(235, 175, "(a)")
+        c.drawString(235, 155, "(b)")
+        c.drawString(235, 135, "(DD.M)")
+        c.drawString(260, 115, "(7)")
+        c.drawString(25, 95, "(8)")
         c.save()
         job = self.tmp / "job"
         run_json("fake_expert.py", "plan", "--source", str(source), "--workspace", str(job), "--json")
@@ -125,6 +134,10 @@ class ResilientNativeWorkflowTests(TempDirTestCase):
         x0, y0, x1, y1 = review["bbox_pdf_points"]
         self.assertTrue(x0 < 65 < x1 and y0 < 180 < y1)
         self.assertEqual(hashlib.sha256(Path(review["page_render"]).read_bytes()).hexdigest(), review["render_sha256"])
+        labels = {row["label"] for packet in packets for row in packet.get("visual_review", [])}
+        self.assertEqual(labels, {"(1.2)", "(10-4)", "(7)"})
+        objects = [json.loads(line) for line in (workpack / "visual-objects.jsonl").read_text().splitlines()]
+        self.assertEqual({obj["label"] for obj in objects if obj["type"] == "equation_display"}, labels)
 
 
 class EvidenceQualityTests(TempDirTestCase):
@@ -148,6 +161,34 @@ class EvidenceQualityTests(TempDirTestCase):
         self.assertEqual(proof["geometry_evidence"], "raster-table-rules-v0.1")
         ambiguous_rules = sorted([*rules, [25, 125, 180]], key=lambda row: row[1])
         self.assertIsNone(ruled_candidate([25, 53, 145, 62], ambiguous_rules, width, height, height))
+
+    def test_tall_grouped_raster_header_requires_an_interior_group_rule(self):
+        caption = [25, 40, 245, 55]
+        aligned = [[25, 70, 250], [25, 128, 250], [25, 158, 250]]
+        grouped = [aligned[0], [105, 95, 250], *aligned[1:]]
+        self.assertIsNone(ruled_candidate(caption, aligned, 300, 400, 400))
+        bbox, proof = ruled_candidate(caption, grouped, 300, 400, 400)
+        self.assertEqual(proof["rule_y_pdf_points"], [70, 128, 158])
+        self.assertGreater(bbox[3], 158)
+        self.assertIsNone(ruled_candidate(caption, grouped, 300, 400, 150))
+        self.assertIsNone(ruled_candidate(caption, [*grouped, [25, 182, 250]], 300, 400, 400))
+
+    def test_layout_conflicts_are_referenced_once_and_distinct_locations_survive(self):
+        conflicts = [build_visual_conflict(
+            source_sha256="a" * 64, physical_page=1, conflict_type="missing",
+            details={"candidate": "table", "label": "Table 1.1",
+                     "reason": "raster_table_boundaries_unconfirmed", "caption_bbox": [25, y, 40, y + 2]},
+        ) for y in (10, 20)]
+        tasks = [{"id": name, "kind": "table", "page": 1} for name in ("task-a", "task-b")]
+        _attach_visual_ids_to_tasks(tasks, {"conflicts": [*conflicts, conflicts[0]]})
+        by_id = {c["visual_conflict_id"]: c for c in conflicts}
+        for task in tasks:
+            self.assertEqual(set(task["layout_issue_ids"]), set(by_id))
+            self.assertNotIn("layout_issues", task)
+        notices = _visual_review_entries(self.tmp, {"visual_task_ids": [t["id"] for t in tasks]},
+                                         {t["id"]: t for t in tasks}, {}, by_id)
+        self.assertEqual(len(notices), 2)
+        self.assertEqual({r["bbox_pdf_points"][1] for r in notices}, {10, 20})
 
     def test_retrieval_protects_material_names_without_changing_decision_guard(self):
         aliases = merged_aliases()

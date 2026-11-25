@@ -21,13 +21,22 @@ DIRECT_REFERENCE_COMPILER_VERSION = "1.1.0-direct-reference"
 DIRECT_REFERENCE_RUNTIME_SHA256 = "4373790b353306851ca92debab4dc3e1b5a2c8c64178ade857b79cd99f34f19b"
 PORTABLE_REFERENCE_RUNTIME_SHA256 = "50de12e92c840806121d898d1f44d36c57d80e81ad13ef82e08b4417c6ba5581"
 # Current direct-reference generation (standalone copy of compiler_version pins).
-SEARCH_DIRECT_REFERENCE_COMPILER_VERSION = "1.4.1-direct-reference"
+SEARCH_DIRECT_REFERENCE_COMPILER_VERSION = "1.4.2-direct-reference"
+REFERENCE_SEARCH_V04_COMPILER_VERSION = "1.4.1-direct-reference"
+REFERENCE_SEARCH_V04_RUNTIME_SHA256 = "6de1181fba47947fe7aaa6982586ef81e45ff7b6fca52ef03c18783f30ce1e74"
 PREVIOUS_SEARCH_COMPILER_VERSION = "1.4.0-direct-reference"
 PREVIOUS_SEARCH_RUNTIME_SHA256 = "90a264aed1503bef1c8b80c41ec3069c4be32d3f9c207d4bf583eae7aff0573a"
 OPUS_DIRECT_REFERENCE_COMPILER_VERSION = "1.3.0-direct-reference"
-REFERENCE_SEARCH_RUNTIME_SHA256 = "6de1181fba47947fe7aaa6982586ef81e45ff7b6fca52ef03c18783f30ce1e74"
+REFERENCE_SEARCH_RUNTIME_SHA256 = "be0bb8fa9fad08528611f656d12f57d85b2e23d937f30f8aa224481f92752b7d"
 OPUS_REFERENCE_SEARCH_RUNTIME_SHA256 = "0c466de12c91d013c71f70e5ea512cbf0aa9c300738532b841eecbcd0b45c4ab"
-REFERENCE_SEARCH_RUNTIME_VERSION = "reference-search-bm25-v0.4"
+REFERENCE_SEARCH_RUNTIME_VERSION = "reference-search-bm25-v0.5"
+SEARCH_RUNTIME_PINS = {
+    SEARCH_DIRECT_REFERENCE_COMPILER_VERSION: (REFERENCE_SEARCH_RUNTIME_SHA256, REFERENCE_SEARCH_RUNTIME_VERSION),
+    REFERENCE_SEARCH_V04_COMPILER_VERSION: (REFERENCE_SEARCH_V04_RUNTIME_SHA256, "reference-search-bm25-v0.4"),
+    PREVIOUS_SEARCH_COMPILER_VERSION: (PREVIOUS_SEARCH_RUNTIME_SHA256, "reference-search-bm25-v0.3"),
+    OPUS_DIRECT_REFERENCE_COMPILER_VERSION: (OPUS_REFERENCE_SEARCH_RUNTIME_SHA256, "reference-search-bm25-v0.2"),
+}
+REVIEWED_FIGURE_VALUE_COMPILERS = {SEARCH_DIRECT_REFERENCE_COMPILER_VERSION, REFERENCE_SEARCH_V04_COMPILER_VERSION}
 FORBIDDEN_SUFFIXES = {
     ".avif",
     ".bmp",
@@ -760,8 +769,7 @@ def verify_release(release_dir: Path, *, extract: Path | None = None) -> dict[st
             }
             candidate_compiler = package_manifest.get("build", {}).get("compiler_version")
             legacy_candidate = candidate_compiler == DIRECT_REFERENCE_COMPILER_VERSION
-            search_hash = OPUS_REFERENCE_SEARCH_RUNTIME_SHA256 if candidate_compiler == OPUS_DIRECT_REFERENCE_COMPILER_VERSION else PREVIOUS_SEARCH_RUNTIME_SHA256 if candidate_compiler == PREVIOUS_SEARCH_COMPILER_VERSION else REFERENCE_SEARCH_RUNTIME_SHA256
-            search_version = "reference-search-bm25-v0.2" if candidate_compiler == OPUS_DIRECT_REFERENCE_COMPILER_VERSION else "reference-search-bm25-v0.3" if candidate_compiler == PREVIOUS_SEARCH_COMPILER_VERSION else REFERENCE_SEARCH_RUNTIME_VERSION
+            search_hash, search_version = SEARCH_RUNTIME_PINS.get(candidate_compiler, (None, None))
             if legacy_candidate:
                 required_candidate_paths.add("scripts/portable_reference_runtime.py")
             # Figure indexes/images are source-derived and stay private.
@@ -770,8 +778,7 @@ def verify_release(release_dir: Path, *, extract: Path | None = None) -> dict[st
             if (
                 not str(package_record.get("id", "")).startswith("fake-")
                 or package_manifest.get("build", {}).get("compiler") != "fake-expert"
-                or candidate_compiler
-                not in {DIRECT_REFERENCE_COMPILER_VERSION, SEARCH_DIRECT_REFERENCE_COMPILER_VERSION, PREVIOUS_SEARCH_COMPILER_VERSION, OPUS_DIRECT_REFERENCE_COMPILER_VERSION}
+                or not (legacy_candidate or candidate_compiler in SEARCH_RUNTIME_PINS)
                 or "references/runtime/direct-reference.json" not in members
                 or "references/evidence/promotion-report.json" in members
                 or not required_candidate_paths.issubset(members)
@@ -1112,11 +1119,11 @@ def verify_release(release_dir: Path, *, extract: Path | None = None) -> dict[st
             if object_ids != exports or not isinstance(bindings, list) or not bindings:
                 raise ReleaseVerificationError("candidate_provenance_invalid")
             for binding in bindings:
-                if candidate_compiler==SEARCH_DIRECT_REFERENCE_COMPILER_VERSION and isinstance(binding,dict) and not {"page_disposition_protocol","page_dispositions","native_minimum_characters"}<=set(binding):
+                if candidate_compiler in REVIEWED_FIGURE_VALUE_COMPILERS and isinstance(binding,dict) and not {"page_disposition_protocol","page_dispositions","native_minimum_characters"}<=set(binding):
                     raise ReleaseVerificationError("page_disposition_binding_required")
                 if not isinstance(binding, dict) or set(binding) not in (expected_binding_fields, expected_binding_fields | {"page_disposition_protocol","page_dispositions"}, expected_binding_fields | {"page_disposition_protocol","page_dispositions","native_minimum_characters"}):
                     raise ReleaseVerificationError("candidate_provenance_invalid")
-                if candidate_compiler==SEARCH_DIRECT_REFERENCE_COMPILER_VERSION and (not {"page_disposition_protocol","page_dispositions","native_minimum_characters"}<=set(binding) or type(binding.get("native_minimum_characters")) is not int or binding["native_minimum_characters"]<1):
+                if candidate_compiler in REVIEWED_FIGURE_VALUE_COMPILERS and (not {"page_disposition_protocol","page_dispositions","native_minimum_characters"}<=set(binding) or type(binding.get("native_minimum_characters")) is not int or binding["native_minimum_characters"]<1):
                     raise ReleaseVerificationError("page_disposition_binding_required")
                 source = source_by_id.get(binding.get("source_id"))
                 scope = binding.get("scope")

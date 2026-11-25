@@ -12,6 +12,7 @@ import compiler_version as versions
 import portable_reference_runtime as portable
 import direct_reference_runtime as direct
 import reference_search as current
+import reference_search_v141 as search_v04
 import reference_search_v140 as previous
 import reference_search_v130 as opus
 
@@ -32,6 +33,8 @@ def runtime_for(package, catalog):
             versions.OPUS_REFERENCE_SEARCH_RUNTIME_SHA256),
         versions.PREVIOUS_DIRECT_REFERENCE_COMPILER_VERSION: (previous, previous.query_package,
             versions.PREVIOUS_REFERENCE_SEARCH_RUNTIME_SHA256),
+        versions.REFERENCE_SEARCH_V04_COMPILER_VERSION: (search_v04, search_v04.query_package,
+            versions.REFERENCE_SEARCH_V04_RUNTIME_SHA256),
         versions.DIRECT_REFERENCE_COMPILER_VERSION: (current, current.query_package,
             versions.REFERENCE_SEARCH_RUNTIME_SHA256),
     }

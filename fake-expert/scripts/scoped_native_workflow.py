@@ -153,7 +153,8 @@ def run_native_child(source: Path, scope: list[int], root: Path, *, bindings: di
         result = build_direct_reference(source, workpack, stage, name=package["name"],
                                         display_name=package["display_name"], domain=package["domain"],
                                         version=package["version"], created_at=package["created_at"],
-                                        figure_index=figures != "none", figure_images=figures == "index+images")
+                                        figure_index=figures != "none", figure_images=figures == "index+images",
+                                        term_alias_extensions=package.get("term_aliases", {}).get("extensions"))
         stage.rename(skill)
     record["skill_manifest_sha256"] = _digest(skill / "manifest.json")
     _write(record_path, record)

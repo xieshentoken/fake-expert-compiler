@@ -106,7 +106,7 @@ def _caption_by_figure(root: Path, visual_objects: Mapping[str, dict[str, Any]])
     return captions
 
 
-def _visual_review_entries(root, unit, tasks, objects):
+def _visual_review_entries(root, unit, tasks, objects, conflicts):
     rows = {}
     for task_id in unit.get("visual_task_ids", []):
         task = tasks.get(task_id, {})
@@ -120,8 +120,17 @@ def _visual_review_entries(root, unit, tasks, objects):
                                    "bbox_pdf_points": attributes["review_region_pdf_points"],
                                    "page_render": str(root / asset) if asset else None,
                                    "render_sha256": obj["canonical_render_sha256"]}
+        for conflict_id in task.get("layout_issue_ids", []):
+            conflict = conflicts.get(conflict_id)
+            if not conflict or conflict.get("physical_page") != task["page"]:
+                raise AuthoringError("authoring_layout_conflict_binding_invalid")
+            detail = conflict["details"]
+            rows[conflict_id] = {"visual_conflict_id": conflict_id, "label": detail["label"],
+                                 "reason": detail["reason"], "bbox_pdf_points": detail["caption_bbox"],
+                                 "page": task["page"], "page_render": str(root / asset) if asset else None,
+                                 "render_sha256": task.get("page_asset_sha256")}
         for issue in task.get("layout_issues", []):
-            key = f"{task['page']}:{issue['label']}:{issue['reason']}"
+            key = (task["page"], issue["label"], issue["reason"], tuple(issue["bbox_pdf_points"]))
             rows[key] = {**issue, "page": task["page"], "page_render": str(root / asset) if asset else None,
                          "render_sha256": task.get("page_asset_sha256")}
     return list(rows.values())
@@ -255,6 +264,8 @@ def _prompt(packet: Mapping[str, Any]) -> str:
 
 def prepare(workpack: Path, output: Path | None = None) -> dict[str, Any]:
     root, manifest, units, tasks, visual_objects = _load_workpack(workpack)
+    conflict_path = root / "visual-conflicts.jsonl"
+    conflicts = {row["visual_conflict_id"]: row for row in load_jsonl(conflict_path)} if conflict_path.is_file() else {}
     out = (output or root / AUTHORING_DIRECTORY).expanduser().resolve()
     packets_root = out / "packets"
     if packets_root.exists() and any(packets_root.iterdir()):
@@ -282,7 +293,7 @@ def prepare(workpack: Path, output: Path | None = None) -> dict[str, Any]:
             "response_contract": RESPONSE_CONTRACT,
             "candidate_only": True,
         }
-        review = _visual_review_entries(root, unit, tasks, visual_objects)
+        review = _visual_review_entries(root, unit, tasks, visual_objects, conflicts)
         if review:
             packet["visual_review"] = review
         unit_root = packets_root / unit_id

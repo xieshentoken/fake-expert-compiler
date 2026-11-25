@@ -39,6 +39,7 @@ class RuntimeCompatibilityTests(unittest.TestCase):
         return [(versions.LEGACY_DIRECT_REFERENCE_COMPILER_VERSION, compat.portable),
                 (versions.OPUS_DIRECT_REFERENCE_COMPILER_VERSION, compat.opus),
                 (versions.PREVIOUS_DIRECT_REFERENCE_COMPILER_VERSION, compat.previous),
+                (versions.REFERENCE_SEARCH_V04_COMPILER_VERSION, compat.search_v04),
                 (versions.DIRECT_REFERENCE_COMPILER_VERSION, compat.current)]
 
     def test_original_response_and_guards_are_preserved_for_each_generation(self):

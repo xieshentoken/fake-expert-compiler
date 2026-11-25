@@ -1,6 +1,7 @@
 """Compiler-side alias configuration for the existing portable search catalog."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import unicodedata
@@ -45,12 +46,24 @@ def merged_aliases(extra=()):
     return rows
 
 
-def load_extensions(path):
-    if path.stat().st_size > 64_000:
+def bind_extensions(path):
+    path = path.expanduser().resolve()
+    if not path.is_file():
+        raise ValueError("reference_alias_file_required")
+    with path.open("rb") as stream:
+        raw = stream.read(64_001)
+    if len(raw) > 64_000:
         raise ValueError("reference_alias_profile_too_large")
-    extra = search.load_term_aliases(path)
-    merged_aliases(extra)
-    return extra
+    data = json.loads(raw.decode("utf-8"))
+    if (not isinstance(data, dict) or set(data) != {"schema_version", "terms"}
+            or data["schema_version"] != "tkc.reference-term-aliases/v0.1" or not isinstance(data["terms"], list)):
+        raise ValueError("reference_alias_profile_invalid")
+    merged_aliases(data["terms"])
+    return {"path": str(path), "sha256": hashlib.sha256(raw).hexdigest(), "extensions": data["terms"]}
+
+
+def load_extensions(path):
+    return bind_extensions(path)["extensions"]
 
 
 def saved_extensions(catalog):

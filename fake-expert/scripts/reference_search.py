@@ -33,7 +33,7 @@ sys.dont_write_bytecode = True
 CATALOG_SCHEMA = "tkc.runtime-catalog/v0.3"
 RESPONSE_SCHEMA = "tkc.runtime-response/v0.3"
 EMBEDDINGS_SCHEMA = "tkc.runtime-embeddings/v0.1"
-RUNTIME_VERSION = "reference-search-bm25-v0.4"
+RUNTIME_VERSION = "reference-search-bm25-v0.5"
 BM25_K1 = 1.2
 BM25_B = 0.75
 RELATIVE_CUTOFF = 0.3
@@ -68,7 +68,6 @@ TOKEN_RE = re.compile(r"\d+(?:\.\d+)?|[a-z][a-z0-9_]*|[㐀-䶿一-鿿]+")
 # safe" are decisions this unreviewed package cannot support.
 DECISION_PATTERNS = (
     r"\b(approve|certify|authori[sz]e|sign[- ]off)\b",
-    r"\b(recommend(?:ed|ation|ations)?|advise)\b",
     r"\b(should|shall|must) (i|we)\b",
     r"\b(?:is|are)\s+(?:[^?.!]{1,100}\s+)?(?:safe|acceptable|compliant)\b",
     r"\bsafest\b",
@@ -77,9 +76,31 @@ DECISION_PATTERNS = (
     r"\b(design|size|specify)\b.*\b(for me|for us)\b",
     r"\b(make|take) (a|the) decision\b|\bdecide (whether|if|on)\b",
     r"\b(execute|run|perform) (the|this|a|an) (procedure|command|test|operation)\b",
-    r"批准|审批|认证|签字|推荐|建议我|应该选|应该用|应该采用|是否安全|安全吗|帮我设计|替我设计|为我设计|直接执行|批准执行|决策",
+    r"批准|审批|认证|签字|建议我|应该选|应该用|应该采用|是否安全|安全吗|帮我设计|替我设计|为我设计|直接执行|批准执行|决策",
 )
-DECISION_RE = re.compile("|".join(DECISION_PATTERNS), re.IGNORECASE)
+RECOMMENDATION_RE = re.compile(r"\b(?:recommend(?:s|ed|ation|ations)?|advise[sd]?)\b|推荐", re.I)
+DECISION_RE = re.compile("|".join((*DECISION_PATTERNS, RECOMMENDATION_RE.pattern)), re.I)
+OTHER_DECISIONS_RE = re.compile("|".join(DECISION_PATTERNS), re.I)
+SOURCE_RE = re.compile(
+    r"\b(?:according to (?:the|this|that) (?:book|reference|source|text|document|author)"
+    r"|(?:in|from|by) (?:the|this|that) (?:book|reference|source|text|document|author)"
+    r"|what (?:does|did) (?:the|this|that) (?:book|reference|source|text|document|author))\b"
+    r"|(?:原书|本书|书中|文中|原文|作者)(?:中|里)?(?:如何|怎么|怎样|有什么|的|所|记载|提到|推荐)",
+    re.I,
+)
+REFERENCE_QUESTION_RE = re.compile(
+    r"^\s*(?:what (?:is|are|does|did)\b|define\b|explain the (?:meaning|definition|recommendations?)\b"
+    r"|(?:请问\s*)?(?:在\s*)?(?:原书|本书|书中|文中|原文|作者))",
+    re.I,
+)
+PERSONAL_OR_SAFETY_RE = re.compile(
+    r"\b(?:for me|for us|for you|i|we|my|our|your|safe|safety|acceptable|compliant|safest)\b"
+    r"|帮我|替我|为我|我的|我们的|我(?:能|可|该|想|要|准备|打算|现在)|本项目|实际工况|应该|是否安全|安全吗",
+    re.I,
+)
+FORMULA_INTENT_RE = re.compile(r"\b(?:equations?|formulas?|formulae)\b|方程|公式", re.I)
+PROTECTED_CONCEPTS = {"concept_silicon_element", "concept_silicone_polymer"}
+REQUIRED_TERMS = {"design", "rated", "critical", "maximum", "minimum"}
 
 
 def canonical_json(value: Any) -> bytes:
@@ -138,7 +159,7 @@ def tokenize(value: Any, aliases: Iterable[Mapping[str, Any]] = ()) -> list[str]
                 tokens.append(token)
         elif "a" <= token[0] <= "z":
             if len(token) > 1 and token not in STOPWORDS:
-                tokens.append(stem(token))
+                tokens.append(token if token in REQUIRED_TERMS else stem(token))
         elif len(token) == 1:
             tokens.append(token)
         else:
@@ -367,7 +388,7 @@ def _bm25_scores(entries: list[Mapping[str, Any]], query_terms: list[str]) -> tu
         return [], {}
     average = sum(float(entry.get("length", 0.0)) for entry in entries) / count or 1.0
     document_frequency = {term: sum(1 for entry in entries if term in entry.get("terms", {})) for term in query_terms}
-    idf = {term: math.log(1.0 + (count - df + 0.5) / (df + 0.5)) for term, df in document_frequency.items()}
+    idf = {term: math.log(1.0 + (count - df + 0.5) / (df + 0.5)) for term, df in document_frequency.items() if df}
     scores = []
     for entry in entries:
         terms = entry.get("terms", {})
@@ -381,7 +402,8 @@ def _bm25_scores(entries: list[Mapping[str, Any]], query_terms: list[str]) -> tu
     return scores, idf
 
 
-def _covered(entry: Mapping[str, Any], query_terms: list[str]) -> bool:
+def _covered(entry: Mapping[str, Any], query_terms: list[str], *,
+             concepts: set[str], idf: Mapping[str, float] | None = None) -> bool:
     """Enough of the query is present, judged per script.
 
     CJK queries contribute many overlapping n-grams, so Latin and CJK terms are
@@ -390,11 +412,14 @@ def _covered(entry: Mapping[str, Any], query_terms: list[str]) -> bool:
     """
 
     terms = entry.get("terms", {})
-    qualifiers = set(query_terms) & {"design", "rated", "critical", "maximum", "minimum"}
-    if not qualifiers <= set(terms):
+    if not (REQUIRED_TERMS & set(query_terms)) <= terms.keys():
         return False
-    concepts = {term for term in query_terms if term.startswith("concept_")}
-    if concepts and not concepts <= set(terms):
+    if idf is not None and len(concepts) > 1 and entry.get("kind") == "object":
+        protected = concepts & PROTECTED_CONCEPTS
+        if len(protected) == 1 and not protected & terms.keys() and PROTECTED_CONCEPTS & terms.keys():
+            return False
+        return bool(concepts & terms.keys())
+    if not concepts <= terms.keys():
         return False
     coverages = []
     for group, minimum in (
@@ -402,8 +427,46 @@ def _covered(entry: Mapping[str, Any], query_terms: list[str]) -> bool:
         ([term for term in query_terms if _is_cjk(term)], MIN_COVERAGE_CJK),
     ):
         if group:
-            coverages.append(sum(1 for term in group if term in terms) / len(group) >= minimum)
+            matched = [term for term in group if term in terms]
+            covered = len(matched) / len(group) >= minimum
+            if not covered and idf is not None and len(group) >= 8 and not _is_cjk(group[0]):
+                indexed = [term for term in group if term in idf]
+                numeric = {term for term in group if term[0].isdigit()}
+                threshold = max(.33, min(minimum, 4 / len(group)))
+                covered = (len(matched) >= 2 and len(indexed) >= 3 and numeric <= terms.keys()
+                           and sum(idf.get(term, 0) for term in matched) >= threshold * sum(idf[term] for term in indexed))
+            coverages.append(covered)
     return bool(coverages) and (all(coverages) if concepts else any(coverages))
+
+
+def _select_objects(entries: list[Mapping[str, Any]], concepts: set[str], limit: int) -> list[Mapping[str, Any]]:
+    objects = [entry for entry in entries if entry.get("kind") == "object"]
+    if len(concepts) < 2:
+        return objects[:limit]
+    remaining = set(concepts)
+    seeds = set()
+    for entry in objects:
+        covered = remaining & entry.get("terms", {}).keys()
+        if covered:
+            seeds.add(entry["id"])
+            remaining -= covered
+        if len(seeds) == limit or not remaining:
+            break
+    extras = limit - len(seeds)
+    for entry in objects:
+        if not extras:
+            break
+        if entry["id"] not in seeds:
+            seeds.add(entry["id"])
+            extras -= 1
+    return [entry for entry in objects if entry["id"] in seeds]
+
+
+def _report_concept_coverage(response: dict[str, Any], concepts: set[str], supported: set[str]) -> None:
+    if len(concepts) > 1:
+        response["retrieval"].update(matched_concepts=sorted(supported), unmatched_concepts=sorted(concepts - supported))
+        if supported and supported != concepts:
+            response["reason_codes"].append("partial_concept_coverage")
 
 
 def _cosine(left: list[float], right: list[float]) -> float:
@@ -459,14 +522,20 @@ def query_catalog(
         raise ValueError("runtime_limit_out_of_range")
     policy = catalog.get("policy") if isinstance(catalog.get("policy"), dict) else {}
     aliases = policy.get("term_aliases", [])
-    query_terms = sorted(set(tokenize(query, aliases)))
+    ordered_terms = tokenize(query, aliases)
+    query_terms = sorted(set(ordered_terms))
+    concepts = {term for term in query_terms if term.startswith("concept_")}
     capabilities = catalog.get("capabilities") if isinstance(catalog.get("capabilities"), dict) else {}
-    policy = catalog.get("policy") if isinstance(catalog.get("policy"), dict) else {}
     normalized_query = unicodedata.normalize("NFKC", query)
-    descriptive = bool(re.match(r"^\s*(?:what (?:is|are)|define|explain the (?:definition|meaning|requirements) of|什么是|解释.*含义)", normalized_query, re.I))
-    direct_request = bool(re.search(r"(?:for me|for us|\b(?:safe|acceptable|compliant|safest)\b|帮我|替我|为我|应该|是否安全|安全吗)", normalized_query, re.I))
-    if not _title_lookup and capabilities.get("decision_support") is False and DECISION_RE.search(normalized_query) and (not descriptive or direct_request):
-        return _abstain("decision_capability_unavailable", query_terms=query_terms)
+    reference_recommendation = False
+    if not _title_lookup and capabilities.get("decision_support") is False and DECISION_RE.search(normalized_query):
+        reference_recommendation = bool(
+            RECOMMENDATION_RE.search(normalized_query) and SOURCE_RE.search(normalized_query)
+            and REFERENCE_QUESTION_RE.match(normalized_query)
+            and not OTHER_DECISIONS_RE.search(normalized_query) and not PERSONAL_OR_SAFETY_RE.search(normalized_query)
+        )
+        if not reference_recommendation:
+            return _abstain("decision_capability_unavailable", query_terms=query_terms)
     out_of_scope = {stem(str(term).casefold()) for term in policy.get("out_of_scope_terms", []) if isinstance(term, str)}
     if out_of_scope & set(query_terms):
         return _abstain("outside_package_scope", query_terms=query_terms)
@@ -477,24 +546,32 @@ def query_catalog(
     scores, idf = _bm25_scores(entries, query_terms)
     lowered = query.casefold()
     exact_query = _plain(query)
+    pairs = set(zip(ordered_terms, ordered_terms[1:]))
+    formula_intent = bool(FORMULA_INTENT_RE.search(normalized_query))
     scored = []
     for entry, score in zip(entries, scores):
         title = str(entry.get("title") or entry.get("label") or "")
         if exact_query and (_plain(str(entry.get("id", ""))) == exact_query or _plain(title) == exact_query):
             score += 1000.0
         title_terms = tokenize(title, aliases)
-        if len(title_terms) >= 2 and set(title_terms) <= set(query_terms):
-            score *= 1.25
-        scored.append((score, _covered(entry, query_terms), entry))
+        phrase_matches = pairs.intersection(zip(title_terms, title_terms[1:]))
+        complete_title = len(title_terms) >= 2 and set(title_terms) <= set(query_terms)
+        # A short generic title must not earn both bonuses for the same words.
+        score *= 1 + .25 * min(max(int(complete_title), len(phrase_matches)), 2)
+        if formula_intent and entry.get("type") in {"Equation", "Formula"}:
+            known_topic = set(query_terms) & entry.get("terms", {}).keys() & idf.keys()
+            if known_topic - {"equat", "formula", "formulae", "方程", "公式"}:
+                score *= 1.25
+        scored.append((score, _covered(entry, query_terms, concepts=concepts, idf=idf), entry))
     top = max((score for score, _cov, _entry in scored), default=0.0)
-    matched_terms = [term for term in query_terms if any(term in entry.get("terms", {}) for entry in entries)]
-    rarest = max(matched_terms, key=lambda term: (idf.get(term, 0.0), term)) if matched_terms else None
+    rarest = max(idf, key=lambda term: (idf[term], term), default=None)
     lexical = [
         (score, entry)
         for score, coverage, entry in scored
         if score > 0
         and (score >= 1000.0 or coverage)
-        and (score >= RELATIVE_CUTOFF * top or (rarest is not None and rarest in entry.get("terms", {})))
+        and (score >= RELATIVE_CUTOFF * top or (rarest is not None and rarest in entry.get("terms", {}))
+             or (len(concepts) > 1 and entry.get("kind") == "object" and concepts & entry.get("terms", {}).keys()))
     ]
     lexical.sort(key=lambda row: (-row[0], str(row[1]["id"])))
     method = "bm25"
@@ -504,7 +581,10 @@ def query_catalog(
         vectors = embeddings.get("vectors", {})
         by_id = {entry["id"]: entry for entry in entries}
         vector_ranked = sorted(
-            ((cosine, identifier) for identifier, vector in vectors.items() if identifier in by_id and (not any(t.startswith("concept_") or t in {"design","rated","critical","maximum","minimum"} for t in query_terms) or _covered(by_id[identifier], query_terms)) for cosine in [_cosine(query_vector, vector)] if cosine >= min_cosine),
+            ((cosine, identifier) for identifier, vector in vectors.items()
+             if identifier in by_id and (not (concepts or REQUIRED_TERMS.intersection(query_terms))
+                                         or _covered(by_id[identifier], query_terms, concepts=concepts, idf=idf))
+             for cosine in [_cosine(query_vector, vector)] if cosine >= min_cosine),
             key=lambda row: (-row[0], row[1]),
         )[: max(limit * 2, 10)]
         fused: dict[str, float] = {}
@@ -516,7 +596,8 @@ def query_catalog(
         selected_entries = [by_id[identifier] for identifier, _value in sorted(fused.items(), key=lambda row: (-row[1], row[0]))]
         method = "bm25+embedding-rrf"
 
-    selected_objects = [entry for entry in selected_entries if entry.get("kind") == "object"][:limit]
+    selected_objects = _select_objects(selected_entries, concepts, limit)
+    directly_supported = {entry["id"]: sorted(concepts & entry.get("terms", {}).keys()) for entry in selected_objects}
     selected_figures = [entry for entry in selected_entries if entry.get("kind") == "figure"][:limit]
     object_by_id = {entry["id"]: entry for entry in objects}
     figure_by_id = {entry["id"]: entry for entry in figures}
@@ -526,13 +607,13 @@ def query_catalog(
         claim_ids = [value for value in conflict.get("claim_ids", []) if isinstance(value, str)]
         named = any(value.casefold() in lowered for value in claim_ids)
         claim_hit = any(entry["id"] in claim_ids for entry in selected_objects[:3])
-        topic_hit = _covered(conflict, query_terms)
+        topic_hit = _covered(conflict, query_terms, concepts=concepts)
         if named or claim_hit or topic_hit:
             conflict_ids.append(conflict["id"])
             for claim_id in claim_ids:
                 if claim_id in object_by_id and object_by_id[claim_id] not in selected_objects:
                     selected_objects.append(object_by_id[claim_id])
-    gap_ids = [gap["id"] for gap in catalog.get("gaps", []) if _covered(gap, query_terms)]
+    gap_ids = [gap["id"] for gap in catalog.get("gaps", []) if _covered(gap, query_terms, concepts=concepts)]
 
     # Figures linked from matched facts are returned with them.
     for entry in selected_objects:
@@ -546,6 +627,7 @@ def query_catalog(
             response["figures"] = [_figure_result(entry) for entry in selected_figures]
             response["reason_codes"].append("figure_candidates_only")
         response["retrieval"]["method"] = method
+        _report_concept_coverage(response, concepts, set())
         return response
 
     results = []
@@ -566,6 +648,7 @@ def query_catalog(
             "value_basis": entry.get("value_basis"),
             "warnings": entry.get("warnings", []),
             "path": entry.get("path"),
+            **({"matched_concepts": directly_supported.get(entry["id"], [])} if len(concepts) > 1 else {}),
         })
     reason_codes = ["supported_reference_found"]
     if conflict_ids:
@@ -576,7 +659,9 @@ def query_catalog(
         reason_codes.append("figure_value_unreviewed")
     if semantic_only:
         reason_codes.append("semantic_match_only")
-    return {
+    if reference_recommendation:
+        reason_codes.append("descriptive_recommendation_reference_only")
+    response = {
         "schema_version": RESPONSE_SCHEMA,
         "runtime_version": RUNTIME_VERSION,
         "behavior": "answer",
@@ -589,6 +674,8 @@ def query_catalog(
         "figures": [_figure_result(entry) for entry in selected_figures],
         "retrieval": {"method": method, "query_terms": query_terms},
     }
+    _report_concept_coverage(response, concepts, {term for terms in directly_supported.values() for term in terms})
+    return response
 
 
 def query_package(

@@ -1859,6 +1859,7 @@ def build_parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--version", default="0.1.0")
     plan_parser.add_argument("--created-at", default=_now())
     plan_parser.add_argument("--structure-selections", type=Path, help="Explicit source-hash-bound native text boundaries for documents without detected headings.")
+    plan_parser.add_argument("--term-aliases", type=Path, help="Package-specific bilingual aliases for automatic native Drafts.")
     plan_parser.add_argument(
         "--figures",
         choices=FIGURE_PACKAGING,
@@ -1966,6 +1967,8 @@ def main(argv: list[str] | None = None) -> int:
             elif args.ocr_config is not None or args.capability != "text" or args.pdftoppm != "pdftoppm" or args.minimum_native_characters != 40:
                 raise FakeExpertError("automatic_intake_options_require_automatic_route")
             if args.profile is not None:
+                if args.term_aliases is not None:
+                    raise FakeExpertError("term_aliases_require_automatic_route")
                 if args.start_page != 1 or args.end_page is not None or args.page_dispositions is not None:
                     raise FakeExpertError("scope_and_dispositions_require_automatic_route")
                 if args.workpack:

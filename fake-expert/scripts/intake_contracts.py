@@ -21,6 +21,7 @@ def validate_historical_workflow(value: dict[str, Any]) -> None:
         schema = json.loads((SCHEMAS / "intake-workflow.schema.json").read_text())
         schema["required"].remove("native_focus")
         schema["properties"].pop("native_focus")
+        schema["$defs"]["package"]["properties"].pop("term_aliases")
         schema["properties"]["schema_version"]["const"] = LEGACY_INTAKE_WORKFLOW_SCHEMA
         schema["properties"]["protocol"]["const"] = "intake-workflow-v0.2"
         schema["properties"]["compiler_version"]["const"] = LEGACY_INTAKE_COMPILER_VERSION
@@ -78,6 +79,12 @@ def validate_workflow(value: dict[str, Any]) -> None:
             raise ValueError("intake_page_selection_state_invalid")
     if intake["selection"]!=expected_selection:
         raise ValueError("intake_selection_accounting_invalid")
+    aliases = value["package"].get("term_aliases")
+    if aliases:
+        from reference_alias_profiles import merged_aliases
+        if not expected_selection["knowledge_candidate_pages"] or not Path(aliases["path"]).is_absolute():
+            raise ValueError("term_aliases_binding_invalid")
+        merged_aliases(aliases["extensions"])
     focus = value["native_focus"]
     if focus["structure_selections"] and (not focus["structure_selections"]["sha256"]
             or value["reused_workpacks"] or not expected_selection["native_selected_scope"]

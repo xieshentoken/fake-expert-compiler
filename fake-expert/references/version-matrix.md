@@ -141,9 +141,9 @@ introduced only when the emitted artifact shape changes.
 
 | Constant | Value | Stamped where |
 |----------|-------|---------------|
-| `DIRECT_REFERENCE_COMPILER_VERSION` | `1.4.1-direct-reference` | New `fake-*` Reference Draft manifests: `reference-search` runtime, `tkc.runtime-catalog/v0.3` with fact text, optional figure index/images and embeddings; never a promotion identity |
+| `DIRECT_REFERENCE_COMPILER_VERSION` | `1.4.2-direct-reference` | New `fake-*` Reference Draft manifests use `tkc.runtime-catalog/v0.3` with fact text and optional figure index/images and embeddings |
 | `LEGACY_DIRECT_REFERENCE_COMPILER_VERSION` | `1.1.0-direct-reference` | Earlier Drafts; still validated against the unchanged `DIRECT_REFERENCE_RUNTIME_SHA256` / `PORTABLE_REFERENCE_RUNTIME_SHA256` pins. `extend` upgrades them to the current generation |
-| `REFERENCE_SEARCH_RUNTIME_VERSION` | `reference-search-bm25-v0.4` | BM25 + CJK n-gram + stemming runtime copied into packages as `scripts/query_reference.py`; responses `tkc.runtime-response/v0.3` |
+| `REFERENCE_SEARCH_RUNTIME_VERSION` | `reference-search-bm25-v0.5` | New portable `scripts/query_reference.py` with compound concept coverage and title phrase ranking. The v0.4 runtime remains pinned for `1.4.1-direct-reference` |
 | `REFERENCE_SEARCH_RUNTIME_SHA256` | pinned in `compiler_version.py` | SHA-256 of `scripts/reference_search.py`; mirrored as a standalone constant in `verify_skill_release.py` |
 | `FIGURE_INDEX_SCHEMA` | `tkc.figure-index/v0.1` | Opt-in, source-derived figure/table index (`--figure-index`); such packages are private and refused by release packaging |
 | `SEMANTIC_AUTHORING_PROTOCOL` | `semantic-authoring-v0.1` | Packets, explicit-command runs, and quote-to-span ingest of model proposals; candidate-only |

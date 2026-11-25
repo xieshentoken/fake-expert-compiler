@@ -165,7 +165,7 @@ Omit `--unit` to check all responses. Use `--source` for source-bound formula
 numeric checks. Lint reports diagnostics without writing drafts, receipts or
 reports. A pending image-only value still requires independent review.
 
-## 4. Search runtime (`reference-search-bm25-v0.4`)
+## 4. Search runtime (`reference-search-bm25-v0.5`)
 
 New packages ship `scripts/query_reference.py`, a copy of
 `scripts/reference_search.py` (stdlib only).
@@ -174,7 +174,7 @@ Tokens:
 
 The compiler freezes the versioned `assets/reference-terms.json` aliases and
 distinct concepts for silicon and silicone in the catalog. Use
-`direct_reference_skill.py build --term-aliases PATH` for a book's own
+`fake_expert.py plan --term-aliases PATH` or `direct_reference_skill.py build --term-aliases PATH` for a book's own
 `tkc.reference-term-aliases/v0.1` JSON (a closed object with a `terms` array of
 `term` and `aliases` rows). Conflicts with existing terms are rejected. The
 extensions are recorded and hash-bound in the catalog and retained on extend.
@@ -189,7 +189,9 @@ Ranking:
 
 - Field-weighted BM25 over facts and figure entries (title ×3, formula ×1.5,
   statement ×1, conditions ×0.7).
-- Field-weighted BM25 retains the Latin/CJK coverage gate. With controlled aliases, every requested known concept must match and each remaining script must meet its coverage threshold. Requested design/rated/critical/minimum/maximum qualifiers must also be supported; background laws do not supply missing design values.
+- Longer Latin queries can match on distinctive indexed words with at least two matching terms. The fallback preserves numeric and design/rated/critical/minimum/maximum conditions.
+- Compound alias queries can cite separate objects for separate concepts. Use each result's `matched_concepts` and flag any `retrieval.unmatched_concepts`. Each statement applies under its own source conditions.
+- Consecutive title terms add weight. A query about a formula or equation can also boost matching formula objects.
 - Entries scoring below 30% of the top score are cut, unless they contain the
   query's rarest matched term.
 
@@ -202,9 +204,12 @@ Each result carries:
 
 Related indexed or explicitly linked figures are returned in `figures`, with `image` relative to the generated Skill directory. Resolve it against that directory, inspect the image, then show it inline using an absolute local Markdown image path and its label, caption, physical page and ID. Do not invent a fact-to-image link from page co-occurrence. No related image means an empty image result; source-free packages still work. For figure-only queries, `figure_candidates_only` permits showing the returned source image while `behavior=abstain` still applies to unsupported factual claims. Showing a candidate image does not approve its numeric values or run Review/Gold.
 
-The decision guard matches intent, not single words. "design a heat
-exchanger", "is it safe", "should we", "recommend", "批准", and "推荐" abstain.
-"design heat flux" and "safety factor in Table 2" answer.
+The decision guard allows source-supported lookups such as "design heat flux"
+and "safety factor in Table 2". Recommendations have a source-only lookup path
+with explicit attribution, such as "What does the book recommend for aluminium
+surface treatment?" Preserve `descriptive_recommendation_reference_only` in the
+answer. Requests for selection, approval, execution, safety or recommendations
+for the user's own conditions abstain.
 
 For an exact document/title lookup, use `--lookup-title --query "Recommended cleaning methods"`.
 This is an explicit retrieval intent, preserves linked figures and candidate warnings,
@@ -234,7 +239,11 @@ Packages stay offline unless you pass the command.
 
 ## 5. Compatibility
 
-- `1.1.0-direct-reference` and Opus `1.3.0-direct-reference` packages retain their pinned runtimes and compatibility validation. `1.4.0-direct-reference` retains its frozen `reference_search_v140.py` runtime; new builds use `1.4.1-direct-reference` / runtime catalog and response v0.3. Upgrades enforce numeric revalidation, and unsupported legacy values pause rather than being grandfathered into the new generation.
+- Historical Drafts keep their original runtime and self-check. The v0.4 runtime
+  for `1.4.1-direct-reference` is frozen as `reference_search_v141.py`. New
+  Drafts use `1.4.2-direct-reference` with a v0.3 catalog and response. An
+  explicit extension or Gold binding writes a new generation and checks numeric
+  evidence under the current rules.
 - `portable_reference_runtime.py` and `direct_reference_runtime.py` are
   unchanged.
 - After editing `reference_search.py` or the controlled term aliases, update `REFERENCE_SEARCH_RUNTIME_SHA256` in

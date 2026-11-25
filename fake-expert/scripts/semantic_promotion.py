@@ -1634,13 +1634,11 @@ def _attach_visual_ids_to_tasks(tasks: list[dict[str, Any]], bundle: Mapping[str
     objects = [row for row in bundle.get("objects", []) if isinstance(row, dict)]
     relations = [row for row in bundle.get("relations", []) if isinstance(row, dict)]
     grids = [row for row in bundle.get("table_grids", []) if isinstance(row, dict)]
-    layout_issues = {}
+    layout_issues: dict[int, set[str]] = {}
     for row in bundle.get("conflicts", []):
         detail = row.get("details", {})
         if detail.get("reason") == "raster_table_boundaries_unconfirmed":
-            layout_issues.setdefault(row["physical_page"], []).append(
-                {"label": detail["label"], "reason": detail["reason"],
-                 "bbox_pdf_points": detail["caption_bbox"]})
+            layout_issues.setdefault(row["physical_page"], set()).add(row["visual_conflict_id"])
     for task in tasks:
         page = task.get("page")
         kind = str(task.get("kind", ""))
@@ -1650,7 +1648,7 @@ def _attach_visual_ids_to_tasks(tasks: list[dict[str, Any]], bundle: Mapping[str
         elif kind.startswith("table"):
             matches = [row for row in matches if row.get("type") in {"table", "table_cell", "caption"}]
             if page in layout_issues:
-                task["layout_issues"] = layout_issues[page]
+                task["layout_issue_ids"] = sorted(layout_issues[page])
         elif kind.startswith("equation") or kind.startswith("glyph") or kind.startswith("math"):
             matches = [row for row in matches if row.get("type") == "equation_display"]
         elif kind.startswith("page"):

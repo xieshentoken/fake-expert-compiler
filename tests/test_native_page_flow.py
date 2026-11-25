@@ -221,6 +221,38 @@ class PageFlowTests(unittest.TestCase):
         self.assertEqual(result['children'][0]['workpack'],str(workpack.resolve()))
         self.assertEqual(inventory(workpack),before)
 
+    def test_auto_entry_points_bind_term_aliases_and_reuse_workpack(self):
+        workpack = self.complete()
+        before = inventory(workpack)
+        alias_path = self.root / "aliases.json"
+        alias_path.write_text(json.dumps({"schema_version": "tkc.reference-term-aliases/v0.1",
+            "terms": [{"term": "fixture_system", "aliases": ["bounded system", "受限夹具系统"]}]}))
+        script = _support.SCRIPTS / "fake_expert.py"
+        common = ("--source", str(self.source), "--start-page", "2", "--end-page", "5", "--figures", "none",
+                  "--workpack", str(workpack), "--term-aliases", str(alias_path), "--created-at", "2026-01-01T00:00:00Z", "--json")
+        plans = []
+        for words in (("plan",), ("intake", "plan")):
+            folder = self.root / ("-".join(words))
+            output = subprocess.check_output([sys.executable, "-B", str(script), *words, "--workspace", str(folder), *common])
+            plan = json.loads(output)
+            self.assertEqual(plan["term_aliases_sha256"], hashlib.sha256(alias_path.read_bytes()).hexdigest())
+            plans.append(Path(plan["workflow"]))
+        alias_path.write_text(alias_path.read_text() + "\n")
+        self.assertIn("term_aliases_binding_drift", workflow.run(plans[0])["drift"])
+        self.assertFalse((plans[0].parent / "children").exists())
+        alias_path.write_text(alias_path.read_text().rstrip())
+        result = json.loads(subprocess.check_output([sys.executable, "-B", str(script), "resume", "--workflow", str(plans[1]), "--json"]))
+        self.assertEqual(result["status"], "draft", result)
+        draft = Path(result["children"][0]["package"])
+        query = json.loads(subprocess.check_output([sys.executable, "-B", str(draft / "scripts/query_reference.py"), "--query", "受限夹具系统"]))
+        self.assertTrue(query["matched_object_ids"])
+        self.assertEqual(inventory(workpack), before)
+        self.assertNotIn(str(alias_path), (draft / "references/runtime/catalog.json").read_text())
+        alias_path.write_text("{}")
+        with self.assertRaisesRegex(ValueError, "reference_alias_profile_invalid"):
+            workflow.plan(self.args("invalid", workpack=[workpack], term_aliases=alias_path))
+        self.assertFalse((self.root / "invalid").exists())
+
     def test_titles_with_decision_words_build_and_precheck_without_weakening_guard(self):
         workpack=self.complete()
         for index,path in enumerate(sorted((workpack/'drafts').glob('*.json'))):

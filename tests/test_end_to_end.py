@@ -88,7 +88,7 @@ class UnifiedCliTests(unittest.TestCase):
         result = run_json("direct_reference_skill.py", "validate", str(self.package))
         self.assertTrue(result["valid"])
         manifest = json.loads((self.package / "manifest.json").read_text())
-        self.assertEqual(manifest["build"]["compiler_version"], "1.4.1-direct-reference")
+        self.assertEqual(manifest["build"]["compiler_version"], "1.4.2-direct-reference")
         self.assertEqual(manifest["distribution"]["source_derived_content"], ["figure-captions", "figure-images", "figure-text"])
         self.assertFalse((self.package / "scripts/portable_reference_runtime.py").exists())
 

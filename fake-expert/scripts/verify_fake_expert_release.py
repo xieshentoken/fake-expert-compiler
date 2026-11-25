@@ -33,7 +33,7 @@ except ModuleNotFoundError:
     VERSION = "1.2.0"  # standalone-release fallback; package time cross-checks this literal
     UX_SOURCE_CANDIDATE_VERSION = "1.2.0-ux"  # standalone-release fallback
     SCIENCE_LIFECYCLE_COMPILER_VERSION = "1.2.0-science-m4"  # standalone-release fallback
-    DIRECT_REFERENCE_COMPILER_VERSION = "1.4.1-direct-reference"  # standalone-release fallback
+    DIRECT_REFERENCE_COMPILER_VERSION = "1.4.2-direct-reference"  # standalone-release fallback
     DIRECT_REFERENCE_PROTOCOL = "direct-reference-draft-v0.1"  # standalone-release fallback
     DIRECT_REFERENCE_SCHEMA = "tkc.direct-reference/v0.1"  # standalone-release fallback
     REFERENCE_TERM_ALIASES_SHA256 = "82fd9a695c8dd68e1b0ec8000288b73fd9821bba5ac30d6d721fe6d44fda26ab"  # standalone-release fallback
@@ -81,6 +81,8 @@ SCIENCE_RUNTIME_COMPAT_REQUIRED_PATHS = {
     "assets/reference-terms.json",
 }
 HISTORICAL_SCIENCE_M4_ARCHIVE_SHA256 = "ff2d2ba9c394bb27312c98bc8db51753c6d4a4f5506f1017624f65f2d190e777"
+REFERENCE_SEARCH_V04_COMPILER_VERSION = "1.4.1-direct-reference"
+REFERENCE_SEARCH_V04_RUNTIME_SHA256 = "6de1181fba47947fe7aaa6982586ef81e45ff7b6fca52ef03c18783f30ce1e74"
 
 
 def science_runtime_inventory_error(compiler_source: str, reference_source: str, paths, *, require_current=False) -> str | None:
@@ -588,8 +590,18 @@ def verify_compiler_release(
     )
     historical_science_m4 = (compiler_version == SCIENCE_LIFECYCLE_COMPILER_VERSION
         and archive_record.get("sha256") == HISTORICAL_SCIENCE_M4_ARCHIVE_SHA256)
+    declared_direct_reference = runtime.get("direct_reference") if isinstance(runtime, dict) else None
+    has_v04_runtime = (
+        not legacy_manifest and not historical_science_m4 and isinstance(declared_direct_reference, dict)
+        and declared_direct_reference.get("compiler_version") == REFERENCE_SEARCH_V04_COMPILER_VERSION
+    )
+    direct_compiler = DIRECT_REFERENCE_COMPILER_VERSION
+    if historical_science_m4:
+        direct_compiler = "1.1.0-direct-reference"
+    elif has_v04_runtime:
+        direct_compiler = REFERENCE_SEARCH_V04_COMPILER_VERSION
     expected_direct_reference = None if legacy_manifest else {
-        "compiler_version": "1.1.0-direct-reference" if historical_science_m4 else DIRECT_REFERENCE_COMPILER_VERSION,
+        "compiler_version": direct_compiler,
         "protocol": DIRECT_REFERENCE_PROTOCOL,
         "schema": DIRECT_REFERENCE_SCHEMA,
         "commands": ["build", "extend", "bind-gold", "status", "validate"],
@@ -930,6 +942,10 @@ def verify_compiler_release(
             members[relative] = info
         if set(members) != set(inventory):
             raise CompilerReleaseVerificationError("compiler_inventory_mismatch")
+        if not legacy_manifest and not historical_science_m4:
+            frozen_runtime = "scripts/reference_search.py" if has_v04_runtime else "scripts/reference_search_v141.py"
+            if frozen_runtime not in members or hashlib.sha256(archive.read(members[frozen_runtime])).hexdigest() != REFERENCE_SEARCH_V04_RUNTIME_SHA256:
+                raise CompilerReleaseVerificationError("compiler_reference_search_v04_pin_mismatch")
         if compiler_version == SCIENCE_LIFECYCLE_COMPILER_VERSION:
             error = science_runtime_inventory_error(
                 archive.read(members["scripts/compiler_version.py"]).decode("utf-8"),

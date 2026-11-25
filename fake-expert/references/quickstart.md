@@ -248,6 +248,9 @@ inventory。完整包直接构建，零重提取、零重复 authoring；旧纯�
 `native_focus.preview` 报告撰写单元数、分片章节数和正文跨度哈希。超过 20,000
 字符时优先在物理页边界分片；单页仍超限时在句段或词边界分片。工作包保留真实标题
 和父章节身份，开始撰写前核对计划与实际跨度。
+`plan` 和 `intake plan` 均接受 `--term-aliases /path/to/aliases.json`，也可与
+`--workpack` 同用。计划内冻结词表内容和原文件哈希，`compile` / `resume`
+遇到输入漂移时拒绝继续。词表用于原生 Draft 检索，文件路径只留在私有 workflow 中。
 
 错源、范围缺失/重叠、收据或资源漂移均拒绝。旧 intake v0.1/v0.2 只读 `status`，执行报
 `intake_workflow_upgrade_required`，须保留原任务并在新目录重建；旧显式 profile/v0.2 job 接口不变。
